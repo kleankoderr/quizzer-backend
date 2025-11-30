@@ -1,5 +1,14 @@
-import { IsString, IsInt, IsOptional, Min, Max, IsArray, ValidateNested, IsIn } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import {
+  IsString,
+  IsInt,
+  IsOptional,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
+  IsIn,
+} from "class-validator";
+import { Transform, Type } from "class-transformer";
 
 export class GenerateFlashcardDto {
   @IsOptional()
@@ -9,6 +18,10 @@ export class GenerateFlashcardDto {
   @IsOptional()
   @IsString()
   content?: string;
+
+  @IsOptional()
+  @IsString()
+  contentId?: string;
 
   @Transform(({ value }) => Number.parseInt(value, 10))
   @IsInt()
@@ -22,8 +35,8 @@ export class CardResponseDto {
   cardIndex: number;
 
   @IsString()
-  @IsIn(['know', 'dont-know', 'skipped'])
-  response: 'know' | 'dont-know' | 'skipped';
+  @IsIn(["know", "dont-know", "skipped"])
+  response: "know" | "dont-know" | "skipped";
 }
 
 export class RecordFlashcardSessionDto {

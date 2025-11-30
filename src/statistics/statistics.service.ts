@@ -29,7 +29,7 @@ export class StatisticsService {
     const averageAccuracy =
       attemptsWithScores.length > 0
         ? attemptsWithScores.reduce(
-            (sum, a) => sum + (a.score! / a.totalQuestions!) * 100,
+            (sum, a) => sum + (Math.max(0, a.score!) / a.totalQuestions!) * 100,
             0
           ) / attemptsWithScores.length
         : 0;
@@ -56,6 +56,8 @@ export class StatisticsService {
     userId: string,
     filters?: {
       type?: "quiz" | "flashcard";
+      quizId?: string;
+      flashcardSetId?: string;
       startDate?: string;
       endDate?: string;
       limit?: number;
@@ -66,6 +68,14 @@ export class StatisticsService {
 
     if (filters?.type) {
       where.type = filters.type;
+    }
+
+    if (filters?.quizId) {
+      where.quizId = filters.quizId;
+    }
+
+    if (filters?.flashcardSetId) {
+      where.flashcardSetId = filters.flashcardSetId;
     }
 
     if (filters?.startDate || filters?.endDate) {
@@ -156,7 +166,7 @@ export class StatisticsService {
 
       const stats = topicStats.get(topic)!;
       stats.attempts++;
-      stats.totalScore += attempt.score!;
+      stats.totalScore += Math.max(0, attempt.score!);
       stats.totalQuestions += attempt.totalQuestions!;
     });
 

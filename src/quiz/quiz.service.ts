@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Logger, Inject } from "@nestjs/common";
+
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
@@ -8,6 +9,10 @@ import { RecommendationService } from "../recommendation/recommendation.service"
 import { StreakService } from "../streak/streak.service";
 import { ChallengeService } from "../challenge/challenge.service";
 import { GenerateQuizDto, SubmitQuizDto } from "./dto/quiz.dto";
+import {
+  IFileStorageService,
+  FILE_STORAGE_SERVICE,
+} from "../file-storage/interfaces/file-storage.interface";
 
 @Injectable()
 export class QuizService {
@@ -19,7 +24,9 @@ export class QuizService {
     private readonly recommendationService: RecommendationService,
     private readonly streakService: StreakService,
     private readonly challengeService: ChallengeService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(FILE_STORAGE_SERVICE)
+    private readonly fileStorageService: IFileStorageService
   ) {}
 
   async generateQuiz(
@@ -31,12 +38,32 @@ export class QuizService {
       `User ${userId} requesting quiz generation: ${dto.numberOfQuestions} questions, difficulty: ${dto.difficulty}`
     );
 
-    // Serialize file data for the queue
-    const fileData = files?.map((f) => ({
-      path: f.path,
-      originalname: f.originalname,
-      mimetype: f.mimetype,
-    }));
+    // Upload files to Cloudinary and prepare data for queue
+    const fileData = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          const uploadResult = await this.fileStorageService.uploadFile(file, {
+            folder: "quizzer/quizzes",
+            resourceType: "auto",
+          });
+
+          fileData.push({
+            path: file.path,
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            url: uploadResult.secureUrl,
+            publicId: uploadResult.publicId,
+          });
+        } catch (error) {
+          this.logger.error(
+            `Failed to upload file ${file.originalname}:`,
+            error
+          );
+          throw new Error(`Failed to upload file: ${file.originalname}`);
+        }
+      }
+    }
 
     // Add job to queue
     const job = await this.quizQueue.add(
@@ -48,7 +75,7 @@ export class QuizService {
         files: fileData,
       },
       {
-        removeOnComplete: true,
+        removeOnComplete: { age: 60 },
         removeOnFail: false,
       }
     );
@@ -134,16 +161,36 @@ export class QuizService {
       throw new NotFoundException("Quiz not found");
     }
 
-    // Remove sensitive information (correct answers and explanations) from questions
+    // Remove sensitive information and shuffle options
     const sanitizedQuiz = {
       ...quiz,
       questions: (quiz.questions as any[]).map((q) => {
         const { correctAnswer, explanation, ...sanitizedQuestion } = q;
+
+        // Shuffle options if applicable
+        if (
+          (q.questionType === "single-select" ||
+            q.questionType === "multi-select") &&
+          Array.isArray(sanitizedQuestion.options)
+        ) {
+          sanitizedQuestion.options = this.shuffleArray([
+            ...sanitizedQuestion.options,
+          ]);
+        }
+
         return sanitizedQuestion;
       }),
     };
 
     return sanitizedQuiz;
+  }
+
+  private shuffleArray(array: any[]) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
   }
 
   async submitQuiz(userId: string, quizId: string, dto: SubmitQuizDto) {
@@ -309,6 +356,44 @@ export class QuizService {
     await this.prisma.attempt.deleteMany({
       where: { quizId: id },
     });
+
+    // Delete associated files from Cloudinary
+    if (quiz.sourceFiles && quiz.sourceFiles.length > 0) {
+      this.logger.debug(
+        `Deleting ${quiz.sourceFiles.length} files from Cloudinary`
+      );
+      for (const fileUrl of quiz.sourceFiles) {
+        if (fileUrl.includes("cloudinary")) {
+          try {
+            // Extract public_id from Cloudinary URL
+            const urlParts = fileUrl.split("/");
+            const filename = urlParts[urlParts.length - 1].split(".")[0];
+            const folder = urlParts.slice(-3, -1).join("/");
+            const publicId = `${folder}/${filename}`;
+            await this.fileStorageService.deleteFile(publicId);
+          } catch (error) {
+            this.logger.warn(
+              `Failed to delete file ${fileUrl}: ${error.message}`
+            );
+          }
+        }
+      }
+    }
+
+    // Dereference from content if applicable
+    if (quiz.contentId) {
+      try {
+        await this.prisma.content.update({
+          where: { id: quiz.contentId },
+          data: { quizId: null },
+        });
+      } catch (error) {
+        // Ignore if content not found or other error
+        this.logger.warn(
+          `Failed to dereference quiz ${id} from content ${quiz.contentId}: ${error.message}`
+        );
+      }
+    }
 
     // Delete the quiz
     await this.prisma.quiz.delete({

@@ -35,6 +35,8 @@ export class StatisticsController {
   async getAttempts(
     @CurrentUser("sub") userId: string,
     @Query("type") type?: "quiz" | "flashcard",
+    @Query("quizId") quizId?: string,
+    @Query("flashcardSetId") flashcardSetId?: string,
     @Query("startDate") startDate?: string,
     @Query("endDate") endDate?: string,
     @Query("limit") limit?: number,
@@ -42,6 +44,8 @@ export class StatisticsController {
   ) {
     return this.statisticsService.getAttempts(userId, {
       type,
+      quizId,
+      flashcardSetId,
       startDate,
       endDate,
       limit: limit ? Number(limit) : undefined,

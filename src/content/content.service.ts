@@ -13,14 +13,60 @@ import {
 import { TaskService } from "../task/task.service";
 import { NotificationService } from "../notification/notification.service";
 
+import { QuizService } from "../quiz/quiz.service";
+import { FlashcardService } from "../flashcard/flashcard.service";
+
 @Injectable()
 export class ContentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly taskService: TaskService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly quizService: QuizService,
+    private readonly flashcardService: FlashcardService
   ) {}
+
+  async deleteContent(userId: string, contentId: string) {
+    const content = await this.prisma.content.findUnique({
+      where: { id: contentId },
+    });
+
+    if (!content || content.userId !== userId) {
+      throw new NotFoundException("Content not found");
+    }
+
+    // Delete associated quiz if exists
+    if (content.quizId) {
+      try {
+        await this.quizService.deleteQuiz(content.quizId, userId);
+      } catch (error) {
+        console.error(
+          `Failed to delete associated quiz ${content.quizId}:`,
+          error
+        );
+      }
+    }
+
+    // Delete associated flashcard set if exists
+    if (content.flashcardSetId) {
+      try {
+        await this.flashcardService.deleteFlashcardSet(
+          content.flashcardSetId,
+          userId
+        );
+      } catch (error) {
+        console.error(
+          `Failed to delete associated flashcard set ${content.flashcardSetId}:`,
+          error
+        );
+      }
+    }
+
+    return this.prisma.content.delete({
+      where: { id: contentId },
+    });
+  }
 
   async generateFromTopic(userId: string, topic: string) {
     const task = await this.taskService.createTask(
@@ -170,6 +216,10 @@ export class ContentService {
           userId,
           ...(topic ? { topic } : {}),
         },
+        include: {
+          quiz: { select: { id: true } },
+          flashcardSet: { select: { id: true } },
+        },
         orderBy: {
           createdAt: "desc",
         },
@@ -184,8 +234,16 @@ export class ContentService {
       }),
     ]);
 
+    const mappedData = data.map((item) => ({
+      ...item,
+      quizId: item.quizId || item.quiz?.id,
+      flashcardSetId: item.flashcardSetId || item.flashcardSet?.id,
+      quiz: undefined,
+      flashcardSet: undefined,
+    }));
+
     return {
-      data,
+      data: mappedData,
       meta: {
         total,
         page,
@@ -200,6 +258,12 @@ export class ContentService {
       where: { id: contentId },
       include: {
         highlights: true,
+        quiz: {
+          select: { id: true },
+        },
+        flashcardSet: {
+          select: { id: true },
+        },
       },
     });
 
@@ -207,7 +271,42 @@ export class ContentService {
       throw new NotFoundException("Content not found");
     }
 
-    return content;
+    let quizId = content.quizId;
+    let flashcardSetId = content.flashcardSetId;
+
+    // Backfill IDs from relations if missing (backward compatibility)
+    const relationQuizId = content.quiz?.id;
+    const relationFlashcardSetId = content.flashcardSet?.id;
+
+    if (!quizId && relationQuizId) {
+      quizId = relationQuizId;
+      // Async update to persist the mapping
+      this.prisma.content
+        .update({
+          where: { id: contentId },
+          data: { quizId },
+        })
+        .catch((err) => console.error("Failed to backfill quizId", err));
+    }
+
+    if (!flashcardSetId && relationFlashcardSetId) {
+      flashcardSetId = relationFlashcardSetId;
+      // Async update to persist the mapping
+      this.prisma.content
+        .update({
+          where: { id: contentId },
+          data: { flashcardSetId },
+        })
+        .catch((err) =>
+          console.error("Failed to backfill flashcardSetId", err)
+        );
+    }
+
+    return {
+      ...content,
+      quizId,
+      flashcardSetId,
+    };
   }
 
   async updateContent(
@@ -226,20 +325,6 @@ export class ContentService {
     return this.prisma.content.update({
       where: { id: contentId },
       data: updateContentDto,
-    });
-  }
-
-  async deleteContent(userId: string, contentId: string) {
-    const content = await this.prisma.content.findUnique({
-      where: { id: contentId },
-    });
-
-    if (!content || content.userId !== userId) {
-      throw new NotFoundException("Content not found");
-    }
-
-    return this.prisma.content.delete({
-      where: { id: contentId },
     });
   }
 

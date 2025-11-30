@@ -18,12 +18,10 @@ import {
   ApiBearerAuth,
   ApiConsumes,
 } from "@nestjs/swagger";
-import { diskStorage } from "multer";
 import { FlashcardService } from "./flashcard.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { GenerateFlashcardDto } from "./dto/flashcard.dto";
-import { extname } from "node:path";
 
 @ApiTags("Flashcards")
 @ApiBearerAuth()
@@ -42,14 +40,6 @@ export class FlashcardController {
   @ApiResponse({ status: 400, description: "Invalid input data" })
   @UseInterceptors(
     FilesInterceptor("files", 5, {
-      storage: diskStorage({
-        destination: "./uploads",
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, `flashcard-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
       fileFilter: (req, file, cb) => {
         // Accept text files and PDFs
         if (

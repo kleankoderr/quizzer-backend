@@ -50,31 +50,53 @@ export class AiService {
   /**
    * Process uploaded files - text files and PDFs are read as bytes
    */
+  /**
+   * Process uploaded files - text files and PDFs are read as bytes
+   */
   async processFiles(
-    files: Express.Multer.File[]
+    files: (
+      | Express.Multer.File
+      | {
+          path?: string;
+          buffer?: Buffer;
+          originalname: string;
+          mimetype: string;
+        }
+    )[]
   ): Promise<{ textContent?: string; pdfParts?: any[] }> {
     const textContents: string[] = [];
     const pdfParts: any[] = [];
 
     for (const file of files) {
       try {
+        let fileBuffer: Buffer;
+
+        if ("buffer" in file && file.buffer) {
+          fileBuffer = file.buffer;
+        } else if (file.path) {
+          fileBuffer = await fs.readFile(file.path);
+        } else {
+          throw new Error(`File ${file.originalname} has no path or buffer`);
+        }
+
         if (file.mimetype === "application/pdf") {
           // Read PDF as bytes for inline data
-          const pdfData = await fs.readFile(file.path);
           pdfParts.push({
             inlineData: {
-              data: pdfData.toString("base64"),
+              data: fileBuffer.toString("base64"),
               mimeType: "application/pdf",
             },
           });
         } else {
           // Read text files directly
-          const content = await fs.readFile(file.path, "utf-8");
+          const content = fileBuffer.toString("utf-8");
           textContents.push(content);
         }
 
-        // Clean up uploaded file after processing
-        await fs.unlink(file.path).catch(() => {});
+        // Clean up uploaded file after processing if it was on disk
+        if (file.path) {
+          await fs.unlink(file.path).catch(() => {});
+        }
       } catch (error) {
         console.error(`Error processing file ${file.originalname}:`, error);
         throw new Error(`Failed to process file: ${file.originalname}`);
@@ -96,7 +118,15 @@ export class AiService {
   async generateQuiz(params: {
     topic?: string;
     content?: string;
-    files?: Express.Multer.File[];
+    files?: (
+      | Express.Multer.File
+      | {
+          path?: string;
+          buffer?: Buffer;
+          originalname: string;
+          mimetype: string;
+        }
+    )[];
     numberOfQuestions: number;
     difficulty: "easy" | "medium" | "hard";
     quizType?: "standard" | "timed" | "scenario";
@@ -243,7 +273,15 @@ export class AiService {
   async generateFlashcards(params: {
     topic?: string;
     content?: string;
-    files?: Express.Multer.File[];
+    files?: (
+      | Express.Multer.File
+      | {
+          path?: string;
+          buffer?: Buffer;
+          originalname: string;
+          mimetype: string;
+        }
+    )[];
     numberOfCards: number;
   }): Promise<{ cards: Flashcard[]; title: string; topic: string }> {
     const { topic, content, files, numberOfCards } = params;

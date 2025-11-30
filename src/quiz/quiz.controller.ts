@@ -18,12 +18,10 @@ import {
   ApiBearerAuth,
   ApiConsumes,
 } from "@nestjs/swagger";
-import { diskStorage } from "multer";
 import { QuizService } from "./quiz.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { GenerateQuizDto, SubmitQuizDto } from "./dto/quiz.dto";
-import { extname } from "node:path";
 
 @ApiTags("Quizzes")
 @ApiBearerAuth()
@@ -39,14 +37,6 @@ export class QuizController {
   @ApiResponse({ status: 400, description: "Invalid input data" })
   @UseInterceptors(
     FilesInterceptor("files", 5, {
-      storage: diskStorage({
-        destination: "./uploads",
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, `quiz-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
       fileFilter: (req, file, cb) => {
         // Accept text files and PDFs
         if (

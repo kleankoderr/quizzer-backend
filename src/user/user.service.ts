@@ -3,16 +3,25 @@ import {
   NotFoundException,
   UnauthorizedException,
   ConflictException,
+  Inject,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import * as bcrypt from "bcrypt";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { UpdateSettingsDto } from "./dto/update-settings.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
+import {
+  IFileStorageService,
+  FILE_STORAGE_SERVICE,
+} from "../file-storage/interfaces/file-storage.interface";
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(FILE_STORAGE_SERVICE)
+    private readonly fileStorageService: IFileStorageService
+  ) {}
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -144,6 +153,56 @@ export class UserService {
     });
 
     return { message: "Password changed successfully" };
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    // Upload new avatar to Cloudinary
+    const uploadResult = await this.fileStorageService.uploadFile(file, {
+      folder: "quizzer/users/avatars",
+      resourceType: "image",
+    });
+
+    // Delete old avatar if it exists and is from Cloudinary
+    if (user.avatar && user.avatar.includes("cloudinary")) {
+      try {
+        // Extract public_id from Cloudinary URL
+        const urlParts = user.avatar.split("/");
+        const filename = urlParts[urlParts.length - 1].split(".")[0];
+        const folder = urlParts.slice(-3, -1).join("/");
+        const publicId = `${folder}/${filename}`;
+        await this.fileStorageService.deleteFile(publicId);
+      } catch (error) {
+        // Log but don't fail if old avatar deletion fails
+        console.warn(`Failed to delete old avatar: ${error.message}`);
+      }
+    }
+
+    // Update user's avatar URL in database
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatar: uploadResult.secureUrl },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+        schoolName: true,
+        grade: true,
+        preferences: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return updatedUser;
   }
 
   async deleteAccount(userId: string) {

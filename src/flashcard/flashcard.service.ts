@@ -1,4 +1,13 @@
-import { Injectable, NotFoundException, Logger, Inject } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  Inject,
+  BadRequestException,
+} from "@nestjs/common";
+
+// ... existing imports ...
+
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
@@ -8,6 +17,10 @@ import { RecommendationService } from "../recommendation/recommendation.service"
 import { StreakService } from "../streak/streak.service";
 import { ChallengeService } from "../challenge/challenge.service";
 import { GenerateFlashcardDto } from "./dto/flashcard.dto";
+import {
+  IFileStorageService,
+  FILE_STORAGE_SERVICE,
+} from "../file-storage/interfaces/file-storage.interface";
 
 @Injectable()
 export class FlashcardService {
@@ -19,7 +32,9 @@ export class FlashcardService {
     private readonly recommendationService: RecommendationService,
     private readonly streakService: StreakService,
     private readonly challengeService: ChallengeService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(FILE_STORAGE_SERVICE)
+    private readonly fileStorageService: IFileStorageService
   ) {}
 
   async generateFlashcards(
@@ -53,12 +68,32 @@ export class FlashcardService {
       `User ${userId} requesting flashcard generation: ${dto.numberOfCards} cards`
     );
 
-    // Serialize file data for the queue
-    const fileData = files?.map((f) => ({
-      path: f.path,
-      originalname: f.originalname,
-      mimetype: f.mimetype,
-    }));
+    // Upload files to Cloudinary and prepare data for queue
+    const fileData = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          const uploadResult = await this.fileStorageService.uploadFile(file, {
+            folder: "quizzer/flashcards",
+            resourceType: "auto",
+          });
+
+          fileData.push({
+            path: file.path,
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            url: uploadResult.secureUrl,
+            publicId: uploadResult.publicId,
+          });
+        } catch (error) {
+          this.logger.error(
+            `Failed to upload file ${file.originalname}:`,
+            error
+          );
+          throw new Error(`Failed to upload file: ${file.originalname}`);
+        }
+      }
+    }
 
     try {
       // Add job to queue
@@ -70,7 +105,7 @@ export class FlashcardService {
           files: fileData,
         },
         {
-          removeOnComplete: true,
+          removeOnComplete: { age: 60 },
           removeOnFail: false,
           attempts: 3, // Retry up to 3 times
           backoff: {
@@ -171,7 +206,22 @@ export class FlashcardService {
       throw new NotFoundException("Flashcard set not found");
     }
 
+    // Shuffle cards
+    if (Array.isArray(flashcardSet.cards)) {
+      flashcardSet.cards = this.shuffleArray([
+        ...(flashcardSet.cards as any[]),
+      ]);
+    }
+
     return flashcardSet;
+  }
+
+  private shuffleArray(array: any[]) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
   }
 
   async recordFlashcardSession(
@@ -199,15 +249,13 @@ export class FlashcardService {
     const cards = flashcardSet.cards as any[];
 
     // Calculate score based on responses
-    // know = +1, dont-know = -1, skipped = 0
+    // know = +1, dont-know = 0, skipped = 0
+    // We only count correct answers for the score to match user expectations for percentage calculation
     let score = 0;
     for (const response of cardResponses) {
       if (response.response === "know") {
         score += 1;
-      } else if (response.response === "dont-know") {
-        score -= 1;
       }
-      // skipped = 0, no change
     }
 
     // Save attempt with detailed answers
@@ -286,6 +334,44 @@ export class FlashcardService {
     await this.prisma.attempt.deleteMany({
       where: { flashcardSetId: id },
     });
+
+    // Delete associated files from Cloudinary
+    if (flashcardSet.sourceFiles && flashcardSet.sourceFiles.length > 0) {
+      this.logger.debug(
+        `Deleting ${flashcardSet.sourceFiles.length} files from Cloudinary`
+      );
+      for (const fileUrl of flashcardSet.sourceFiles) {
+        if (fileUrl.includes("cloudinary")) {
+          try {
+            // Extract public_id from Cloudinary URL
+            const urlParts = fileUrl.split("/");
+            const filename = urlParts[urlParts.length - 1].split(".")[0];
+            const folder = urlParts.slice(-3, -1).join("/");
+            const publicId = `${folder}/${filename}`;
+            await this.fileStorageService.deleteFile(publicId);
+          } catch (error) {
+            this.logger.warn(
+              `Failed to delete file ${fileUrl}: ${error.message}`
+            );
+          }
+        }
+      }
+    }
+
+    // Dereference from content if applicable
+    if (flashcardSet.contentId) {
+      try {
+        await this.prisma.content.update({
+          where: { id: flashcardSet.contentId },
+          data: { flashcardSetId: null },
+        });
+      } catch (error) {
+        // Ignore if content not found or other error
+        this.logger.warn(
+          `Failed to dereference flashcard set ${id} from content ${flashcardSet.contentId}: ${error.message}`
+        );
+      }
+    }
 
     // Delete the flashcard set
     await this.prisma.flashcardSet.delete({

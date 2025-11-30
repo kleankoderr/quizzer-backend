@@ -7,6 +7,7 @@ import {
   UpdateUserRoleDto,
   ContentFilterDto,
 } from "./dto/admin.dto";
+import { ForbiddenException } from "@nestjs/common";
 
 @Injectable()
 export class AdminService {
@@ -238,5 +239,3 @@ export class AdminService {
     };
   }
 }
-
-import { ForbiddenException } from "@nestjs/common";

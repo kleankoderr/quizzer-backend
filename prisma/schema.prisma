@@ -58,6 +58,8 @@ model Quiz {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   sourceType  String?  // "text" or "file"
   sourceFiles String[] // Array of file paths if generated from files
+  contentId   String?  @unique
+  content     Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -77,6 +79,8 @@ model FlashcardSet {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   sourceType  String?  // "text", "file", or "topic"
   sourceFiles String[] // Array of file paths if generated from files
+  contentId   String?  @unique
+  content     Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -202,6 +206,10 @@ model Content {
   updatedAt   DateTime @updatedAt
 
   highlights  Highlight[]
+  quiz        Quiz?
+  flashcardSet FlashcardSet?
+  quizId        String?
+  flashcardSetId String?
 
   @@map("contents")
   @@index([userId])

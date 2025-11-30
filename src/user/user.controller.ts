@@ -1,4 +1,18 @@
-import { Controller, Get, Put, Delete, Body, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Put,
+  Delete,
+  Body,
+  UseGuards,
+  Post,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
+} from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiTags,
   ApiOperation,
@@ -62,6 +76,27 @@ export class UserController {
     @Body() changePasswordDto: ChangePasswordDto
   ) {
     return this.userService.changePassword(userId, changePasswordDto);
+  }
+
+  @Post("profile/avatar")
+  @UseInterceptors(FileInterceptor("avatar"))
+  @ApiOperation({ summary: "Upload profile avatar" })
+  @ApiResponse({ status: 200, description: "Avatar uploaded successfully" })
+  @ApiResponse({ status: 400, description: "Invalid file type or size" })
+  @ApiResponse({ status: 404, description: "User not found" })
+  async uploadAvatar(
+    @CurrentUser("sub") userId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|gif|webp)$/ }),
+        ],
+      })
+    )
+    file: Express.Multer.File
+  ) {
+    return this.userService.uploadAvatar(userId, file);
   }
 
   @Delete("account")

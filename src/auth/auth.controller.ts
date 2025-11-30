@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Body, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
+  Res,
+  Req,
+} from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
+import { Response, Request } from "express";
 import {
   ApiTags,
   ApiOperation,
@@ -14,12 +24,22 @@ import {
   AuthResponseDto,
   GoogleAuthDto,
 } from "./dto/auth.dto";
+import { generateCsrfToken } from "../config/csrf.config";
 
 @ApiTags("Authentication")
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get("csrf-token")
+  @ApiOperation({ summary: "Get CSRF token" })
+  @ApiResponse({ status: 200, description: "CSRF token retrieved" })
+  getCsrfToken(@Req() req: Request, @Res() res: Response) {
+    const csrfToken = generateCsrfToken(req, res);
+    return res.json({ csrfToken });
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) //
   @Post("signup")
   @ApiOperation({ summary: "Create a new user account" })
   @ApiResponse({
@@ -31,10 +51,16 @@ export class AuthController {
     status: 409,
     description: "User with this email already exists",
   })
-  async signup(@Body() signupDto: SignupDto) {
-    return this.authService.signup(signupDto);
+  async signup(
+    @Body() signupDto: SignupDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const { user, accessToken } = await this.authService.signup(signupDto);
+    this.setCookie(res, accessToken);
+    return { user };
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("login")
   @ApiOperation({ summary: "Sign in with email and password" })
   @ApiResponse({
@@ -43,10 +69,16 @@ export class AuthController {
     type: AuthResponseDto,
   })
   @ApiResponse({ status: 401, description: "Invalid credentials" })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const { user, accessToken } = await this.authService.login(loginDto);
+    this.setCookie(res, accessToken);
+    return { user };
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("google")
   @ApiOperation({ summary: "Sign in with Google" })
   @ApiResponse({
@@ -55,8 +87,14 @@ export class AuthController {
     type: AuthResponseDto,
   })
   @ApiResponse({ status: 401, description: "Invalid Google token" })
-  async googleLogin(@Body() googleAuthDto: GoogleAuthDto) {
-    return this.authService.googleLogin(googleAuthDto);
+  async googleLogin(
+    @Body() googleAuthDto: GoogleAuthDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const { user, accessToken } =
+      await this.authService.googleLogin(googleAuthDto);
+    this.setCookie(res, accessToken);
+    return { user };
   }
 
   @Get("me")
@@ -74,7 +112,21 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: "Logout current user" })
   @ApiResponse({ status: 200, description: "Logged out successfully" })
-  async logout() {
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie("Authentication", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
     return { message: "Logged out successfully" };
+  }
+
+  private setCookie(res: Response, token: string) {
+    res.cookie("Authentication", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
   }
 }
