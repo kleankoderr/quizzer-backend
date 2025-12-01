@@ -20,7 +20,7 @@ export class AuthService {
   ) {}
 
   async signup(signupDto: SignupDto) {
-    const { email, password, name, schoolName, grade } = signupDto;
+    const { email, password, name } = signupDto;
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -34,21 +34,12 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Normalize school name if provided
-    let normalizedSchoolName = schoolName;
-    if (schoolName) {
-      const school = await this.schoolService.findOrCreate(schoolName);
-      normalizedSchoolName = school.name;
-    }
-
     // Create user
     const user = await this.prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        schoolName: normalizedSchoolName,
-        grade,
       },
     });
 

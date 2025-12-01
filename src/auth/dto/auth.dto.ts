@@ -29,24 +29,6 @@ export class SignupDto {
   @IsString()
   @IsNotEmpty()
   name: string;
-
-  @ApiProperty({
-    example: "Lincoln High School",
-    description: "School name",
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  schoolName?: string;
-
-  @ApiProperty({
-    example: "10th Grade",
-    description: "Grade level",
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  grade?: string;
 }
 
 export class LoginDto {
