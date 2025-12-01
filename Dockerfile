@@ -3,20 +3,27 @@ FROM node:20-alpine AS dependencies
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files (including package-lock.json)
+COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci --only=production && \
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci && \
+    npm cache clean --force
+
+# Store all dependencies
+RUN cp -R node_modules /all_node_modules
+
+# Install only production dependencies
+RUN npm ci --omit=dev && \
     npm cache clean --force
 
 # Store production dependencies
 RUN cp -R node_modules /prod_node_modules
 
-# Install all dependencies (including dev)
-RUN npm ci && \
-    npm cache clean --force
+# Restore all dependencies for the build stage
+RUN rm -rf node_modules && \
+    cp -R /all_node_modules node_modules
 
 
 # ---- Build Stage ----
@@ -36,9 +43,6 @@ RUN npx prisma generate
 
 # Build the application
 RUN npm run build
-
-# Prune dev dependencies
-RUN npm prune --production
 
 
 # ---- Production Stage ----
