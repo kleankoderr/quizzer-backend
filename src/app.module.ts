@@ -37,17 +37,29 @@ import { CoachingModule } from "./coaching/coaching.module";
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+
     ScheduleModule.forRoot(),
+
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        connection: {
-          host: configService.get("REDIS_HOST", "localhost"),
-          port: configService.get("REDIS_PORT", 6379),
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const redisUrl = configService.get<string>(
+          "REDIS_URL",
+          "redis://localhost:6379"
+        );
+        const url = new URL(redisUrl);
+        return {
+          connection: {
+            host: url.hostname,
+            port: parseInt(url.port),
+            username: url?.username,
+            password: url?.password,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
+
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -71,7 +83,6 @@ import { CoachingModule } from "./coaching/coaching.module";
     UserModule,
     TaskModule,
     NotificationModule,
-    SeedModule,
     SeedModule,
     AdminModule,
     StudyModule,
