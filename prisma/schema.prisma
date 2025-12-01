@@ -284,6 +284,7 @@ model Highlight {
   startOffset Int
   endOffset   Int
   note      String?
+  sectionIndex Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

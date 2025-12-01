@@ -64,6 +64,15 @@ export class CreateHighlightDto {
   @IsString()
   @IsOptional()
   note?: string;
+
+  @ApiProperty({
+    example: 0,
+    description: "Index of the section where the highlight is located",
+    required: false,
+  })
+  @IsInt()
+  @IsOptional()
+  sectionIndex?: number;
 }
 
 export class UpdateContentDto {
