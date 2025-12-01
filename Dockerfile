@@ -27,10 +27,15 @@ WORKDIR /app
 # Copy build artifacts and node_modules from the build stage
 COPY --from=base /app/dist ./dist
 COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/prisma ./prisma
 COPY package*.json ./
+
+# Copy startup script
+COPY start.sh ./
+RUN chmod +x start.sh
 
 # Expose the application's port
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "dist/main.js"]
+# Start the application with migrations
+CMD ["./start.sh"]
