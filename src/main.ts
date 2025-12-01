@@ -12,6 +12,9 @@ async function bootstrap() {
   const httpAdapter = app.get(HttpAdapterHost);
   app.useGlobalFilters(new GlobalExceptionFilter(httpAdapter));
 
+  // Trust proxy is required for cookies to work behind a load balancer (like Render)
+  app.getHttpAdapter().getInstance().set("trust proxy", 1);
+
   // Enable body parsing explicitly
   app.use(json({ limit: "50mb" }));
 
