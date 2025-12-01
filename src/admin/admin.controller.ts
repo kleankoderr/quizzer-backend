@@ -18,6 +18,10 @@ import {
   UpdateUserStatusDto,
   UpdateUserRoleDto,
   ContentFilterDto,
+  ModerationActionDto,
+  CreateSchoolDto,
+  UpdateSchoolDto,
+  PlatformSettingsDto,
 } from "./dto/admin.dto";
 
 @ApiTags("Admin")
@@ -26,6 +30,18 @@ import {
 @Controller("admin")
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  @Delete("content/:id")
+  @ApiOperation({ summary: "Delete content (study material)" })
+  deleteContent(@Param("id") id: string) {
+    return this.adminService.deleteContent(id);
+  }
+
+  @Delete("quiz/:id")
+  @ApiOperation({ summary: "Delete quiz" })
+  deleteQuiz(@Param("id") id: string) {
+    return this.adminService.deleteQuiz(id);
+  }
 
   @Get("stats")
   @ApiOperation({ summary: "Get system statistics" })
@@ -73,5 +89,59 @@ export class AdminController {
   @ApiOperation({ summary: "Get all content (quizzes)" })
   getAllContent(@Query() filterDto: ContentFilterDto) {
     return this.adminService.getAllContent(filterDto);
+  }
+
+  @Get("content/reports")
+  @ApiOperation({ summary: "Get reported content" })
+  getReportedContent() {
+    return this.adminService.getReportedContent();
+  }
+
+  @Post("content/:id/moderate")
+  @ApiOperation({ summary: "Moderate content" })
+  moderateContent(
+    @Param("id") id: string,
+    @Body() actionDto: ModerationActionDto
+  ) {
+    return this.adminService.moderateContent(id, actionDto);
+  }
+
+  @Get("schools")
+  @ApiOperation({ summary: "Get all schools" })
+  getSchools() {
+    return this.adminService.getSchools();
+  }
+
+  @Post("schools")
+  @ApiOperation({ summary: "Create a new school" })
+  createSchool(@Body() createSchoolDto: CreateSchoolDto) {
+    return this.adminService.createSchool(createSchoolDto);
+  }
+
+  @Patch("schools/:id")
+  @ApiOperation({ summary: "Update a school" })
+  updateSchool(
+    @Param("id") id: string,
+    @Body() updateSchoolDto: UpdateSchoolDto
+  ) {
+    return this.adminService.updateSchool(id, updateSchoolDto);
+  }
+
+  @Get("ai-analytics")
+  @ApiOperation({ summary: "Get AI usage analytics" })
+  getAiAnalytics() {
+    return this.adminService.getAiAnalytics();
+  }
+
+  @Get("settings")
+  @ApiOperation({ summary: "Get platform settings" })
+  getSettings() {
+    return this.adminService.getSettings();
+  }
+
+  @Patch("settings")
+  @ApiOperation({ summary: "Update platform settings" })
+  updateSettings(@Body() settingsDto: PlatformSettingsDto) {
+    return this.adminService.updateSettings(settingsDto);
   }
 }

@@ -51,6 +51,7 @@ model User {
   tasks         Task[]
   topicProgress TopicProgress[]
   fcmTokens     String[] @default([])
+  reports       Report[]
 
   @@map("users")
 }
@@ -75,6 +76,7 @@ model Quiz {
   attempts    Attempt[]
   challenges  Challenge[]
   challengeQuizzes ChallengeQuiz[]
+  reports     Report[]
 
   @@map("quizzes")
   @@index([userId])
@@ -268,6 +270,7 @@ model Content {
   flashcardSetId String?
   lastReadPosition Float    @default(0)
   topicProgress TopicProgress[]
+  reports       Report[]
 
   @@map("contents")
   @@index([userId])
@@ -400,4 +403,33 @@ model School {
 
   @@map("schools")
   @@index([name])
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentId String?
+  content   Content? @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  quizId    String?
+  quiz      Quiz?    @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  reason    String
+  status    String   @default("PENDING") // PENDING, RESOLVED, IGNORED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reports")
+  @@index([userId])
+  @@index([status])
+}
+
+model PlatformSettings {
+  id                String   @id @default(uuid())
+  allowRegistration Boolean  @default(true)
+  maintenanceMode   Boolean  @default(false)
+  supportEmail      String?
+  aiPrompts         Json?    // Store AI prompts for different generation types
+  updatedAt         DateTime @updatedAt
+
+  @@map("platform_settings")
 }

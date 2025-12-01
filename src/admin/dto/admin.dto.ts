@@ -62,3 +62,42 @@ export class ContentFilterDto {
   @IsString()
   limit?: string;
 }
+
+export class CreateSchoolDto {
+  @ApiProperty()
+  @IsString()
+  name: string;
+}
+
+export class UpdateSchoolDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  name?: string;
+}
+
+export class PlatformSettingsDto {
+  @ApiProperty()
+  @IsBoolean()
+  allowRegistration: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  maintenanceMode: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  supportEmail?: string;
+}
+
+export class ModerationActionDto {
+  @ApiProperty({ enum: ["DELETE", "HIDE", "IGNORE"] })
+  @IsEnum(["DELETE", "HIDE", "IGNORE"])
+  action: "DELETE" | "HIDE" | "IGNORE";
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

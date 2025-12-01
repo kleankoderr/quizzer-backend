@@ -6,12 +6,34 @@ import {
   UpdateUserStatusDto,
   UpdateUserRoleDto,
   ContentFilterDto,
+  ModerationActionDto,
+  CreateSchoolDto,
+  UpdateSchoolDto,
+  PlatformSettingsDto,
 } from "./dto/admin.dto";
 import { ForbiddenException } from "@nestjs/common";
 
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async deleteContent(contentId: string) {
+    const content = await this.prisma.content.findUnique({
+      where: { id: contentId },
+    });
+    if (!content) throw new NotFoundException("Content not found");
+
+    await this.prisma.content.delete({ where: { id: contentId } });
+    return { success: true, message: "Content deleted successfully" };
+  }
+
+  async deleteQuiz(quizId: string) {
+    const quiz = await this.prisma.quiz.findUnique({ where: { id: quizId } });
+    if (!quiz) throw new NotFoundException("Quiz not found");
+
+    await this.prisma.quiz.delete({ where: { id: quizId } });
+    return { success: true, message: "Quiz deleted successfully" };
+  }
 
   async getSystemStats() {
     const [
@@ -237,5 +259,110 @@ export class AdminService {
         totalPages: Math.ceil(total / limitNum),
       },
     };
+  }
+
+  async getReportedContent() {
+    return this.prisma.report.findMany({
+      include: {
+        user: { select: { name: true, email: true } },
+        content: { select: { title: true } },
+        quiz: { select: { title: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async moderateContent(id: string, actionDto: ModerationActionDto) {
+    // id is contentId or quizId.
+    // We need to find reports associated with this content and resolve them.
+    // And perform the action.
+
+    if (actionDto.action === "DELETE") {
+      // Try to delete from Quiz or Content
+      // This is a bit ambiguous without knowing the type.
+      // For now, we try both or rely on the fact that IDs are UUIDs and unique across tables (usually not guaranteed but likely distinct enough or we check existence).
+      // Better approach: The UI should pass the type or we check.
+      // Let's check existence.
+      const quiz = await this.prisma.quiz.findUnique({ where: { id } });
+      if (quiz) {
+        await this.prisma.quiz.delete({ where: { id } });
+      } else {
+        const content = await this.prisma.content.findUnique({ where: { id } });
+        if (content) {
+          await this.prisma.content.delete({ where: { id } });
+        }
+      }
+    }
+
+    // Resolve reports
+    await this.prisma.report.updateMany({
+      where: { OR: [{ quizId: id }, { contentId: id }] },
+      data: { status: "RESOLVED" },
+    });
+
+    return { success: true };
+  }
+
+  async getSchools() {
+    return this.prisma.school.findMany({
+      orderBy: { name: "asc" },
+    });
+  }
+
+  async createSchool(dto: CreateSchoolDto) {
+    return this.prisma.school.create({ data: dto });
+  }
+
+  async updateSchool(id: string, dto: UpdateSchoolDto) {
+    return this.prisma.school.update({ where: { id }, data: dto });
+  }
+
+  async getAiAnalytics() {
+    const totalTasks = await this.prisma.task.count();
+    const failedTasks = await this.prisma.task.count({
+      where: { status: "FAILED" },
+    });
+    const completedTasks = await this.prisma.task.count({
+      where: { status: "COMPLETED" },
+    });
+
+    // Get tasks by type
+    const tasksByType = await this.prisma.task.groupBy({
+      by: ["type"],
+      _count: { _all: true },
+    });
+
+    return {
+      totalGenerations: totalTasks,
+      failedGenerations: failedTasks,
+      successRate:
+        totalTasks > 0 ? ((totalTasks - failedTasks) / totalTasks) * 100 : 0,
+      breakdown: tasksByType.map((t) => ({
+        type: t.type,
+        count: t._count._all,
+      })),
+    };
+  }
+
+  async getSettings() {
+    const settings = await this.prisma.platformSettings.findFirst();
+    if (!settings) {
+      return this.prisma.platformSettings.create({
+        data: { allowRegistration: true, maintenanceMode: false },
+      });
+    }
+    return settings;
+  }
+
+  async updateSettings(dto: PlatformSettingsDto) {
+    const settings = await this.prisma.platformSettings.findFirst();
+    if (settings) {
+      return this.prisma.platformSettings.update({
+        where: { id: settings.id },
+        data: dto,
+      });
+    } else {
+      return this.prisma.platformSettings.create({ data: dto });
+    }
   }
 }
