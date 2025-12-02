@@ -11,7 +11,6 @@ import {
   UpdateContentDto,
 } from "./dto/content.dto";
 import { TaskService } from "../task/task.service";
-import { NotificationService } from "../notification/notification.service";
 
 import { QuizService } from "../quiz/quiz.service";
 import { FlashcardService } from "../flashcard/flashcard.service";
@@ -23,7 +22,7 @@ export class ContentService {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly taskService: TaskService,
-    private readonly notificationService: NotificationService,
+
     private readonly quizService: QuizService,
     private readonly flashcardService: FlashcardService
   ) {}
@@ -142,22 +141,8 @@ export class ContentService {
       await this.taskService.updateTask(taskId, "COMPLETED", {
         contentId: content.id,
       });
-
-      await this.notificationService.sendNotification(
-        userId,
-        "Content Generated",
-        `Your study material for "${topic}" is ready!`,
-        { contentId: content.id, type: "CONTENT_GENERATION" }
-      );
     } catch (error) {
       await this.taskService.updateTask(taskId, "FAILED", null, error.message);
-
-      await this.notificationService.sendNotification(
-        userId,
-        "Generation Failed",
-        `We couldn't generate content for "${topic}". Please try again.`,
-        { type: "CONTENT_GENERATION_ERROR" }
-      );
     }
   }
 

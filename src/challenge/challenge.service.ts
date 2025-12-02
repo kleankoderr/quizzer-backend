@@ -11,14 +11,13 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AiService } from "../ai/ai.service";
 import { LeaderboardService } from "../leaderboard/leaderboard.service";
 import { QuizType } from "@prisma/client";
+import { ConfigService } from "@nestjs/config";
 
 // Constants
 const CACHE_TTL = {
   ALL_CHALLENGES: 120000, // 2 minutes
   DAILY_CHALLENGES: null, // Calculated dynamically until midnight
 } as const;
-
-const SYSTEM_USER_EMAIL = "system@quizzer.app";
 
 const CHALLENGE_DURATION = {
   WEEKLY: 7,
@@ -60,12 +59,15 @@ export interface PerformanceByDifficulty {
 @Injectable()
 export class ChallengeService {
   private readonly logger = new Logger(ChallengeService.name);
+  private readonly systemUserEmail =
+    this.configService.get<string>("ADMIN_EMAIL");
 
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly aiService: AiService,
-    private readonly leaderboardService: LeaderboardService
+    private readonly leaderboardService: LeaderboardService,
+    private readonly configService: ConfigService
   ) {}
 
   async getAllChallenges(userId: string) {
@@ -84,12 +86,19 @@ export class ChallengeService {
       },
       include: {
         _count: { select: { completions: true } },
+        quizzes: true, // Include quizzes to check if challenge has any
       },
       orderBy: { createdAt: "desc" },
     });
 
+    // Filter out challenges without quizzes
+    const validChallenges = challenges.filter(
+      (challenge) =>
+        challenge.quizId || (challenge.quizzes && challenge.quizzes.length > 0)
+    );
+
     const challengesWithProgress = await Promise.all(
-      challenges.map((challenge) =>
+      validChallenges.map((challenge) =>
         this.enrichChallengeWithProgress(challenge, userId)
       )
     );
@@ -209,10 +218,17 @@ export class ChallengeService {
       include: {
         completions: { where: { userId } },
         _count: { select: { completions: true } },
+        quizzes: true, // Include quizzes to check if challenge has any
       },
     });
 
-    return challenges.map((challenge) => ({
+    // Filter out challenges without quizzes
+    const validChallenges = challenges.filter(
+      (challenge) =>
+        challenge.quizId || (challenge.quizzes && challenge.quizzes.length > 0)
+    );
+
+    return validChallenges.map((challenge) => ({
       ...challenge,
       progress: challenge.completions[0]?.progress || 0,
       completed: challenge.completions[0]?.completed || false,
@@ -371,7 +387,7 @@ export class ChallengeService {
       );
     }
 
-    const systemUser = await this.getOrCreateSystemUser();
+    const systemUser = await this.getSystemUser();
     const { validQuizzes, optimalDifficulty } =
       await this.analyzeUserActivity(start);
 
@@ -969,23 +985,11 @@ export class ChallengeService {
     });
   }
 
-  private async getOrCreateSystemUser() {
+  private async getSystemUser() {
+    this.logger.debug("Fetching system user...");
     let systemUser = await this.prisma.user.findUnique({
-      where: { email: SYSTEM_USER_EMAIL },
+      where: { email: this.systemUserEmail },
     });
-
-    if (!systemUser) {
-      systemUser = await this.prisma.user.create({
-        data: {
-          email: SYSTEM_USER_EMAIL,
-          name: "System",
-          role: "ADMIN",
-          isActive: true,
-        },
-      });
-      this.logger.log("Created system user for challenges");
-    }
-
     return systemUser;
   }
 
@@ -1120,12 +1124,54 @@ export class ChallengeService {
       const title = `Daily Master: ${topicQuiz.topic}`;
 
       if (!existingTitles.has(title.toLowerCase())) {
+        // Generate a random number of questions between 10 and 30
+        const numberOfQuestions = Math.floor(Math.random() * 21) + 10; // 10-30 questions
+
+        // Determine quiz type and time limit based on difficulty
+        let quizType: QuizType;
+        let timeLimit: number | null = null;
+
+        if (optimalDifficulty === "easy") {
+          // Easy: Standard quiz, no time limit
+          quizType = QuizType.STANDARD;
+          timeLimit = null;
+        } else {
+          // Medium/Hard: Randomly choose between timed test or scenario based
+          const quizTypes = [QuizType.TIMED_TEST, QuizType.SCENARIO_BASED];
+          quizType = quizTypes[Math.floor(Math.random() * quizTypes.length)];
+
+          // Calculate time limit: 1 minute per question for timed test quizzes
+          if (quizType === QuizType.TIMED_TEST) {
+            timeLimit = numberOfQuestions * 60; // in seconds
+          }
+        }
+
+        // Determine question types based on difficulty
+        let questionTypes: string[] = [];
+        if (optimalDifficulty === "easy") {
+          // Easy: Only single-select and true/false
+          questionTypes = ["single-select", "true-false"];
+        } else if (optimalDifficulty === "medium") {
+          // Medium: Add multi-select
+          questionTypes = ["single-select", "true-false", "multi-select"];
+        } else {
+          // Hard: All question types including fill-blank and matching
+          questionTypes = [
+            "single-select",
+            "true-false",
+            "multi-select",
+            "fill-blank",
+            "matching",
+          ];
+        }
+
         // Generate a new quiz for this challenge using AI
         const generatedQuiz = await this.aiService.generateQuiz({
           topic: topicQuiz.topic,
           difficulty: optimalDifficulty as "easy" | "medium" | "hard",
-          numberOfQuestions: 10,
-          quizType: "standard",
+          numberOfQuestions,
+          questionTypes, // Pass allowed question types based on difficulty
+          quizType: quizType.toLowerCase(), // Pass lowercase for AI service
           userId: systemUserId,
         } as any); // Cast to any because userId is not in the interface but might be needed or ignored
 
@@ -1135,8 +1181,9 @@ export class ChallengeService {
             title: generatedQuiz.title,
             topic: generatedQuiz.topic,
             difficulty: optimalDifficulty,
-            quizType: QuizType.STANDARD,
+            quizType, // Use the enum value directly
             questions: generatedQuiz.questions as any,
+            timeLimit, // Add time limit only for timed quizzes
             userId: systemUserId,
           },
         });
@@ -1210,9 +1257,15 @@ export class ChallengeService {
   }
 
   private async saveChallenges(challenges: ChallengeData[]) {
+    this.logger.log(`Saving ${challenges.length} challenges`);
+
     await this.prisma.$transaction(
-      challenges.map((data) => {
+      challenges.map((data, index) => {
         const { quizId, ...challengeData } = data;
+        this.logger.debug(
+          `Challenge ${index + 1}: ${data.title}, quizId: ${quizId || "none"}`
+        );
+
         return this.prisma.challenge.create({
           data: {
             ...challengeData,
@@ -1228,6 +1281,8 @@ export class ChallengeService {
         });
       })
     );
+
+    this.logger.log(`Successfully saved ${challenges.length} challenges`);
   }
 
   private calculateFinalScore(quizAttempts: QuizAttempt[]): number {

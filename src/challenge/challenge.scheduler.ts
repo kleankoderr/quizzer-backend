@@ -8,6 +8,7 @@ export class ChallengeScheduler {
 
   constructor(private readonly challengeService: ChallengeService) {}
 
+  // @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   // @Cron(CronExpression.EVERY_MINUTE)
   async handleDailyCron() {
     this.logger.log("Running daily challenge generation...");

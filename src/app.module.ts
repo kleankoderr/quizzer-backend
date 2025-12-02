@@ -20,7 +20,7 @@ import { ContentModule } from "./content/content.module";
 import { StatisticsModule } from "./statistics/statistics.module";
 import { UserModule } from "./user/user.module";
 import { TaskModule } from "./task/task.module";
-import { NotificationModule } from "./notification/notification.module";
+
 import { SeedModule } from "./seed/seed.module";
 import { AdminModule } from "./admin/admin.module";
 import { FileStorageModule } from "./file-storage/file-storage.module";
@@ -82,7 +82,7 @@ import { CoachingModule } from "./coaching/coaching.module";
     StatisticsModule,
     UserModule,
     TaskModule,
-    NotificationModule,
+
     SeedModule,
     AdminModule,
     StudyModule,

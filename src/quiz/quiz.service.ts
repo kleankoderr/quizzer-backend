@@ -167,10 +167,13 @@ export class QuizService {
 
     // If not found, check if it's a challenge quiz that the user has access to
     if (!quiz) {
-      // Find if this quiz is associated with any challenge
+      // Find if this quiz is associated with any challenge (check both quizId and quizzes relationship)
       const challenge = await this.prisma.challenge.findFirst({
         where: {
-          quizId: id,
+          OR: [
+            { quizId: id }, // Legacy single quiz
+            { quizzes: { some: { quizId: id } } }, // New multi-quiz structure
+          ],
           completions: {
             some: {
               userId: userId,
@@ -215,7 +218,10 @@ export class QuizService {
     if (!quiz) {
       const challenge = await this.prisma.challenge.findFirst({
         where: {
-          quizId: quizId,
+          OR: [
+            { quizId: quizId }, // Legacy single quiz
+            { quizzes: { some: { quizId: quizId } } }, // New multi-quiz structure
+          ],
           completions: {
             some: {
               userId: userId,
