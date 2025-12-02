@@ -27,6 +27,7 @@ import {
 } from "./dto/content.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { PdfOnly } from "../common/decorators/pdf-only.decorator";
 
 @ApiTags("Content")
 @Controller("content")
@@ -46,7 +47,10 @@ export class ContentController {
   }
 
   @Post("upload")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    PdfOnly({ maxFiles: 1, maxSizePerFile: 5 * 1024 * 1024 }),
+    FileInterceptor("file")
+  )
   @ApiOperation({ summary: "Upload and process file to create content" })
   @ApiResponse({
     status: 201,

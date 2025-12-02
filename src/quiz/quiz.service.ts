@@ -15,6 +15,11 @@ import {
   FILE_STORAGE_SERVICE,
 } from "../file-storage/interfaces/file-storage.interface";
 import { QuizType } from "@prisma/client";
+import { DocumentHashService } from "../file-storage/services/document-hash.service";
+import {
+  processFileUploads,
+  cleanupFailedUploads,
+} from "../common/helpers/file-upload.helpers";
 
 /**
  * Transform Prisma QuizType enum to frontend-compatible format
@@ -42,8 +47,11 @@ export class QuizService {
     private readonly challengeService: ChallengeService,
     private readonly studyService: StudyService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject("GOOGLE_FILE_STORAGE_SERVICE")
+    private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
-    private readonly fileStorageService: IFileStorageService
+    private readonly cloudinaryFileStorageService: IFileStorageService,
+    private readonly documentHashService: DocumentHashService
   ) {}
 
   async generateQuiz(
@@ -55,46 +63,49 @@ export class QuizService {
       `User ${userId} requesting quiz generation: ${dto.numberOfQuestions} questions, difficulty: ${dto.difficulty}`
     );
 
-    // Upload files to Cloudinary and prepare data for queue
-    const fileData = [];
-    if (files && files.length > 0) {
-      for (const file of files) {
-        try {
-          const uploadResult = await this.fileStorageService.uploadFile(file, {
-            folder: "quizzer/quizzes",
-            resourceType: "auto",
-          });
+    let processedDocs = [];
 
-          fileData.push({
-            path: file.path,
-            originalname: file.originalname,
-            mimetype: file.mimetype,
-            url: uploadResult.secureUrl,
-            publicId: uploadResult.publicId,
-          });
-        } catch (error) {
-          this.logger.error(
-            `Failed to upload file ${file.originalname}:`,
-            error
+    if (files && files.length > 0) {
+      try {
+        processedDocs = await processFileUploads(
+          files,
+          this.documentHashService,
+          this.cloudinaryFileStorageService,
+          this.googleFileStorageService
+        );
+
+        const duplicateCount = processedDocs.filter(
+          (d) => d.isDuplicate
+        ).length;
+        if (duplicateCount > 0) {
+          this.logger.log(
+            `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`
           );
-          throw new Error(`Failed to upload file: ${file.originalname}`);
         }
+      } catch (error) {
+        this.logger.error(`Failed to process files for user ${userId}:`, error);
+        throw new Error(`Failed to upload files: ${error.message}`);
       }
     }
 
-    // Add job to queue
     const job = await this.quizQueue.add(
       "generate",
       {
         userId,
         dto,
         contentId: dto.contentId,
-        files: fileData,
+        files: processedDocs.map((doc) => ({
+          originalname: doc.originalName,
+          cloudinaryUrl: doc.cloudinaryUrl,
+          cloudinaryId: doc.cloudinaryId,
+          googleFileUrl: doc.googleFileUrl,
+          googleFileId: doc.googleFileId,
+        })),
       },
       {
-        removeOnComplete: { age: 60 }, // Keep for 1 minute
-        removeOnFail: { age: 60 }, // Keep for 1 minute
-        attempts: 2, // Retry 1 time
+        removeOnComplete: { age: 60 },
+        removeOnFail: { age: 60 },
+        attempts: 2,
         backoff: {
           type: "exponential",
           delay: 2000,
@@ -102,7 +113,6 @@ export class QuizService {
       }
     );
 
-    // Invalidate quiz cache after new quiz is generated
     const cacheKey = `quizzes:all:${userId}`;
     await this.cacheManager.del(cacheKey);
 
@@ -444,25 +454,24 @@ export class QuizService {
       where: { quizId: id },
     });
 
-    // Delete associated files from Cloudinary
+    // Delete associated files from Google File API
     if (quiz.sourceFiles && quiz.sourceFiles.length > 0) {
       this.logger.debug(
-        `Deleting ${quiz.sourceFiles.length} files from Cloudinary`
+        `Deleting ${quiz.sourceFiles.length} files from storage`
       );
       for (const fileUrl of quiz.sourceFiles) {
-        if (fileUrl.includes("cloudinary")) {
-          try {
-            // Extract public_id from Cloudinary URL
-            const urlParts = fileUrl.split("/");
-            const filename = urlParts[urlParts.length - 1].split(".")[0];
-            const folder = urlParts.slice(-3, -1).join("/");
-            const publicId = `${folder}/${filename}`;
-            await this.fileStorageService.deleteFile(publicId);
-          } catch (error) {
-            this.logger.warn(
-              `Failed to delete file ${fileUrl}: ${error.message}`
-            );
-          }
+        try {
+          const fileName = fileUrl.includes("files/")
+            ? fileUrl.split("files/")[1].split("?")[0]
+            : fileUrl;
+          const publicId = fileName.startsWith("files/")
+            ? fileName
+            : `files/${fileName}`;
+          await this.googleFileStorageService.deleteFile(publicId);
+        } catch (error) {
+          this.logger.warn(
+            `Failed to delete file ${fileUrl}: ${error.message}`
+          );
         }
       }
     }

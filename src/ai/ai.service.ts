@@ -60,16 +60,37 @@ export class AiService {
       | {
           path?: string;
           buffer?: Buffer;
+          url?: string;
+          googleFileUrl?: string;
+          googleFileId?: string;
           originalname: string;
           mimetype: string;
         }
     )[]
-  ): Promise<{ textContent?: string; pdfParts?: any[] }> {
+  ): Promise<{ textContent?: string; pdfParts?: any[]; fileUris?: string[] }> {
     const textContents: string[] = [];
     const pdfParts: any[] = [];
+    const fileUris: string[] = [];
 
     for (const file of files) {
       try {
+        // Handle Google File API URLs (new dual-provider structure)
+        if ("googleFileUrl" in file && file.googleFileUrl) {
+          // Use Google File API URI for Gemini
+          const fileUri = file.googleFileUrl;
+          fileUris.push(fileUri);
+          continue;
+        }
+
+        // Handle legacy URL format
+        if ("url" in file && file.url && !file.buffer && !file.path) {
+          // Legacy format - use the URL directly
+          const fileUri = file.url;
+          fileUris.push(fileUri);
+          continue;
+        }
+
+        // Handle buffer or path (for direct uploads)
         let fileBuffer: Buffer;
 
         if ("buffer" in file && file.buffer) {
@@ -77,7 +98,9 @@ export class AiService {
         } else if (file.path) {
           fileBuffer = await fs.readFile(file.path);
         } else {
-          throw new Error(`File ${file.originalname} has no path or buffer`);
+          throw new Error(
+            `File ${file.originalname} has no path, buffer, or URL`
+          );
         }
 
         if (file.mimetype === "application/pdf") {
@@ -109,6 +132,7 @@ export class AiService {
           ? textContents.join("\n\n=== NEXT DOCUMENT ===\n\n")
           : undefined,
       pdfParts: pdfParts.length > 0 ? pdfParts : undefined,
+      fileUris: fileUris.length > 0 ? fileUris : undefined,
     };
   }
 
@@ -151,10 +175,12 @@ export class AiService {
     // Process files if provided
     let sourceContent = content || "";
     let pdfParts: any[] | undefined;
+    let fileUris: string[] | undefined;
     if (files && files.length > 0) {
       const processed = await this.processFiles(files);
       sourceContent = processed.textContent || sourceContent;
       pdfParts = processed.pdfParts;
+      fileUris = processed.fileUris;
     }
 
     // Generate cache key based on params (excluding files for now as they are complex to hash efficiently here)
@@ -180,9 +206,20 @@ export class AiService {
       sourceContent
     );
 
-    // Build request parts - PDFs first, then prompt
+    // Build request parts - File URIs or PDFs first, then prompt
     const parts: any[] = [];
-    if (pdfParts && pdfParts.length > 0) {
+    if (fileUris && fileUris.length > 0) {
+      // Use Google File API URIs for Gemini
+      for (const uri of fileUris) {
+        parts.push({
+          fileData: {
+            mimeType: "application/pdf",
+            fileUri: uri,
+          },
+        });
+      }
+    } else if (pdfParts && pdfParts.length > 0) {
+      // Fallback to inline PDF data
       parts.push(...pdfParts);
     }
     parts.push({ text: prompt });
@@ -288,10 +325,12 @@ export class AiService {
     // Process files if provided
     let sourceContent = content || "";
     let pdfParts: any[] | undefined;
+    let fileUris: string[] | undefined;
     if (files && files.length > 0) {
       const processed = await this.processFiles(files);
       sourceContent = processed.textContent || sourceContent;
       pdfParts = processed.pdfParts;
+      fileUris = processed.fileUris;
     }
 
     const cacheKey = `flashcards:${topic}:${numberOfCards}`;
@@ -308,9 +347,20 @@ export class AiService {
       sourceContent
     );
 
-    // Build request parts - PDFs first, then prompt
+    // Build request parts - File URIs or PDFs first, then prompt
     const parts: any[] = [];
-    if (pdfParts && pdfParts.length > 0) {
+    if (fileUris && fileUris.length > 0) {
+      // Use Google File API URIs for Gemini
+      for (const uri of fileUris) {
+        parts.push({
+          fileData: {
+            mimeType: "application/pdf",
+            fileUri: uri,
+          },
+        });
+      }
+    } else if (pdfParts && pdfParts.length > 0) {
+      // Fallback to inline PDF data
       parts.push(...pdfParts);
     }
     parts.push({ text: prompt });

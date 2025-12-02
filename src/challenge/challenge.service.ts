@@ -209,8 +209,22 @@ export class ChallengeService {
 
     const completion = challenge.completions[0];
 
-    return {
+    // Transform quiz types for frontend compatibility
+    const transformedChallenge = {
       ...challenge,
+      quiz: challenge.quiz
+        ? {
+            ...challenge.quiz,
+            quizType: transformQuizType(challenge.quiz.quizType),
+          }
+        : challenge.quiz,
+      quizzes: challenge.quizzes?.map((cq) => ({
+        ...cq,
+        quiz: {
+          ...cq.quiz,
+          quizType: transformQuizType(cq.quiz.quizType),
+        },
+      })),
       progress: completion?.progress || 0,
       completed: completion?.completed || false,
       currentQuizIndex: completion?.currentQuizIndex || 0,
@@ -220,6 +234,8 @@ export class ChallengeService {
       participantCount: challenge._count.completions,
       joined: !!completion,
     };
+
+    return transformedChallenge;
   }
 
   async getChallengesByType(userId: string, type: string) {

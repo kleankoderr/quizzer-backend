@@ -22,13 +22,14 @@ export class CloudinaryFileStorageService implements IFileStorageService {
       cloud_name: this.configService.get<string>("CLOUDINARY_CLOUD_NAME"),
       api_key: this.configService.get<string>("CLOUDINARY_API_KEY"),
       api_secret: this.configService.get<string>("CLOUDINARY_API_SECRET"),
+      secure: true, // Always use HTTPS
     });
 
     this.logger.log("Cloudinary configured successfully");
   }
 
   /**
-   * Upload a file to Cloudinary
+   * Upload a file to Cloudinary with public access
    */
   async uploadFile(
     file: Express.Multer.File,
@@ -40,13 +41,19 @@ export class CloudinaryFileStorageService implements IFileStorageService {
           options?.folder ||
           this.configService.get<string>("CLOUDINARY_UPLOAD_FOLDER", "quizzer"),
         resource_type: options?.resourceType || "auto",
+        type: "upload", // Use 'upload' type for publicly accessible URLs
+        access_mode: "public", // Explicitly set public access
+        invalidate: true, // Invalidate CDN cache if updating existing file
         public_id: options?.publicId,
         overwrite: options?.overwrite ?? false,
         tags: options?.tags,
+        // Additional settings to ensure public access
+        use_filename: false,
+        unique_filename: !options?.publicId, // Only use unique filename if publicId not provided
       };
 
       this.logger.debug(
-        `Uploading file: ${file.originalname} to folder: ${uploadOptions.folder}`
+        `Uploading file: ${file.originalname} to folder: ${uploadOptions.folder} with public access`
       );
 
       // Upload to Cloudinary using buffer
@@ -65,8 +72,11 @@ export class CloudinaryFileStorageService implements IFileStorageService {
         uploadStream.end(file.buffer);
       });
 
-      this.logger.log(`File uploaded successfully: ${result.public_id}`);
+      this.logger.log(
+        `File uploaded successfully: ${result.public_id} - URL: ${result.secure_url}`
+      );
 
+      // Return the secure URL which should be publicly accessible
       return {
         publicId: result.public_id,
         url: result.url,
@@ -90,7 +100,9 @@ export class CloudinaryFileStorageService implements IFileStorageService {
     try {
       this.logger.debug(`Deleting file: ${publicId}`);
 
-      const result = await cloudinary.uploader.destroy(publicId);
+      const result = await cloudinary.uploader.destroy(publicId, {
+        invalidate: true, // Invalidate CDN cache
+      });
 
       if (result.result === "ok" || result.result === "not found") {
         this.logger.log(`File deleted successfully: ${publicId}`);
@@ -111,6 +123,7 @@ export class CloudinaryFileStorageService implements IFileStorageService {
 
   /**
    * Get the URL of a file with optional transformations
+   * Always returns public, secure URLs
    */
   getFileUrl(publicId: string, options?: TransformOptions): string {
     try {
@@ -126,7 +139,9 @@ export class CloudinaryFileStorageService implements IFileStorageService {
       }
 
       const url = cloudinary.url(publicId, {
-        secure: true,
+        secure: true, // Always use HTTPS
+        type: "upload", // Use 'upload' type for public access
+        resource_type: "auto",
         transformation:
           Object.keys(transformation).length > 0 ? transformation : undefined,
       });

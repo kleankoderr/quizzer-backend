@@ -423,12 +423,29 @@ model Report {
   @@index([status])
 }
 
+model Document {
+  id               String   @id @default(uuid())
+  hash             String   @unique
+  cloudinaryUrl    String
+  cloudinaryId     String
+  googleFileUrl    String?
+  googleFileId     String?
+  fileName         String
+  mimeType         String
+  sizeBytes        Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@map("documents")
+  @@index([hash])
+}
+
 model PlatformSettings {
   id                String   @id @default(uuid())
   allowRegistration Boolean  @default(true)
   maintenanceMode   Boolean  @default(false)
   supportEmail      String?
-  aiPrompts         Json?    // Store AI prompts for different generation types
+  aiPrompts         Json?
   updatedAt         DateTime @updatedAt
 
   @@map("platform_settings")

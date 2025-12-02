@@ -21,6 +21,8 @@ import {
   IFileStorageService,
   FILE_STORAGE_SERVICE,
 } from "../file-storage/interfaces/file-storage.interface";
+import { DocumentHashService } from "../file-storage/services/document-hash.service";
+import { processFileUploads } from "../common/helpers/file-upload.helpers";
 
 @Injectable()
 export class FlashcardService {
@@ -33,8 +35,11 @@ export class FlashcardService {
     private readonly streakService: StreakService,
     private readonly challengeService: ChallengeService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject("GOOGLE_FILE_STORAGE_SERVICE")
+    private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
-    private readonly fileStorageService: IFileStorageService
+    private readonly cloudinaryFileStorageService: IFileStorageService,
+    private readonly documentHashService: DocumentHashService
   ) {}
 
   async generateFlashcards(
@@ -68,30 +73,28 @@ export class FlashcardService {
       `User ${userId} requesting flashcard generation: ${dto.numberOfCards} cards`
     );
 
-    // Upload files to Cloudinary and prepare data for queue
-    const fileData = [];
-    if (files && files.length > 0) {
-      for (const file of files) {
-        try {
-          const uploadResult = await this.fileStorageService.uploadFile(file, {
-            folder: "quizzer/flashcards",
-            resourceType: "auto",
-          });
+    let processedDocs = [];
 
-          fileData.push({
-            path: file.path,
-            originalname: file.originalname,
-            mimetype: file.mimetype,
-            url: uploadResult.secureUrl,
-            publicId: uploadResult.publicId,
-          });
-        } catch (error) {
-          this.logger.error(
-            `Failed to upload file ${file.originalname}:`,
-            error
+    if (files && files.length > 0) {
+      try {
+        processedDocs = await processFileUploads(
+          files,
+          this.documentHashService,
+          this.cloudinaryFileStorageService,
+          this.googleFileStorageService
+        );
+
+        const duplicateCount = processedDocs.filter(
+          (d) => d.isDuplicate
+        ).length;
+        if (duplicateCount > 0) {
+          this.logger.log(
+            `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`
           );
-          throw new Error(`Failed to upload file: ${file.originalname}`);
         }
+      } catch (error) {
+        this.logger.error(`Failed to process files for user ${userId}:`, error);
+        throw new Error(`Failed to upload files: ${error.message}`);
       }
     }
 
@@ -102,7 +105,13 @@ export class FlashcardService {
         {
           userId,
           dto,
-          files: fileData,
+          files: processedDocs.map((doc) => ({
+            originalname: doc.originalName,
+            cloudinaryUrl: doc.cloudinaryUrl,
+            cloudinaryId: doc.cloudinaryId,
+            googleFileUrl: doc.googleFileUrl,
+            googleFileId: doc.googleFileId,
+          })),
         },
         {
           removeOnComplete: { age: 60 }, // Keep for 1 minute
@@ -320,25 +329,26 @@ export class FlashcardService {
       where: { flashcardSetId: id },
     });
 
-    // Delete associated files from Cloudinary
+    // Delete associated files from Google File API
     if (flashcardSet.sourceFiles && flashcardSet.sourceFiles.length > 0) {
       this.logger.debug(
-        `Deleting ${flashcardSet.sourceFiles.length} files from Cloudinary`
+        `Deleting ${flashcardSet.sourceFiles.length} files from Google File API`
       );
       for (const fileUrl of flashcardSet.sourceFiles) {
-        if (fileUrl.includes("cloudinary")) {
-          try {
-            // Extract public_id from Cloudinary URL
-            const urlParts = fileUrl.split("/");
-            const filename = urlParts[urlParts.length - 1].split(".")[0];
-            const folder = urlParts.slice(-3, -1).join("/");
-            const publicId = `${folder}/${filename}`;
-            await this.fileStorageService.deleteFile(publicId);
-          } catch (error) {
-            this.logger.warn(
-              `Failed to delete file ${fileUrl}: ${error.message}`
-            );
-          }
+        try {
+          // Extract file name from Google File URI
+          // URI format: https://generativelanguage.googleapis.com/v1beta/files/abc123
+          const fileName = fileUrl.includes("files/")
+            ? fileUrl.split("files/")[1].split("?")[0]
+            : fileUrl;
+          const publicId = fileName.startsWith("files/")
+            ? fileName
+            : `files/${fileName}`;
+          await this.googleFileStorageService.deleteFile(publicId);
+        } catch (error) {
+          this.logger.warn(
+            `Failed to delete file ${fileUrl}: ${error.message}`
+          );
         }
       }
     }

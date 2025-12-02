@@ -22,6 +22,7 @@ import { QuizService } from "./quiz.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { GenerateQuizDto, SubmitQuizDto } from "./dto/quiz.dto";
+import { PdfOnly } from "../common/decorators/pdf-only.decorator";
 
 @ApiTags("Quizzes")
 @ApiBearerAuth()
@@ -36,32 +37,14 @@ export class QuizController {
   @ApiResponse({ status: 201, description: "Quiz successfully generated" })
   @ApiResponse({ status: 400, description: "Invalid input data" })
   @UseInterceptors(
-    FilesInterceptor("files", 5, {
-      fileFilter: (req, file, cb) => {
-        // Accept text files and PDFs
-        if (
-          file.mimetype.startsWith("text/") ||
-          file.mimetype === "application/pdf"
-        ) {
-          cb(null, true);
-        } else {
-          cb(
-            new BadRequestException("Only text files and PDFs are allowed"),
-            false
-          );
-        }
-      },
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB
-      },
-    })
+    PdfOnly({ maxFiles: 5, maxSizePerFile: 5 * 1024 * 1024 }),
+    FilesInterceptor("files", 5)
   )
   async generateQuiz(
     @CurrentUser("sub") userId: string,
     @Body() dto: GenerateQuizDto,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
-    // Validate that at least one source is provided
     if (!dto.topic && !dto.content && (!files || files.length === 0)) {
       throw new BadRequestException(
         "Please provide either a topic, content, or upload files"
