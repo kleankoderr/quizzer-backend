@@ -13,6 +13,20 @@ import { LeaderboardService } from "../leaderboard/leaderboard.service";
 import { QuizType } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
 
+/**
+ * Transform Prisma QuizType enum to frontend-compatible format
+ */
+function transformQuizType(quizType: QuizType): string {
+  const typeMap: Record<QuizType, string> = {
+    [QuizType.STANDARD]: "standard",
+    [QuizType.TIMED_TEST]: "timed",
+    [QuizType.SCENARIO_BASED]: "scenario",
+    [QuizType.QUICK_CHECK]: "standard",
+    [QuizType.CONFIDENCE_BASED]: "standard",
+  };
+  return typeMap[quizType] || "standard";
+}
+
 // Constants
 const CACHE_TTL = {
   ALL_CHALLENGES: 120000, // 2 minutes

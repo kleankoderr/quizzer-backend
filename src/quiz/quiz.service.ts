@@ -14,6 +14,21 @@ import {
   IFileStorageService,
   FILE_STORAGE_SERVICE,
 } from "../file-storage/interfaces/file-storage.interface";
+import { QuizType } from "@prisma/client";
+
+/**
+ * Transform Prisma QuizType enum to frontend-compatible format
+ */
+function transformQuizType(quizType: QuizType): string {
+  const typeMap: Record<QuizType, string> = {
+    [QuizType.STANDARD]: "standard",
+    [QuizType.TIMED_TEST]: "timed",
+    [QuizType.SCENARIO_BASED]: "scenario",
+    [QuizType.QUICK_CHECK]: "standard", // Map to standard for now
+    [QuizType.CONFIDENCE_BASED]: "standard", // Map to standard for now
+  };
+  return typeMap[quizType] || "standard";
+}
 
 @Injectable()
 export class QuizService {
@@ -148,15 +163,23 @@ export class QuizService {
         title: true,
         topic: true,
         difficulty: true,
+        quizType: true,
+        timeLimit: true,
         createdAt: true,
         questions: true,
       },
     });
 
-    // Cache for 5 minutes
-    await this.cacheManager.set(cacheKey, quizzes, 300000);
+    // Transform quizType for frontend compatibility
+    const transformedQuizzes = quizzes.map((quiz) => ({
+      ...quiz,
+      quizType: transformQuizType(quiz.quizType),
+    }));
 
-    return quizzes;
+    // Cache for 5 minutes
+    await this.cacheManager.set(cacheKey, transformedQuizzes, 300000);
+
+    return transformedQuizzes;
   }
 
   async getQuizById(id: string, userId: string) {
@@ -194,9 +217,10 @@ export class QuizService {
       throw new NotFoundException("Quiz not found");
     }
 
-    // Remove sensitive information
+    // Remove sensitive information and transform quizType
     const sanitizedQuiz = {
       ...quiz,
+      quizType: transformQuizType(quiz.quizType),
       questions: (quiz.questions as any[]).map((q) => {
         const { correctAnswer, explanation, ...sanitizedQuestion } = q;
         return sanitizedQuestion;
