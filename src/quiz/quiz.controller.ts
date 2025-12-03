@@ -32,7 +32,7 @@ export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
   @Post("generate")
-  @ApiOperation({ summary: "Generate a new quiz using AI" })
+  @ApiOperation({ summary: "Generate a new quiz" })
   @ApiConsumes("multipart/form-data")
   @ApiResponse({ status: 201, description: "Quiz successfully generated" })
   @ApiResponse({ status: 400, description: "Invalid input data" })

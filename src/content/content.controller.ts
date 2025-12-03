@@ -37,7 +37,7 @@ export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 
   @Post("generate")
-  @ApiOperation({ summary: "Generate content from topic using AI" })
+  @ApiOperation({ summary: "Generate content from topic" })
   @ApiResponse({ status: 201, description: "Content generated successfully" })
   async generateFromTopic(
     @CurrentUser("sub") userId: string,

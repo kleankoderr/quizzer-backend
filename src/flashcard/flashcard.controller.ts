@@ -32,7 +32,7 @@ export class FlashcardController {
   constructor(private readonly flashcardService: FlashcardService) {}
 
   @Post("generate")
-  @ApiOperation({ summary: "Generate flashcards using AI" })
+  @ApiOperation({ summary: "Generate flashcards" })
   @ApiConsumes("multipart/form-data")
   @ApiResponse({
     status: 201,

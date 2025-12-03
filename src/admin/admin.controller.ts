@@ -149,7 +149,7 @@ export class AdminController {
   }
 
   @Get("ai-analytics")
-  @ApiOperation({ summary: "Get AI usage analytics" })
+  @ApiOperation({ summary: "Get generation analytics" })
   getAiAnalytics() {
     return this.adminService.getAiAnalytics();
   }
