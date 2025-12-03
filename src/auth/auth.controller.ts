@@ -55,8 +55,9 @@ export class AuthController {
     @Body() signupDto: SignupDto,
     @Res({ passthrough: true }) res: Response
   ) {
-    const { user } = await this.authService.signup(signupDto);
-    return { user, message: "Account created successfully. Please sign in." };
+    const { user, accessToken } = await this.authService.signup(signupDto);
+    this.setCookie(res, accessToken);
+    return { user, message: "Account created successfully." };
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
