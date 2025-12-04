@@ -64,7 +64,7 @@ export class ContentService {
     if (content.quizId) {
       try {
         await this.quizService.deleteQuiz(content.quizId, userId);
-      } catch (error) {}
+      } catch (_error) {}
     }
 
     // Delete associated flashcard set if exists
@@ -74,7 +74,7 @@ export class ContentService {
           content.flashcardSetId,
           userId,
         );
-      } catch (error) {}
+      } catch (_error) {}
     }
 
     return this.prisma.content.delete({
@@ -136,7 +136,7 @@ export class ContentService {
           where: { id: content.id },
           data: { learningGuide },
         });
-      } catch (err) {}
+      } catch (_err) {}
 
       await this.taskService.updateTask(taskId, "COMPLETED", {
         contentId: content.id,
@@ -183,7 +183,7 @@ export class ContentService {
         const result = await mammoth.extractRawText({ buffer: file.buffer });
         extractedText = result.value;
       }
-    } catch (error) {
+    } catch (_error) {
       // Log the error stack for debugging
       if (error instanceof Error) {
       }
@@ -244,7 +244,7 @@ export class ContentService {
         where: { id: content.id },
         data: { learningGuide },
       });
-    } catch (err) {}
+    } catch (_err) {}
 
     return content;
   }
@@ -362,7 +362,7 @@ export class ContentService {
           where: { id: contentId },
           data: { flashcardSetId },
         })
-        .catch((err) => {});
+        .catch((_err) => {});
     }
 
     return {

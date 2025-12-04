@@ -121,7 +121,7 @@ export class AiService {
         if (file.path) {
           await fs.unlink(file.path).catch(() => {});
         }
-      } catch (error) {
+      } catch (_error) {
         throw new Error(`Failed to process file: ${file.originalname}`);
       }
     }
@@ -249,7 +249,7 @@ export class AiService {
       }
 
       return finalResult;
-    } catch (error) {
+    } catch (_error) {
       throw new Error("Failed to generate valid quiz format");
     }
   }
@@ -389,7 +389,7 @@ export class AiService {
       }
 
       return finalResult;
-    } catch (error) {
+    } catch (_error) {
       throw new Error("Failed to generate valid flashcard format");
     }
   }
@@ -427,7 +427,7 @@ export class AiService {
       const finalResult = JSON.parse(cleanedResponse);
       await this.cacheManager.set(cacheKey, finalResult, 3600000); // Cache for 1 hour
       return finalResult;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -435,11 +435,8 @@ export class AiService {
   /**
    * Generate generic content using AI
    */
-  async generateContent(params: {
-    prompt: string;
-    maxTokens?: number;
-  }): Promise<string> {
-    const { prompt, maxTokens = 1000 } = params;
+  async generateContent(params: { prompt: string }): Promise<string> {
+    const { prompt } = params;
 
     // Simple caching for generic content
     const cacheKey = `content:${Buffer.from(prompt).toString("base64").substring(0, 50)}`;
@@ -485,7 +482,7 @@ export class AiService {
       const finalResult = JSON.parse(cleanedResponse);
       await this.cacheManager.set(cacheKey, finalResult, 3600000); // Cache for 1 hour
       return finalResult;
-    } catch (error) {
+    } catch (_error) {
       throw new Error("Failed to generate valid learning guide format");
     }
   }

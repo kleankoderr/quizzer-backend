@@ -128,7 +128,7 @@ export class AssessmentService {
     // Quick Check - for topics in LEARNING or REINFORCEMENT
     const learningTopics = Object.entries(performance.retentionLevels)
       .filter(
-        ([_, level]) =>
+        ([_topic, level]) =>
           level === RetentionLevel.LEARNING ||
           level === RetentionLevel.REINFORCEMENT,
       )
@@ -146,7 +146,7 @@ export class AssessmentService {
     // Timed Test - for topics in RECALL or MASTERY
     const recallTopics = Object.entries(performance.retentionLevels)
       .filter(
-        ([_, level]) =>
+        ([_topic, level]) =>
           level === RetentionLevel.RECALL || level === RetentionLevel.MASTERY,
       )
       .map(([topic]) => topic);

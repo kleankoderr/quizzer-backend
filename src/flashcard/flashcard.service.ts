@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-  Inject,
-  BadRequestException,
-} from "@nestjs/common";
+import { Injectable, NotFoundException, Logger, Inject } from "@nestjs/common";
 
 // ... existing imports ...
 

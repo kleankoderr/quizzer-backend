@@ -1,7 +1,6 @@
 import { Logger } from "@nestjs/common";
 import {
   DocumentHashService,
-  DocumentMetadata,
   ProviderUrls,
 } from "../../file-storage/services/document-hash.service";
 import { IFileStorageService } from "../../file-storage/interfaces/file-storage.interface";

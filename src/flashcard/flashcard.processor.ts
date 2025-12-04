@@ -74,7 +74,7 @@ export class FlashcardProcessor extends WorkerHost {
       this.logger.log(
         `Job ${job.id}: Calling AI service to generate flashcards`,
       );
-      const { cards, title, topic } = await this.aiService.generateFlashcards({
+      const { cards } = await this.aiService.generateFlashcards({
         topic: dto.topic,
         content: dto.content,
         files: processedFiles,
@@ -84,13 +84,13 @@ export class FlashcardProcessor extends WorkerHost {
       this.logger.log(`Job ${job.id}: AI generated ${cards.length} flashcards`);
       await job.updateProgress(70);
 
-      // Determine source type
-      let sourceType = "topic";
-      if (dto.content) sourceType = "text";
-      if (files && files.length > 0) sourceType = "file";
+      // Determine source type (unused)
+      let _sourceType = "topic";
+      if (dto.content) _sourceType = "text";
+      if (files && files.length > 0) _sourceType = "file";
 
-      // Get file URLs from job data
-      const fileUrls = files?.map((f) => f.url).filter(Boolean) || [];
+      // Get file URLs from job data (unused)
+      const _fileUrls = files?.map((f) => f.url).filter(Boolean) || [];
 
       await job.updateProgress(85);
 

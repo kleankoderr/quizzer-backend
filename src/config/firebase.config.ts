@@ -14,7 +14,7 @@ const getServiceAccount = () => {
 
   try {
     return JSON.parse(serviceAccountJson);
-  } catch (error) {
+  } catch (_error) {
     throw new Error(
       "Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. " +
         "Please ensure it contains valid JSON.",

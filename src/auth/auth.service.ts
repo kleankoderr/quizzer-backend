@@ -127,7 +127,7 @@ export class AuthService {
       }
 
       return this.generateAuthResponse(user);
-    } catch (error) {
+    } catch (_error) {
       throw new UnauthorizedException("Invalid Google token");
     }
   }

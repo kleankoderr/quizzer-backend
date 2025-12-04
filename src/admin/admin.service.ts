@@ -12,7 +12,6 @@ import {
   CreateSchoolDto,
   UpdateSchoolDto,
   PlatformSettingsDto,
-  CreateChallengeDto,
 } from "./dto/admin.dto";
 import { ForbiddenException } from "@nestjs/common";
 
@@ -336,7 +335,7 @@ export class AdminService {
   }
 
   async getAllContent(filterDto: ContentFilterDto) {
-    const { search, type, page = "1", limit = "10" } = filterDto;
+    const { search, page = "1", limit = "10" } = filterDto;
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -519,9 +518,6 @@ export class AdminService {
     const totalTasks = await this.prisma.task.count();
     const failedTasks = await this.prisma.task.count({
       where: { status: "FAILED" },
-    });
-    const completedTasks = await this.prisma.task.count({
-      where: { status: "COMPLETED" },
     });
 
     // Get tasks by type

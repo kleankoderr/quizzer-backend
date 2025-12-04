@@ -155,7 +155,7 @@ export class GoogleFileStorageService implements IFileStorageService {
    * For Google File API, this returns the URI that can be used in AI prompts
    * Note: Transform options are not supported by Google File API
    */
-  getFileUrl(publicId: string, options?: TransformOptions): string {
+  getFileUrl(publicId: string, _options?: TransformOptions): string {
     // For Google File API, the publicId is the URI
     return publicId;
   }

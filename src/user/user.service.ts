@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
-  ConflictException,
   Inject,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
@@ -179,7 +178,7 @@ export class UserService {
         const folder = urlParts.slice(-3, -1).join("/");
         const publicId = `${folder}/${filename}`;
         await this.fileStorageService.deleteFile(publicId);
-      } catch (error) {
+      } catch (_error) {
         // Log but don't fail if old avatar deletion fails
       }
     }

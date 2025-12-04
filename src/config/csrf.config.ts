@@ -15,8 +15,8 @@ export const {
   },
   size: 64,
   ignoredMethods: ["GET", "HEAD", "OPTIONS"],
-  getCsrfTokenFromRequest: (req) => req.headers["x-csrf-token"],
-  getSessionIdentifier: (req) => "api-session",
+  getCsrfTokenFromRequest: (_req) => req.headers["x-csrf-token"],
+  getSessionIdentifier: (_req) => "api-session",
 }) as any;
 
 // Override the error to be generic

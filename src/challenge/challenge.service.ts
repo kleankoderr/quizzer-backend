@@ -1017,7 +1017,7 @@ export class ChallengeService {
 
   private async getSystemUser() {
     this.logger.debug("Fetching system user...");
-    let systemUser = await this.prisma.user.findUnique({
+    const systemUser = await this.prisma.user.findUnique({
       where: { email: this.systemUserEmail },
     });
     return systemUser;

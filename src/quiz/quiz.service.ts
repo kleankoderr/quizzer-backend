@@ -16,10 +16,7 @@ import {
 } from "../file-storage/interfaces/file-storage.interface";
 import { QuizType } from "@prisma/client";
 import { DocumentHashService } from "../file-storage/services/document-hash.service";
-import {
-  processFileUploads,
-  cleanupFailedUploads,
-} from "../common/helpers/file-upload.helpers";
+import { processFileUploads } from "../common/helpers/file-upload.helpers";
 
 /**
  * Transform Prisma QuizType enum to frontend-compatible format
@@ -232,7 +229,11 @@ export class QuizService {
       ...quiz,
       quizType: transformQuizType(quiz.quizType),
       questions: (quiz.questions as any[]).map((q) => {
-        const { correctAnswer, explanation, ...sanitizedQuestion } = q;
+        const {
+          correctAnswer: _correctAnswer,
+          explanation: _explanation,
+          ...sanitizedQuestion
+        } = q;
         return sanitizedQuestion;
       }),
     };
