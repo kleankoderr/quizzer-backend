@@ -1,8 +1,8 @@
 {
   "name": "quizzer-backend",
   "version": "1.0.0",
-  "description": "AI-Powered Quiz and Flashcard Generation API",
-  "author": "",
+  "description": "Smart Learning Platform Backend",
+  "author": "Whalewalker",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -48,7 +48,7 @@
     "cloudinary": "^2.8.0",
     "cookie-parser": "^1.4.7",
     "csrf-csrf": "^4.0.3",
-    "firebase-admin": "^13.6.0",
+    "google-auth-library": "^10.5.0",
     "langchain": "^1.0.4",
     "mammoth": "^1.11.0",
     "multer": "^2.0.2",

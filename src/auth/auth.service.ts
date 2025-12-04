@@ -1,3 +1,4 @@
+import { OAuth2Client } from "google-auth-library";
 import {
   Injectable,
   UnauthorizedException,
@@ -8,26 +9,27 @@ import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../prisma/prisma.service";
 import * as bcrypt from "bcrypt";
 import { SignupDto, LoginDto, GoogleAuthDto } from "./dto/auth.dto";
-import { auth } from "../config/firebase.config";
-
-import { SchoolService } from "../school/school.service";
 import { SettingsService } from "../settings/settings.service";
+import axios from "axios";
 
 @Injectable()
 export class AuthService {
+  private client: OAuth2Client;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly schoolService: SchoolService,
-    private readonly settingsService: SettingsService,
-  ) {}
+    private readonly settingsService: SettingsService
+  ) {
+    this.client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  }
 
   async signup(signupDto: SignupDto) {
     // Check if registration is allowed
     const settings = await this.settingsService.getPublicSettings();
     if (!settings.allowRegistration) {
       throw new ForbiddenException(
-        "Registration is currently disabled. Please check back later or contact support.",
+        "Registration is currently disabled. Please check back later or contact support."
       );
     }
 
@@ -80,13 +82,53 @@ export class AuthService {
   }
 
   async googleLogin(googleAuthDto: GoogleAuthDto) {
-    const { idToken } = googleAuthDto;
+    const { idToken: token } = googleAuthDto;
 
     try {
-      // Verify the Google ID token using Firebase Admin
-      const decodedToken = await auth.verifyIdToken(idToken);
+      let email: string;
+      let name: string;
+      let picture: string;
+      let uid: string;
 
-      const { email, name, picture, uid } = decodedToken;
+      // Check if token is JWT (ID Token)
+      if (token.split(".").length === 3) {
+        const ticket = await this.client.verifyIdToken({
+          idToken: token,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+
+        if (!payload) {
+          throw new UnauthorizedException("Invalid Google token");
+        }
+
+        email = payload.email;
+        name = payload.name;
+        picture = payload.picture;
+        uid = payload.sub;
+      } else {
+        // Assume Access Token - Fetch user info
+        try {
+          const userInfoResponse = await axios.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          const userInfo = userInfoResponse.data;
+          email = userInfo.email;
+          name = userInfo.name;
+          picture = userInfo.picture;
+          uid = userInfo.sub;
+        } catch (error) {
+          console.error(
+            "Failed to fetch user info with access token:",
+            error.response?.data || error.message
+          );
+          throw new UnauthorizedException("Invalid Google access token");
+        }
+      }
 
       if (!email) {
         throw new UnauthorizedException("Email not found in Google token");
@@ -110,7 +152,7 @@ export class AuthService {
         const settings = await this.settingsService.getPublicSettings();
         if (!settings.allowRegistration) {
           throw new ForbiddenException(
-            "Registration is currently disabled. Please check back later or contact support.",
+            "Registration is currently disabled. Please check back later or contact support."
           );
         }
 
@@ -127,7 +169,8 @@ export class AuthService {
       }
 
       return this.generateAuthResponse(user);
-    } catch (_error) {
+    } catch (error) {
+      console.error("Google login error:", error);
       throw new UnauthorizedException("Invalid Google token");
     }
   }
