@@ -36,7 +36,7 @@ class ChallengeController {
   @Post("complete")
   async completeChallenge(
     @CurrentUser("sub") userId: string,
-    @Body() body: { challengeId: string }
+    @Body() body: { challengeId: string },
   ) {
     return this.challengeService.completeChallenge(body.challengeId, userId);
   }
@@ -44,7 +44,7 @@ class ChallengeController {
   @Post("join")
   async joinChallenge(
     @CurrentUser("sub") userId: string,
-    @Body() body: { challengeId: string }
+    @Body() body: { challengeId: string },
   ) {
     return this.challengeService.joinChallenge(body.challengeId, userId);
   }
@@ -52,7 +52,7 @@ class ChallengeController {
   @Post("leave")
   async leaveChallenge(
     @CurrentUser("sub") userId: string,
-    @Body() body: { challengeId: string }
+    @Body() body: { challengeId: string },
   ) {
     return this.challengeService.leaveChallenge(body.challengeId, userId);
   }
@@ -60,7 +60,7 @@ class ChallengeController {
   @Get(":id")
   async getChallengeById(
     @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.challengeService.getChallengeById(id, userId);
   }
@@ -68,7 +68,7 @@ class ChallengeController {
   @Post(":id/start")
   async startChallenge(
     @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.challengeService.startChallenge(id, userId);
   }
@@ -79,20 +79,20 @@ class ChallengeController {
     @Param("quizId") quizId: string,
     @CurrentUser("sub") userId: string,
     @Body()
-    attemptData: { score: number; totalQuestions: number; attemptId: string }
+    attemptData: { score: number; totalQuestions: number; attemptId: string },
   ) {
     return this.challengeService.completeQuizInChallenge(
       challengeId,
       quizId,
       userId,
-      attemptData
+      attemptData,
     );
   }
 
   @Get(":id/progress")
   async getChallengeProgress(
     @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.challengeService.getChallengeProgress(id, userId);
   }
@@ -100,10 +100,10 @@ class ChallengeController {
   @Get(":id/leaderboard")
   async getChallengeLeaderboard(
     @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.challengeService.getChallengeLeaderboard(id, userId);
   }
 }
 
-export default ChallengeController
+export default ChallengeController;

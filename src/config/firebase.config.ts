@@ -8,7 +8,7 @@ const getServiceAccount = () => {
   if (!serviceAccountJson) {
     throw new Error(
       "FIREBASE_SERVICE_ACCOUNT_JSON environment variable is not set. " +
-        "Please add your Firebase service account JSON to the .env file."
+        "Please add your Firebase service account JSON to the .env file.",
     );
   }
 
@@ -17,7 +17,7 @@ const getServiceAccount = () => {
   } catch (error) {
     throw new Error(
       "Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. " +
-        "Please ensure it contains valid JSON."
+        "Please ensure it contains valid JSON.",
     );
   }
 };
@@ -26,7 +26,7 @@ const getServiceAccount = () => {
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
-      getServiceAccount() as admin.ServiceAccount
+      getServiceAccount() as admin.ServiceAccount,
     ),
   });
 }

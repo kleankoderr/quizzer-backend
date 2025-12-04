@@ -50,7 +50,7 @@ export class UserController {
   @ApiResponse({ status: 404, description: "User not found" })
   async updateProfile(
     @CurrentUser("sub") userId: string,
-    @Body() updateProfileDto: UpdateProfileDto
+    @Body() updateProfileDto: UpdateProfileDto,
   ) {
     return this.userService.updateProfile(userId, updateProfileDto);
   }
@@ -61,7 +61,7 @@ export class UserController {
   @ApiResponse({ status: 404, description: "User not found" })
   async updateSettings(
     @CurrentUser("sub") userId: string,
-    @Body() updateSettingsDto: UpdateSettingsDto
+    @Body() updateSettingsDto: UpdateSettingsDto,
   ) {
     return this.userService.updateSettings(userId, updateSettingsDto);
   }
@@ -73,7 +73,7 @@ export class UserController {
   @ApiResponse({ status: 404, description: "User not found" })
   async changePassword(
     @CurrentUser("sub") userId: string,
-    @Body() changePasswordDto: ChangePasswordDto
+    @Body() changePasswordDto: ChangePasswordDto,
   ) {
     return this.userService.changePassword(userId, changePasswordDto);
   }
@@ -92,9 +92,9 @@ export class UserController {
           new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
           new FileTypeValidator({ fileType: /(jpg|jpeg|png|gif|webp)$/ }),
         ],
-      })
+      }),
     )
-    file: Express.Multer.File
+    file: Express.Multer.File,
   ) {
     return this.userService.uploadAvatar(userId, file);
   }

@@ -19,7 +19,7 @@ export class QuoteService implements OnModuleInit {
 
   constructor(
     private readonly httpService: HttpService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async onModuleInit() {
@@ -51,7 +51,7 @@ export class QuoteService implements OnModuleInit {
     try {
       // Fetch a batch of 50 quotes to filter from
       const response = await firstValueFrom(
-        this.httpService.get<Quote[]>("https://zenquotes.io/api/quotes")
+        this.httpService.get<Quote[]>("https://zenquotes.io/api/quotes"),
       );
 
       if (response.data && response.data.length > 0) {
@@ -67,7 +67,7 @@ export class QuoteService implements OnModuleInit {
           "goal",
         ];
         const relevantQuotes = response.data.filter((q) =>
-          keywords.some((k) => q.q.toLowerCase().includes(k))
+          keywords.some((k) => q.q.toLowerCase().includes(k)),
         );
 
         // Use a relevant quote if found, otherwise just the first one (or random from batch)
@@ -84,7 +84,7 @@ export class QuoteService implements OnModuleInit {
         await this.cacheManager.set(
           this.CACHE_KEY,
           formattedQuote,
-          25 * 60 * 60 * 1000
+          25 * 60 * 60 * 1000,
         );
         this.logger.log(`Daily quote updated: "${formattedQuote.text}"`);
         return formattedQuote;
@@ -92,7 +92,7 @@ export class QuoteService implements OnModuleInit {
     } catch (error) {
       this.logger.warn(
         "Failed to fetch daily quote from API, using fallback",
-        error
+        error,
       );
     }
 

@@ -45,7 +45,7 @@ export class CompanionController {
     const userId = req.user.userId;
     const daysNum = days ? parseInt(days, 10) : 7;
     this.logger.log(
-      `GET /companion/statistics?days=${daysNum} - User: ${userId}`
+      `GET /companion/statistics?days=${daysNum} - User: ${userId}`,
     );
     return this.companionService.getStudyStatistics(userId, daysNum);
   }
@@ -59,18 +59,18 @@ export class CompanionController {
       duration: number;
       itemsStudied: number;
       performance?: number;
-    }
+    },
   ) {
     const userId = req.user.userId;
     this.logger.log(
-      `POST /companion/track-session - User: ${userId}, Type: ${body.type}`
+      `POST /companion/track-session - User: ${userId}, Type: ${body.type}`,
     );
     return this.companionService.trackStudySession(
       userId,
       body.type,
       body.duration,
       body.itemsStudied,
-      body.performance
+      body.performance,
     );
   }
 }

@@ -18,7 +18,7 @@ export class AssessmentService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService
+    private readonly aiService: AiService,
   ) {}
 
   /**
@@ -44,13 +44,13 @@ export class AssessmentService {
 
     // Calculate average score
     const quizAttempts = attempts.filter(
-      (a) => a.type === "quiz" && a.score != null
+      (a) => a.type === "quiz" && a.score != null,
     );
     const averageScore =
       quizAttempts.length > 0
         ? quizAttempts.reduce(
             (sum, a) => sum + (a.score! / a.totalQuestions!) * 100,
-            0
+            0,
           ) / quizAttempts.length
         : 0;
 
@@ -130,7 +130,7 @@ export class AssessmentService {
       .filter(
         ([_, level]) =>
           level === RetentionLevel.LEARNING ||
-          level === RetentionLevel.REINFORCEMENT
+          level === RetentionLevel.REINFORCEMENT,
       )
       .map(([topic]) => topic);
 
@@ -147,7 +147,7 @@ export class AssessmentService {
     const recallTopics = Object.entries(performance.retentionLevels)
       .filter(
         ([_, level]) =>
-          level === RetentionLevel.RECALL || level === RetentionLevel.MASTERY
+          level === RetentionLevel.RECALL || level === RetentionLevel.MASTERY,
       )
       .map(([topic]) => topic);
 
@@ -178,7 +178,7 @@ export class AssessmentService {
         "Confidence-based quizzes help identify what you truly understand",
       suggestedTopics: [...performance.weakTopics, ...learningTopics].slice(
         0,
-        3
+        3,
       ),
       priority: "medium",
     });
@@ -201,13 +201,13 @@ export class AssessmentService {
     ]);
 
     const dueTopics = topicProgress.filter(
-      (tp) => new Date(tp.nextReviewAt) <= new Date()
+      (tp) => new Date(tp.nextReviewAt) <= new Date(),
     );
 
     const upcomingTopics = topicProgress.filter(
       (tp) =>
         new Date(tp.nextReviewAt) > new Date() &&
-        new Date(tp.nextReviewAt) <= new Date(Date.now() + 24 * 60 * 60 * 1000)
+        new Date(tp.nextReviewAt) <= new Date(Date.now() + 24 * 60 * 60 * 1000),
     );
 
     return {
@@ -252,7 +252,7 @@ export class AssessmentService {
     const avgScore =
       recentAttempts.reduce(
         (sum, a) => sum + (a.score! / a.totalQuestions!) * 100,
-        0
+        0,
       ) / recentAttempts.length;
 
     if (avgScore >= 85) return "hard";
@@ -266,7 +266,7 @@ export class AssessmentService {
   async trackWeakAreas(
     userId: string,
     topic: string,
-    answers: any[]
+    answers: any[],
   ): Promise<void> {
     this.logger.log(`Tracking weak areas for user ${userId}, topic ${topic}`);
 

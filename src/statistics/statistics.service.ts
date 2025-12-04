@@ -19,22 +19,22 @@ export class StatisticsService {
     const totalAttempts = attempts.length;
     const quizAttempts = attempts.filter((a) => a.type === "quiz").length;
     const flashcardAttempts = attempts.filter(
-      (a) => a.type === "flashcard"
+      (a) => a.type === "flashcard",
     ).length;
 
     const challengeAttempts = attempts.filter(
-      (a) => a.type === "challenge"
+      (a) => a.type === "challenge",
     ).length;
 
     // Calculate average accuracy
     const attemptsWithScores = attempts.filter(
-      (a) => a.score !== null && a.totalQuestions !== null
+      (a) => a.score !== null && a.totalQuestions !== null,
     );
     const averageAccuracy =
       attemptsWithScores.length > 0
         ? attemptsWithScores.reduce(
             (sum, a) => sum + (Math.max(0, a.score!) / a.totalQuestions!) * 100,
-            0
+            0,
           ) / attemptsWithScores.length
         : 0;
 
@@ -68,7 +68,7 @@ export class StatisticsService {
       endDate?: string;
       limit?: number;
       page?: number;
-    }
+    },
   ) {
     const where: any = { userId };
 

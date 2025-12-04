@@ -39,21 +39,21 @@ export class FlashcardService {
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
-    private readonly documentHashService: DocumentHashService
+    private readonly documentHashService: DocumentHashService,
   ) {}
 
   async generateFlashcards(
     userId: string,
     dto: GenerateFlashcardDto,
-    files?: Express.Multer.File[]
+    files?: Express.Multer.File[],
   ) {
     // Enhanced validation
     if (!dto.topic && !dto.content && (!files || files.length === 0)) {
       this.logger.warn(
-        `User ${userId} attempted flashcard generation without any input`
+        `User ${userId} attempted flashcard generation without any input`,
       );
       throw new Error(
-        "Please provide either a topic, content, or upload files to generate flashcards"
+        "Please provide either a topic, content, or upload files to generate flashcards",
       );
     }
 
@@ -64,13 +64,13 @@ export class FlashcardService {
       dto.numberOfCards > 100
     ) {
       this.logger.warn(
-        `User ${userId} provided invalid numberOfCards: ${dto.numberOfCards}`
+        `User ${userId} provided invalid numberOfCards: ${dto.numberOfCards}`,
       );
       throw new Error("Number of cards must be between 5 and 100");
     }
 
     this.logger.log(
-      `User ${userId} requesting flashcard generation: ${dto.numberOfCards} cards`
+      `User ${userId} requesting flashcard generation: ${dto.numberOfCards} cards`,
     );
 
     let processedDocs = [];
@@ -81,15 +81,15 @@ export class FlashcardService {
           files,
           this.documentHashService,
           this.cloudinaryFileStorageService,
-          this.googleFileStorageService
+          this.googleFileStorageService,
         );
 
         const duplicateCount = processedDocs.filter(
-          (d) => d.isDuplicate
+          (d) => d.isDuplicate,
         ).length;
         if (duplicateCount > 0) {
           this.logger.log(
-            `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`
+            `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`,
           );
         }
       } catch (error) {
@@ -121,7 +121,7 @@ export class FlashcardService {
             type: "exponential",
             delay: 2000,
           },
-        }
+        },
       );
 
       // Invalidate flashcard cache after new set is generated
@@ -136,17 +136,17 @@ export class FlashcardService {
     } catch (error) {
       this.logger.error(
         `Failed to create flashcard generation job for user ${userId}:`,
-        error
+        error,
       );
       throw new Error(
-        "Failed to start flashcard generation. Please try again."
+        "Failed to start flashcard generation. Please try again.",
       );
     }
   }
 
   async getJobStatus(jobId: string, userId: string) {
     this.logger.debug(
-      `Checking flashcard job status for job ${jobId}, user ${userId}`
+      `Checking flashcard job status for job ${jobId}, user ${userId}`,
     );
     const job = await this.flashcardQueue.getJob(jobId);
 
@@ -158,7 +158,7 @@ export class FlashcardService {
     // Security: check if job belongs to user
     if (job.data.userId !== userId) {
       this.logger.warn(
-        `User ${userId} attempted to access flashcard job ${jobId} owned by ${job.data.userId}`
+        `User ${userId} attempted to access flashcard job ${jobId} owned by ${job.data.userId}`,
       );
       throw new NotFoundException("Job not found");
     }
@@ -167,7 +167,7 @@ export class FlashcardService {
     const progress = job.progress;
 
     this.logger.debug(
-      `Flashcard job ${jobId} status: ${state}, progress: ${JSON.stringify(progress)}`
+      `Flashcard job ${jobId} status: ${state}, progress: ${JSON.stringify(progress)}`,
     );
 
     return {
@@ -224,10 +224,10 @@ export class FlashcardService {
     cardResponses: Array<{
       cardIndex: number;
       response: "know" | "dont-know" | "skipped";
-    }>
+    }>,
   ) {
     this.logger.log(
-      `User ${userId} recording flashcard session for set ${flashcardSetId}`
+      `User ${userId} recording flashcard session for set ${flashcardSetId}`,
     );
     const flashcardSet = await this.prisma.flashcardSet.findFirst({
       where: { id: flashcardSetId, userId },
@@ -235,7 +235,7 @@ export class FlashcardService {
 
     if (!flashcardSet) {
       this.logger.warn(
-        `Flashcard set ${flashcardSetId} not found for user ${userId}`
+        `Flashcard set ${flashcardSetId} not found for user ${userId}`,
       );
       throw new NotFoundException("Flashcard set not found");
     }
@@ -269,7 +269,7 @@ export class FlashcardService {
 
     // Update streak with positive responses count for XP calculation
     const correctCount = cardResponses.filter(
-      (r) => r.response === "know"
+      (r) => r.response === "know",
     ).length;
     await this.streakService.updateStreak(userId, correctCount, cards.length);
 
@@ -280,26 +280,26 @@ export class FlashcardService {
       .catch((err) =>
         this.logger.error(
           `Failed to update challenge progress for user ${userId}:`,
-          err
-        )
+          err,
+        ),
       );
 
     // Generate and store recommendations based on this flashcard session.
     // Do not block response — run asynchronously.
     this.logger.debug(
-      `Triggering recommendation generation for user ${userId}`
+      `Triggering recommendation generation for user ${userId}`,
     );
     this.recommendationService
       .generateAndStoreRecommendations(userId)
       .catch((err) =>
         this.logger.error(
           `Failed to generate recommendations for user ${userId}:`,
-          err
-        )
+          err,
+        ),
       );
 
     this.logger.log(
-      `Flashcard session recorded: ${correctCount} correct, score: ${score}`
+      `Flashcard session recorded: ${correctCount} correct, score: ${score}`,
     );
     return {
       ...attempt,
@@ -332,7 +332,7 @@ export class FlashcardService {
     // Delete associated files from Google File API
     if (flashcardSet.sourceFiles && flashcardSet.sourceFiles.length > 0) {
       this.logger.debug(
-        `Deleting ${flashcardSet.sourceFiles.length} files from Google File API`
+        `Deleting ${flashcardSet.sourceFiles.length} files from Google File API`,
       );
       for (const fileUrl of flashcardSet.sourceFiles) {
         try {
@@ -347,7 +347,7 @@ export class FlashcardService {
           await this.googleFileStorageService.deleteFile(publicId);
         } catch (error) {
           this.logger.warn(
-            `Failed to delete file ${fileUrl}: ${error.message}`
+            `Failed to delete file ${fileUrl}: ${error.message}`,
           );
         }
       }
@@ -363,7 +363,7 @@ export class FlashcardService {
       } catch (error) {
         // Ignore if content not found or other error
         this.logger.warn(
-          `Failed to dereference flashcard set ${id} from content ${flashcardSet.contentId}: ${error.message}`
+          `Failed to dereference flashcard set ${id} from content ${flashcardSet.contentId}: ${error.message}`,
         );
       }
     }

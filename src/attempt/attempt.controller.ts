@@ -16,7 +16,7 @@ export class AttemptController {
   @Get("quiz/:quizId")
   async getAttemptsByQuiz(
     @Param("quizId") quizId: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.attemptService.getAttemptsByQuiz(quizId, userId);
   }
@@ -24,7 +24,7 @@ export class AttemptController {
   @Get("flashcard/:flashcardId")
   async getAttemptsByFlashcard(
     @Param("flashcardId") flashcardId: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.attemptService.getAttemptsByFlashcard(flashcardId, userId);
   }
@@ -32,7 +32,7 @@ export class AttemptController {
   @Get(":id")
   async getAttemptById(
     @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.attemptService.getAttemptById(id, userId);
   }

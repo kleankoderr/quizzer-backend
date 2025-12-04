@@ -60,7 +60,7 @@ export class AssessmentController {
   async resolveWeakArea(@Param("id") id: string, @Req() req: any) {
     const userId = req.user.userId;
     this.logger.log(
-      `POST /assessment/weak-areas/${id}/resolve - User: ${userId}`
+      `POST /assessment/weak-areas/${id}/resolve - User: ${userId}`,
     );
     return this.assessmentService.resolveWeakArea(id);
   }
@@ -68,16 +68,16 @@ export class AssessmentController {
   @Post("track-weak-areas")
   async trackWeakAreas(
     @Req() req: any,
-    @Body() body: { topic: string; answers: any[] }
+    @Body() body: { topic: string; answers: any[] },
   ) {
     const userId = req.user.userId;
     this.logger.log(
-      `POST /assessment/track-weak-areas - User: ${userId}, Topic: ${body.topic}`
+      `POST /assessment/track-weak-areas - User: ${userId}, Topic: ${body.topic}`,
     );
     await this.assessmentService.trackWeakAreas(
       userId,
       body.topic,
-      body.answers
+      body.answers,
     );
     return { success: true };
   }

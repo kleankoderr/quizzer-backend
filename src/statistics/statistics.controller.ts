@@ -45,7 +45,7 @@ export class StatisticsController {
     @Query("startDate") startDate?: string,
     @Query("endDate") endDate?: string,
     @Query("limit") limit?: number,
-    @Query("page") page?: number
+    @Query("page") page?: number,
   ) {
     return this.statisticsService.getAttempts(userId, {
       type,
@@ -72,11 +72,11 @@ export class StatisticsController {
   @ApiResponse({ status: 200, description: "Activity data for heatmap" })
   async getActivityHeatmap(
     @CurrentUser("sub") userId: string,
-    @Query("year") year?: number
+    @Query("year") year?: number,
   ) {
     return this.statisticsService.getActivityHeatmap(
       userId,
-      year ? Number(year) : undefined
+      year ? Number(year) : undefined,
     );
   }
 }

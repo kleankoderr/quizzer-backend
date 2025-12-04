@@ -21,7 +21,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly challengeService: ChallengeService
+    private readonly challengeService: ChallengeService,
   ) {}
 
   async deleteContent(contentId: string) {
@@ -278,7 +278,7 @@ export class AdminService {
     if (type === "all") {
       data.sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
       total = data.length;
       data = data.slice(skip, skip + limitNum);
@@ -596,8 +596,8 @@ export class AdminService {
               quizId,
               order: index,
             },
-          })
-        )
+          }),
+        ),
       );
     }
 

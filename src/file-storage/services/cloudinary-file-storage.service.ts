@@ -33,7 +33,7 @@ export class CloudinaryFileStorageService implements IFileStorageService {
    */
   async uploadFile(
     file: Express.Multer.File,
-    options?: UploadOptions
+    options?: UploadOptions,
   ): Promise<UploadResult> {
     try {
       const uploadOptions = {
@@ -53,7 +53,7 @@ export class CloudinaryFileStorageService implements IFileStorageService {
       };
 
       this.logger.debug(
-        `Uploading file: ${file.originalname} to folder: ${uploadOptions.folder} with public access`
+        `Uploading file: ${file.originalname} to folder: ${uploadOptions.folder} with public access`,
       );
 
       // Upload to Cloudinary using buffer
@@ -66,14 +66,14 @@ export class CloudinaryFileStorageService implements IFileStorageService {
             } else {
               resolve(result);
             }
-          }
+          },
         );
 
         uploadStream.end(file.buffer);
       });
 
       this.logger.log(
-        `File uploaded successfully: ${result.public_id} - URL: ${result.secure_url}`
+        `File uploaded successfully: ${result.public_id} - URL: ${result.secure_url}`,
       );
 
       // Return the secure URL which should be publicly accessible
@@ -108,13 +108,13 @@ export class CloudinaryFileStorageService implements IFileStorageService {
         this.logger.log(`File deleted successfully: ${publicId}`);
       } else {
         this.logger.warn(
-          `Unexpected delete result for ${publicId}: ${result.result}`
+          `Unexpected delete result for ${publicId}: ${result.result}`,
         );
       }
     } catch (error) {
       this.logger.error(
         `Failed to delete file ${publicId}: ${error.message}`,
-        error.stack
+        error.stack,
       );
       // Don't throw error for delete failures - log and continue
       // This prevents cascading failures when cleaning up
@@ -149,7 +149,7 @@ export class CloudinaryFileStorageService implements IFileStorageService {
       return url;
     } catch (error) {
       this.logger.error(
-        `Failed to generate URL for ${publicId}: ${error.message}`
+        `Failed to generate URL for ${publicId}: ${error.message}`,
       );
       throw new Error(`URL generation failed: ${error.message}`);
     }

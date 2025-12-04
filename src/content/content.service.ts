@@ -24,7 +24,7 @@ export class ContentService {
     private readonly taskService: TaskService,
 
     private readonly quizService: QuizService,
-    private readonly flashcardService: FlashcardService
+    private readonly flashcardService: FlashcardService,
   ) {}
 
   /**
@@ -72,7 +72,7 @@ export class ContentService {
       try {
         await this.flashcardService.deleteFlashcardSet(
           content.flashcardSetId,
-          userId
+          userId,
         );
       } catch (error) {}
     }
@@ -85,7 +85,7 @@ export class ContentService {
   async generateFromTopic(userId: string, topic: string) {
     const task = await this.taskService.createTask(
       userId,
-      "CONTENT_GENERATION"
+      "CONTENT_GENERATION",
     );
 
     // Run in background
@@ -97,7 +97,7 @@ export class ContentService {
   private async generateContentInBackground(
     userId: string,
     topic: string,
-    taskId: string
+    taskId: string,
   ) {
     try {
       // Verify user exists before creating content
@@ -107,7 +107,7 @@ export class ContentService {
 
       if (!userExists) {
         throw new BadRequestException(
-          `User with ID ${userId} not found. Please log in again.`
+          `User with ID ${userId} not found. Please log in again.`,
         );
       }
 
@@ -159,7 +159,7 @@ export class ContentService {
     ];
     if (!allowedTypes.includes(file.mimetype)) {
       throw new BadRequestException(
-        "Invalid file type. Only PDF, DOCX, and TXT files are allowed."
+        "Invalid file type. Only PDF, DOCX, and TXT files are allowed.",
       );
     }
 
@@ -188,7 +188,7 @@ export class ContentService {
       if (error instanceof Error) {
       }
       throw new BadRequestException(
-        `Failed to extract text from ${file.originalname}. Please ensure the file is valid and not corrupted.`
+        `Failed to extract text from ${file.originalname}. Please ensure the file is valid and not corrupted.`,
       );
     }
 
@@ -197,7 +197,7 @@ export class ContentService {
 
     if (!extractedText || extractedText.trim().length === 0) {
       throw new BadRequestException(
-        "No readable text content found in the uploaded file. The file may be corrupted or contain only images."
+        "No readable text content found in the uploaded file. The file may be corrupted or contain only images.",
       );
     }
 
@@ -220,7 +220,7 @@ export class ContentService {
 
     if (!userExists) {
       throw new BadRequestException(
-        `User with ID ${userId} not found. Please log in again.`
+        `User with ID ${userId} not found. Please log in again.`,
       );
     }
 
@@ -257,7 +257,7 @@ export class ContentService {
 
     if (!userExists) {
       throw new BadRequestException(
-        `User with ID ${userId} not found. Please log in again.`
+        `User with ID ${userId} not found. Please log in again.`,
       );
     }
 
@@ -273,7 +273,7 @@ export class ContentService {
     userId: string,
     topic?: string,
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
   ) {
     const skip = (page - 1) * limit;
 
@@ -375,7 +375,7 @@ export class ContentService {
   async updateContent(
     userId: string,
     contentId: string,
-    updateContentDto: UpdateContentDto
+    updateContentDto: UpdateContentDto,
   ) {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },
@@ -394,7 +394,7 @@ export class ContentService {
   async addHighlight(
     userId: string,
     contentId: string,
-    createHighlightDto: CreateHighlightDto
+    createHighlightDto: CreateHighlightDto,
   ) {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },
@@ -447,7 +447,7 @@ export class ContentService {
     userId: string,
     contentId: string,
     sectionTitle: string,
-    sectionContent: string
+    sectionContent: string,
   ) {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },
@@ -467,7 +467,7 @@ export class ContentService {
     userId: string,
     contentId: string,
     sectionTitle: string,
-    sectionContent: string
+    sectionContent: string,
   ) {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },

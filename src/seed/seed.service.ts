@@ -19,7 +19,7 @@ export class SeedService implements OnApplicationBootstrap {
 
     if (!adminEmail || !adminPassword) {
       this.logger.warn(
-        "Super Admin credentials not found in environment variables. Skipping seeding."
+        "Super Admin credentials not found in environment variables. Skipping seeding.",
       );
       return;
     }
@@ -27,7 +27,7 @@ export class SeedService implements OnApplicationBootstrap {
     try {
       // Check if database is ready
       await this.prisma.$queryRaw`SELECT 1`;
-      
+
       const existingAdmin = await this.prisma.user.findUnique({
         where: { email: adminEmail },
       });
@@ -42,7 +42,7 @@ export class SeedService implements OnApplicationBootstrap {
             data: { role: UserRole.SUPER_ADMIN },
           });
           this.logger.log(
-            "Updated existing admin account to SUPER_ADMIN role."
+            "Updated existing admin account to SUPER_ADMIN role.",
           );
         }
         return;
@@ -62,12 +62,12 @@ export class SeedService implements OnApplicationBootstrap {
       });
 
       this.logger.log(
-        `Super Admin account created successfully: ${adminEmail}`
+        `Super Admin account created successfully: ${adminEmail}`,
       );
     } catch (error) {
-      if (error.code === 'P2021') {
+      if (error.code === "P2021") {
         this.logger.error(
-          "Database tables do not exist. Please run 'npx prisma migrate deploy' before starting the application."
+          "Database tables do not exist. Please run 'npx prisma migrate deploy' before starting the application.",
         );
       } else {
         this.logger.error("Failed to seed Super Admin account", error.message);

@@ -5,7 +5,7 @@ export class AiPrompts {
     difficulty: string,
     quizType: string,
     questionTypeInstructions: string,
-    sourceContent: string = ""
+    sourceContent: string = "",
   ) {
     return `
 You are an expert quiz generator. Generate ${numberOfQuestions} questions based on the following:
@@ -84,7 +84,7 @@ Return ONLY a valid JSON object in this exact format (no markdown, no code block
   static generateFlashcards(
     topic: string,
     numberOfCards: number,
-    sourceContent: string = ""
+    sourceContent: string = "",
   ) {
     return `
 You are an expert flashcard creator. Generate ${numberOfCards} flashcards based on the following:

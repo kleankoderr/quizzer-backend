@@ -9,7 +9,7 @@ export class StudyService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService
+    private readonly aiService: AiService,
   ) {}
 
   /**
@@ -20,10 +20,10 @@ export class StudyService {
     userId: string,
     topic: string,
     scorePercentage: number,
-    contentId?: string
+    contentId?: string,
   ) {
     this.logger.log(
-      `Updating progress for user ${userId}, topic ${topic}, score ${scorePercentage}%`
+      `Updating progress for user ${userId}, topic ${topic}, score ${scorePercentage}%`,
     );
 
     let progress = await this.prisma.topicProgress.findUnique({
@@ -112,13 +112,13 @@ export class StudyService {
     });
 
     const dueForReview = progress.filter(
-      (p) => new Date(p.nextReviewAt) <= new Date()
+      (p) => new Date(p.nextReviewAt) <= new Date(),
     );
     const masteryCount = progress.filter(
-      (p) => p.retentionLevel === RetentionLevel.MASTERY
+      (p) => p.retentionLevel === RetentionLevel.MASTERY,
     ).length;
     const learningCount = progress.filter(
-      (p) => p.retentionLevel === RetentionLevel.LEARNING
+      (p) => p.retentionLevel === RetentionLevel.LEARNING,
     ).length;
 
     // Generate suggestions
@@ -162,10 +162,10 @@ export class StudyService {
       retentionDistribution: {
         [RetentionLevel.LEARNING]: learningCount,
         [RetentionLevel.REINFORCEMENT]: progress.filter(
-          (p) => p.retentionLevel === RetentionLevel.REINFORCEMENT
+          (p) => p.retentionLevel === RetentionLevel.REINFORCEMENT,
         ).length,
         [RetentionLevel.RECALL]: progress.filter(
-          (p) => p.retentionLevel === RetentionLevel.RECALL
+          (p) => p.retentionLevel === RetentionLevel.RECALL,
         ).length,
         [RetentionLevel.MASTERY]: masteryCount,
       },

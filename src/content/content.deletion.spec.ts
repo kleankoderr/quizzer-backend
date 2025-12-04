@@ -77,7 +77,7 @@ describe("ContentService Deletion", () => {
       expect(quizService.deleteQuiz).toHaveBeenCalledWith(quizId, userId);
       expect(flashcardService.deleteFlashcardSet).toHaveBeenCalledWith(
         flashcardSetId,
-        userId
+        userId,
       );
       expect(prismaService.content.delete).toHaveBeenCalledWith({
         where: { id: contentId },
@@ -88,7 +88,7 @@ describe("ContentService Deletion", () => {
       mockPrismaService.content.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.deleteContent("user-1", "content-1")
+        service.deleteContent("user-1", "content-1"),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -99,7 +99,7 @@ describe("ContentService Deletion", () => {
       });
 
       await expect(
-        service.deleteContent("user-1", "content-1")
+        service.deleteContent("user-1", "content-1"),
       ).rejects.toThrow(NotFoundException);
     });
   });

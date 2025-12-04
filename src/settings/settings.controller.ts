@@ -39,7 +39,7 @@ export class SettingsController {
       allowRegistration?: boolean;
       maintenanceMode?: boolean;
       supportEmail?: string;
-    }
+    },
   ) {
     return this.settingsService.updateSettings(data);
   }

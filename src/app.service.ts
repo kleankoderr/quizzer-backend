@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
 @Injectable()
 export class AppService {
   getHello(): string {
-    return 'Welcome to Quizzer API - AI-Powered Quiz & Flashcard Generation';
+    return "Welcome to Quizzer API - AI-Powered Quiz & Flashcard Generation";
   }
 }

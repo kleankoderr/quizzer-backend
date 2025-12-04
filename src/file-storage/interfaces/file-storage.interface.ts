@@ -11,7 +11,7 @@ export interface IFileStorageService {
    */
   uploadFile(
     file: Express.Multer.File,
-    options?: UploadOptions
+    options?: UploadOptions,
   ): Promise<UploadResult>;
 
   /**

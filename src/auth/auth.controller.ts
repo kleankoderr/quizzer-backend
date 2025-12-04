@@ -53,7 +53,7 @@ export class AuthController {
   })
   async signup(
     @Body() signupDto: SignupDto,
-    @Res({ passthrough: true }) res: Response
+    @Res({ passthrough: true }) res: Response,
   ) {
     const { user, accessToken } = await this.authService.signup(signupDto);
     this.setCookie(res, accessToken);
@@ -71,7 +71,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: "Invalid credentials" })
   async login(
     @Body() loginDto: LoginDto,
-    @Res({ passthrough: true }) res: Response
+    @Res({ passthrough: true }) res: Response,
   ) {
     const { user, accessToken } = await this.authService.login(loginDto);
     this.setCookie(res, accessToken);
@@ -89,7 +89,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: "Invalid Google token" })
   async googleLogin(
     @Body() googleAuthDto: GoogleAuthDto,
-    @Res({ passthrough: true }) res: Response
+    @Res({ passthrough: true }) res: Response,
   ) {
     const { user, accessToken } =
       await this.authService.googleLogin(googleAuthDto);

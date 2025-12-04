@@ -23,7 +23,7 @@ export class FlashcardProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly httpService: HttpService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {
     super();
   }
@@ -31,7 +31,7 @@ export class FlashcardProcessor extends WorkerHost {
   async process(job: Job<FlashcardJobData>): Promise<any> {
     const { userId, dto, files } = job.data;
     this.logger.log(
-      `Processing flashcard generation job ${job.id} for user ${userId}`
+      `Processing flashcard generation job ${job.id} for user ${userId}`,
     );
 
     try {
@@ -47,7 +47,7 @@ export class FlashcardProcessor extends WorkerHost {
             try {
               this.logger.debug(`Downloading file from ${file.url}`);
               const response = await lastValueFrom(
-                this.httpService.get(file.url, { responseType: "arraybuffer" })
+                this.httpService.get(file.url, { responseType: "arraybuffer" }),
               );
               processedFiles.push({
                 buffer: Buffer.from(response.data),
@@ -57,7 +57,7 @@ export class FlashcardProcessor extends WorkerHost {
             } catch (error) {
               this.logger.error(
                 `Failed to download file ${file.originalname}:`,
-                error
+                error,
               );
               throw error;
             }
@@ -72,7 +72,7 @@ export class FlashcardProcessor extends WorkerHost {
 
       // Generate flashcards using AI
       this.logger.log(
-        `Job ${job.id}: Calling AI service to generate flashcards`
+        `Job ${job.id}: Calling AI service to generate flashcards`,
       );
       const { cards, title, topic } = await this.aiService.generateFlashcards({
         topic: dto.topic,
@@ -119,7 +119,7 @@ export class FlashcardProcessor extends WorkerHost {
 
       await job.updateProgress(100);
       this.logger.log(
-        `Job ${job.id}: Flashcard generation completed successfully (Set ID: ${flashcardSet.id})`
+        `Job ${job.id}: Flashcard generation completed successfully (Set ID: ${flashcardSet.id})`,
       );
 
       return {

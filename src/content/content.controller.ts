@@ -41,7 +41,7 @@ export class ContentController {
   @ApiResponse({ status: 201, description: "Content generated successfully" })
   async generateFromTopic(
     @CurrentUser("sub") userId: string,
-    @Body() body: { topic: string }
+    @Body() body: { topic: string },
   ) {
     return this.contentService.generateFromTopic(userId, body.topic);
   }
@@ -49,7 +49,7 @@ export class ContentController {
   @Post("upload")
   @UseInterceptors(
     PdfOnly({ maxFiles: 1, maxSizePerFile: 5 * 1024 * 1024 }),
-    FileInterceptor("file")
+    FileInterceptor("file"),
   )
   @ApiOperation({ summary: "Upload and process file to create content" })
   @ApiResponse({
@@ -58,7 +58,7 @@ export class ContentController {
   })
   async uploadFile(
     @CurrentUser("sub") userId: string,
-    @UploadedFile() file: Express.Multer.File
+    @UploadedFile() file: Express.Multer.File,
   ) {
     return this.contentService.createFromFile(userId, file);
   }
@@ -68,7 +68,7 @@ export class ContentController {
   @ApiResponse({ status: 201, description: "Content created successfully" })
   async createContent(
     @CurrentUser("sub") userId: string,
-    @Body() createContentDto: CreateContentDto
+    @Body() createContentDto: CreateContentDto,
   ) {
     return this.contentService.createContent(userId, createContentDto);
   }
@@ -83,13 +83,13 @@ export class ContentController {
     @CurrentUser("sub") userId: string,
     @Query("topic") topic?: string,
     @Query("page") page: number = 1,
-    @Query("limit") limit: number = 10
+    @Query("limit") limit: number = 10,
   ) {
     return this.contentService.getContents(
       userId,
       topic,
       Number(page),
-      Number(limit)
+      Number(limit),
     );
   }
 
@@ -106,7 +106,7 @@ export class ContentController {
   @ApiResponse({ status: 404, description: "Content not found" })
   async getContentById(
     @CurrentUser("sub") userId: string,
-    @Param("id") contentId: string
+    @Param("id") contentId: string,
   ) {
     return this.contentService.getContentById(userId, contentId);
   }
@@ -117,12 +117,12 @@ export class ContentController {
   async updateContent(
     @CurrentUser("sub") userId: string,
     @Param("id") contentId: string,
-    @Body() updateContentDto: UpdateContentDto
+    @Body() updateContentDto: UpdateContentDto,
   ) {
     return this.contentService.updateContent(
       userId,
       contentId,
-      updateContentDto
+      updateContentDto,
     );
   }
 
@@ -131,7 +131,7 @@ export class ContentController {
   @ApiResponse({ status: 200, description: "Content deleted successfully" })
   async deleteContent(
     @CurrentUser("sub") userId: string,
-    @Param("id") contentId: string
+    @Param("id") contentId: string,
   ) {
     return this.contentService.deleteContent(userId, contentId);
   }
@@ -142,12 +142,12 @@ export class ContentController {
   async addHighlight(
     @CurrentUser("sub") userId: string,
     @Param("id") contentId: string,
-    @Body() createHighlightDto: CreateHighlightDto
+    @Body() createHighlightDto: CreateHighlightDto,
   ) {
     return this.contentService.addHighlight(
       userId,
       contentId,
-      createHighlightDto
+      createHighlightDto,
     );
   }
 
@@ -156,7 +156,7 @@ export class ContentController {
   @ApiResponse({ status: 200, description: "Highlight deleted successfully" })
   async deleteHighlight(
     @CurrentUser("sub") userId: string,
-    @Param("id") highlightId: string
+    @Param("id") highlightId: string,
   ) {
     return this.contentService.deleteHighlight(userId, highlightId);
   }
@@ -170,13 +170,13 @@ export class ContentController {
   async explainSection(
     @CurrentUser("sub") userId: string,
     @Param("id") contentId: string,
-    @Body() body: { sectionTitle: string; sectionContent: string }
+    @Body() body: { sectionTitle: string; sectionContent: string },
   ) {
     return this.contentService.generateExplanation(
       userId,
       contentId,
       body.sectionTitle,
-      body.sectionContent
+      body.sectionContent,
     );
   }
 
@@ -186,13 +186,13 @@ export class ContentController {
   async exampleSection(
     @CurrentUser("sub") userId: string,
     @Param("id") contentId: string,
-    @Body() body: { sectionTitle: string; sectionContent: string }
+    @Body() body: { sectionTitle: string; sectionContent: string },
   ) {
     return this.contentService.generateExample(
       userId,
       contentId,
       body.sectionTitle,
-      body.sectionContent
+      body.sectionContent,
     );
   }
 }

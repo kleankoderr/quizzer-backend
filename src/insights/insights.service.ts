@@ -47,7 +47,7 @@ export class InsightsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly assessmentService: AssessmentService
+    private readonly assessmentService: AssessmentService,
   ) {}
 
   /**
@@ -82,7 +82,7 @@ export class InsightsService {
       .filter(
         (tp) =>
           tp.retentionLevel === RetentionLevel.LEARNING ||
-          tp.retentionLevel === RetentionLevel.REINFORCEMENT
+          tp.retentionLevel === RetentionLevel.REINFORCEMENT,
       )
       .map((tp) => tp.topic);
 
@@ -93,7 +93,7 @@ export class InsightsService {
 
     // Topics to revise
     const dueTopics = topicProgress.filter(
-      (tp) => new Date(tp.nextReviewAt) <= new Date()
+      (tp) => new Date(tp.nextReviewAt) <= new Date(),
     );
 
     const toRevise = dueTopics.map((tp) => ({
@@ -111,7 +111,7 @@ export class InsightsService {
 
     const recommendations = await this.generateFocusRecommendations(
       performance,
-      weakAreas
+      weakAreas,
     );
 
     // Practice suggestions
@@ -127,7 +127,7 @@ export class InsightsService {
     const weeklyProgress = this.calculateWeeklyProgress(recentAttempts);
     const totalStudyTime = recentAttempts.reduce(
       (sum, a) => sum + (a.timeSpent || 0),
-      0
+      0,
     );
 
     // Generate AI-powered summary
@@ -135,7 +135,7 @@ export class InsightsService {
       userId,
       masteredTopics,
       learningTopics,
-      progressPercentage
+      progressPercentage,
     );
 
     return {
@@ -187,7 +187,7 @@ export class InsightsService {
    */
   private getRevisionPriority(
     level: RetentionLevel,
-    strength: number
+    strength: number,
   ): "high" | "medium" | "low" {
     if (level === RetentionLevel.LEARNING || strength < 50) return "high";
     if (level === RetentionLevel.REINFORCEMENT || strength < 70)
@@ -200,30 +200,30 @@ export class InsightsService {
    */
   private async generateFocusRecommendations(
     performance: any,
-    weakAreas: any[]
+    weakAreas: any[],
   ): Promise<string[]> {
     const recommendations: string[] = [];
 
     if (weakAreas.length > 0) {
       const topWeakTopic = weakAreas[0].topic;
       recommendations.push(
-        `Focus on ${topWeakTopic} - you've struggled with this ${weakAreas[0].errorCount} times`
+        `Focus on ${topWeakTopic} - you've struggled with this ${weakAreas[0].errorCount} times`,
       );
     }
 
     if (performance.weakTopics.length > 0) {
       recommendations.push(
-        `Review ${performance.weakTopics.join(", ")} - your scores are below 60%`
+        `Review ${performance.weakTopics.join(", ")} - your scores are below 60%`,
       );
     }
 
     if (performance.averageScore < 70) {
       recommendations.push(
-        "Consider taking more Quick Check quizzes to build confidence"
+        "Consider taking more Quick Check quizzes to build confidence",
       );
     } else if (performance.averageScore > 85) {
       recommendations.push(
-        "Great progress! Try Timed Tests to challenge yourself"
+        "Great progress! Try Timed Tests to challenge yourself",
       );
     }
 
@@ -253,7 +253,7 @@ export class InsightsService {
     userId: string,
     masteredTopics: string[],
     learningTopics: string[],
-    progressPercentage: number
+    progressPercentage: number,
   ): Promise<string> {
     try {
       const prompt = `Generate a brief, encouraging summary of a learner's progress:
@@ -273,7 +273,7 @@ Write a 2-3 sentence summary that is warm, encouraging, and specific. Focus on a
       return this.getDefaultSummary(
         masteredTopics,
         learningTopics,
-        progressPercentage
+        progressPercentage,
       );
     }
   }
@@ -284,7 +284,7 @@ Write a 2-3 sentence summary that is warm, encouraging, and specific. Focus on a
   private getDefaultSummary(
     masteredTopics: string[],
     learningTopics: string[],
-    progressPercentage: number
+    progressPercentage: number,
   ): string {
     if (progressPercentage === 0) {
       return "You're just getting started! Keep practicing and you'll see progress soon.";

@@ -81,7 +81,7 @@ export class ChallengeService {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly aiService: AiService,
     private readonly leaderboardService: LeaderboardService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
   ) {}
 
   async getAllChallenges(userId: string) {
@@ -108,19 +108,19 @@ export class ChallengeService {
     // Filter out challenges without quizzes
     const validChallenges = challenges.filter(
       (challenge) =>
-        challenge.quizId || (challenge.quizzes && challenge.quizzes.length > 0)
+        challenge.quizId || (challenge.quizzes && challenge.quizzes.length > 0),
     );
 
     const challengesWithProgress = await Promise.all(
       validChallenges.map((challenge) =>
-        this.enrichChallengeWithProgress(challenge, userId)
-      )
+        this.enrichChallengeWithProgress(challenge, userId),
+      ),
     );
 
     await this.cacheManager.set(
       cacheKey,
       challengesWithProgress,
-      CACHE_TTL.ALL_CHALLENGES
+      CACHE_TTL.ALL_CHALLENGES,
     );
 
     return challengesWithProgress;
@@ -142,7 +142,7 @@ export class ChallengeService {
 
     if (challenges.length === 0) {
       this.logger.warn(
-        "No daily challenges found. Triggering fallback generation."
+        "No daily challenges found. Triggering fallback generation.",
       );
     }
 
@@ -151,7 +151,7 @@ export class ChallengeService {
       challenges,
       userId,
       today,
-      tomorrow
+      tomorrow,
     );
 
     const result = challenges.map((challenge) => ({
@@ -255,7 +255,7 @@ export class ChallengeService {
     // Filter out challenges without quizzes
     const validChallenges = challenges.filter(
       (challenge) =>
-        challenge.quizId || (challenge.quizzes && challenge.quizzes.length > 0)
+        challenge.quizId || (challenge.quizzes && challenge.quizzes.length > 0),
     );
 
     return validChallenges.map((challenge) => ({
@@ -354,7 +354,7 @@ export class ChallengeService {
           rank: index + 1,
           completedAt: completion.completedAt?.toISOString(),
         };
-      })
+      }),
     );
 
     let currentUserEntry = entries.find((e) => e.userId === userId);
@@ -408,12 +408,12 @@ export class ChallengeService {
     const existingTitles = await this.getExistingChallengeTitles(
       "daily",
       start,
-      end
+      end,
     );
 
     if (existingTitles.size > 0) {
       this.logger.log(
-        `Found ${existingTitles.size} existing daily challenges for ${start.toISOString()}`
+        `Found ${existingTitles.size} existing daily challenges for ${start.toISOString()}`,
       );
     }
 
@@ -427,13 +427,13 @@ export class ChallengeService {
       start,
       end,
       systemUser.id,
-      existingTitles
+      existingTitles,
     );
 
     if (challengesToCreate.length > 0) {
       await this.saveChallenges(challengesToCreate);
       this.logger.log(
-        `Successfully created ${challengesToCreate.length} daily challenges`
+        `Successfully created ${challengesToCreate.length} daily challenges`,
       );
     } else {
       this.logger.warn("No challenges were created");
@@ -448,12 +448,12 @@ export class ChallengeService {
     const existingChallenges = await this.findExistingChallenges(
       "weekly",
       start,
-      end
+      end,
     );
 
     if (existingChallenges.length > 0) {
       this.logger.log(
-        `Weekly challenges already exist for ${start.toISOString()}. Skipping creation.`
+        `Weekly challenges already exist for ${start.toISOString()}. Skipping creation.`,
       );
       return;
     }
@@ -492,12 +492,12 @@ export class ChallengeService {
     const existingChallenges = await this.findExistingChallenges(
       "monthly",
       start,
-      end
+      end,
     );
 
     if (existingChallenges.length > 0) {
       this.logger.log(
-        `Monthly challenges already exist for ${start.toISOString()}. Skipping creation.`
+        `Monthly challenges already exist for ${start.toISOString()}. Skipping creation.`,
       );
       return;
     }
@@ -544,7 +544,7 @@ export class ChallengeService {
 
     if (existingChallenges.length > 0) {
       this.logger.log(
-        "Hot challenges already exist and are still active. Skipping creation."
+        "Hot challenges already exist and are still active. Skipping creation.",
       );
       return;
     }
@@ -639,7 +639,7 @@ export class ChallengeService {
         where: {
           challengeId_userId: { challengeId, userId },
         },
-      }
+      },
     );
 
     if (existingCompletion) {
@@ -661,7 +661,7 @@ export class ChallengeService {
     });
 
     this.logger.log(
-      `User ${userId} successfully joined challenge ${challengeId}`
+      `User ${userId} successfully joined challenge ${challengeId}`,
     );
 
     await this.invalidateUserCache(userId);
@@ -690,7 +690,7 @@ export class ChallengeService {
 
     if (completion.progress > 0 || completion.completed) {
       throw new BadRequestException(
-        "Cannot leave a challenge you have already started or completed"
+        "Cannot leave a challenge you have already started or completed",
       );
     }
 
@@ -699,7 +699,7 @@ export class ChallengeService {
     });
 
     this.logger.log(
-      `User ${userId} successfully left challenge ${challengeId}`
+      `User ${userId} successfully left challenge ${challengeId}`,
     );
 
     await this.invalidateUserCache(userId);
@@ -742,7 +742,7 @@ export class ChallengeService {
     challengeId: string,
     quizId: string,
     userId: string,
-    attemptData: { score: number; totalQuestions: number; attemptId: string }
+    attemptData: { score: number; totalQuestions: number; attemptId: string },
   ) {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
@@ -787,7 +787,7 @@ export class ChallengeService {
       percentile = await this.calculatePercentile(
         challengeId,
         userId,
-        finalScore
+        finalScore,
       );
       await this.awardChallengeXP(userId, challenge.reward);
     }
@@ -820,10 +820,10 @@ export class ChallengeService {
   async updateChallengeProgress(
     userId: string,
     type: "quiz" | "flashcard",
-    isPerfect = false
+    isPerfect = false,
   ) {
     this.logger.debug(
-      `Updating challenge progress for user ${userId}, type: ${type}`
+      `Updating challenge progress for user ${userId}, type: ${type}`,
     );
 
     const { today, tomorrow } = this.getTodayDateRange();
@@ -848,7 +848,7 @@ export class ChallengeService {
         challenge,
         completion,
         type,
-        isPerfect
+        isPerfect,
       );
 
       if (progressUpdate.shouldUpdate) {
@@ -862,13 +862,13 @@ export class ChallengeService {
               completed: isCompleted,
               completedAt: isCompleted ? new Date() : null,
             },
-          })
+          }),
         );
 
         if (isCompleted) {
           await this.awardChallengeXP(userId, challenge.reward);
           this.logger.log(
-            `User ${userId} completed challenge: ${challenge.title}, reward: ${challenge.reward} XP`
+            `User ${userId} completed challenge: ${challenge.title}, reward: ${challenge.reward} XP`,
           );
         }
       }
@@ -885,7 +885,7 @@ export class ChallengeService {
   private getCacheKey(
     type: "all" | "daily",
     userId: string,
-    date?: Date
+    date?: Date,
   ): string {
     if (type === "all") {
       return `challenges:all:${userId}`;
@@ -946,7 +946,7 @@ export class ChallengeService {
   private async fetchDailyChallenges(
     today: Date,
     tomorrow: Date,
-    userId: string
+    userId: string,
   ) {
     return this.prisma.challenge.findMany({
       where: {
@@ -965,10 +965,10 @@ export class ChallengeService {
     challenges: any[],
     userId: string,
     today: Date,
-    tomorrow: Date
+    tomorrow: Date,
   ) {
     const missingCompletions = challenges.filter(
-      (c) => !c.completions || c.completions.length === 0
+      (c) => !c.completions || c.completions.length === 0,
     );
 
     if (missingCompletions.length > 0) {
@@ -981,8 +981,8 @@ export class ChallengeService {
               progress: 0,
               completed: false,
             },
-          })
-        )
+          }),
+        ),
       );
 
       // Refetch with updated completions
@@ -995,12 +995,12 @@ export class ChallengeService {
   private async getExistingChallengeTitles(
     type: string,
     start: Date,
-    end: Date
+    end: Date,
   ): Promise<Set<string>> {
     const existingChallenges = await this.findExistingChallenges(
       type,
       start,
-      end
+      end,
     );
     return new Set(existingChallenges.map((c) => c.title.toLowerCase()));
   }
@@ -1031,11 +1031,11 @@ export class ChallengeService {
     const performanceByDifficulty =
       await this.analyzePerformanceByDifficulty(lastWeek);
     const optimalDifficulty = this.determineOptimalDifficulty(
-      performanceByDifficulty
+      performanceByDifficulty,
     );
 
     this.logger.log(
-      `Found ${validQuizzes.length} valid quizzes from popular topics: ${validQuizzes.map((q) => q.topic).join(", ")}`
+      `Found ${validQuizzes.length} valid quizzes from popular topics: ${validQuizzes.map((q) => q.topic).join(", ")}`,
     );
 
     return { validQuizzes, optimalDifficulty };
@@ -1068,14 +1068,14 @@ export class ChallengeService {
           },
         });
         return quiz ? { ...quiz, attemptCount: pq._count.quizId } : null;
-      })
+      }),
     );
 
     return quizDetails.filter((q) => q !== null);
   }
 
   private async analyzePerformanceByDifficulty(
-    lastWeek: Date
+    lastWeek: Date,
   ): Promise<PerformanceByDifficulty> {
     const recentAttempts = await this.prisma.attempt.findMany({
       where: {
@@ -1115,7 +1115,7 @@ export class ChallengeService {
   }
 
   private determineOptimalDifficulty(
-    performanceByDifficulty: PerformanceByDifficulty
+    performanceByDifficulty: PerformanceByDifficulty,
   ): "easy" | "medium" | "hard" {
     const avgPerformance = {
       easy: this.calculateAverage(performanceByDifficulty.easy),
@@ -1144,7 +1144,7 @@ export class ChallengeService {
     start: Date,
     end: Date,
     systemUserId: string,
-    existingTitles: Set<string>
+    existingTitles: Set<string>,
   ): Promise<ChallengeData[]> {
     const challenges: ChallengeData[] = [];
 
@@ -1293,7 +1293,7 @@ export class ChallengeService {
       challenges.map((data, index) => {
         const { quizId, ...challengeData } = data;
         this.logger.debug(
-          `Challenge ${index + 1}: ${data.title}, quizId: ${quizId || "none"}`
+          `Challenge ${index + 1}: ${data.title}, quizId: ${quizId || "none"}`,
         );
 
         return this.prisma.challenge.create({
@@ -1309,7 +1309,7 @@ export class ChallengeService {
               : undefined,
           },
         });
-      })
+      }),
     );
 
     this.logger.log(`Successfully saved ${challenges.length} challenges`);
@@ -1319,11 +1319,11 @@ export class ChallengeService {
     if (quizAttempts.length === 0) return 0;
     const totalScore = quizAttempts.reduce(
       (sum, attempt) => sum + attempt.score,
-      0
+      0,
     );
     const totalQuestions = quizAttempts.reduce(
       (sum, attempt) => sum + attempt.totalQuestions,
-      0
+      0,
     );
     return Math.round((totalScore / totalQuestions) * 100);
   }
@@ -1331,7 +1331,7 @@ export class ChallengeService {
   private async calculatePercentile(
     challengeId: string,
     userId: string,
-    score: number
+    score: number,
   ): Promise<number> {
     const betterScores = await this.prisma.challengeCompletion.count({
       where: {
@@ -1361,7 +1361,7 @@ export class ChallengeService {
     challenge: any,
     completion: any,
     type: "quiz" | "flashcard",
-    isPerfect: boolean
+    isPerfect: boolean,
   ): { shouldUpdate: boolean; newProgress: number } {
     let shouldUpdate = false;
     let newProgress = completion.progress;

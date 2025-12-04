@@ -21,7 +21,7 @@ export class TaskController {
   @ApiResponse({ status: 200, description: "Task details" })
   async getTask(
     @CurrentUser("sub") userId: string,
-    @Param("id") taskId: string
+    @Param("id") taskId: string,
   ) {
     return this.taskService.getTask(userId, taskId);
   }

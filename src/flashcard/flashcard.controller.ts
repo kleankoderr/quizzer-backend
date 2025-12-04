@@ -41,16 +41,16 @@ export class FlashcardController {
   @ApiResponse({ status: 400, description: "Invalid input data" })
   @UseInterceptors(
     PdfOnly({ maxFiles: 5, maxSizePerFile: 5 * 1024 * 1024 }),
-    FilesInterceptor("files", 5)
+    FilesInterceptor("files", 5),
   )
   async generateFlashcards(
     @CurrentUser("sub") userId: string,
     @Body() dto: GenerateFlashcardDto,
-    @UploadedFiles() files?: Express.Multer.File[]
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
     if (!dto.topic && !dto.content && (!files || files.length === 0)) {
       throw new BadRequestException(
-        "Please provide either a topic, content, or upload files to generate flashcards"
+        "Please provide either a topic, content, or upload files to generate flashcards",
       );
     }
 
@@ -61,7 +61,7 @@ export class FlashcardController {
     const numberOfCards = Number(dto.numberOfCards);
     if (isNaN(numberOfCards) || numberOfCards < 5 || numberOfCards > 100) {
       throw new BadRequestException(
-        "numberOfCards must be a number between 5 and 100"
+        "numberOfCards must be a number between 5 and 100",
       );
     }
 
@@ -76,7 +76,7 @@ export class FlashcardController {
   @ApiResponse({ status: 404, description: "Job not found" })
   async getJobStatus(
     @Param("jobId") jobId: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.flashcardService.getJobStatus(jobId, userId);
   }
@@ -94,7 +94,7 @@ export class FlashcardController {
   @ApiResponse({ status: 404, description: "Flashcard set not found" })
   async getFlashcardSetById(
     @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.flashcardService.getFlashcardSetById(id, userId);
   }
@@ -106,12 +106,12 @@ export class FlashcardController {
   async recordFlashcardSession(
     @Param("id") id: string,
     @CurrentUser("sub") userId: string,
-    @Body() dto: any
+    @Body() dto: any,
   ) {
     return this.flashcardService.recordFlashcardSession(
       userId,
       id,
-      dto.cardResponses
+      dto.cardResponses,
     );
   }
 
@@ -124,7 +124,7 @@ export class FlashcardController {
   @ApiResponse({ status: 404, description: "Flashcard set not found" })
   async deleteFlashcardSet(
     @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @CurrentUser("sub") userId: string,
   ) {
     return this.flashcardService.deleteFlashcardSet(id, userId);
   }

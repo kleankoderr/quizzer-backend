@@ -46,7 +46,7 @@ import { SettingsModule } from "./settings/settings.module";
       useFactory: async (configService: ConfigService) => {
         const redisUrl = configService.get<string>(
           "REDIS_URL",
-          "redis://localhost:6379"
+          "redis://localhost:6379",
         );
         const url = new URL(redisUrl);
         return {

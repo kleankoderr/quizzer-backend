@@ -65,7 +65,7 @@ export class AdminController {
   @ApiOperation({ summary: "Get user's content" })
   getUserContent(
     @Param("id") id: string,
-    @Query() filterDto: ContentFilterDto
+    @Query() filterDto: ContentFilterDto,
   ) {
     return this.adminService.getUserContent(id, filterDto);
   }
@@ -74,7 +74,7 @@ export class AdminController {
   @ApiOperation({ summary: "Update user status (active/suspended)" })
   updateUserStatus(
     @Param("id") id: string,
-    @Body() updateStatusDto: UpdateUserStatusDto
+    @Body() updateStatusDto: UpdateUserStatusDto,
   ) {
     return this.adminService.updateUserStatus(id, updateStatusDto);
   }
@@ -83,7 +83,7 @@ export class AdminController {
   @ApiOperation({ summary: "Update user role" })
   updateUserRole(
     @Param("id") id: string,
-    @Body() updateRoleDto: UpdateUserRoleDto
+    @Body() updateRoleDto: UpdateUserRoleDto,
   ) {
     return this.adminService.updateUserRole(id, updateRoleDto);
   }
@@ -122,7 +122,7 @@ export class AdminController {
   @ApiOperation({ summary: "Moderate content" })
   moderateContent(
     @Param("id") id: string,
-    @Body() actionDto: ModerationActionDto
+    @Body() actionDto: ModerationActionDto,
   ) {
     return this.adminService.moderateContent(id, actionDto);
   }
@@ -143,7 +143,7 @@ export class AdminController {
   @ApiOperation({ summary: "Update a school" })
   updateSchool(
     @Param("id") id: string,
-    @Body() updateSchoolDto: UpdateSchoolDto
+    @Body() updateSchoolDto: UpdateSchoolDto,
   ) {
     return this.adminService.updateSchool(id, updateSchoolDto);
   }

@@ -20,7 +20,7 @@ export class UserService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(FILE_STORAGE_SERVICE)
-    private readonly fileStorageService: IFileStorageService
+    private readonly fileStorageService: IFileStorageService,
   ) {}
 
   async getProfile(userId: string) {
@@ -136,7 +136,7 @@ export class UserService {
     // Verify current password
     const isPasswordValid = await bcrypt.compare(
       changePasswordDto.currentPassword,
-      user.password
+      user.password,
     );
 
     if (!isPasswordValid) {

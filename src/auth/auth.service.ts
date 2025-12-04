@@ -19,7 +19,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly schoolService: SchoolService,
-    private readonly settingsService: SettingsService
+    private readonly settingsService: SettingsService,
   ) {}
 
   async signup(signupDto: SignupDto) {
@@ -27,7 +27,7 @@ export class AuthService {
     const settings = await this.settingsService.getPublicSettings();
     if (!settings.allowRegistration) {
       throw new ForbiddenException(
-        "Registration is currently disabled. Please check back later or contact support."
+        "Registration is currently disabled. Please check back later or contact support.",
       );
     }
 
@@ -110,7 +110,7 @@ export class AuthService {
         const settings = await this.settingsService.getPublicSettings();
         if (!settings.allowRegistration) {
           throw new ForbiddenException(
-            "Registration is currently disabled. Please check back later or contact support."
+            "Registration is currently disabled. Please check back later or contact support.",
           );
         }
 

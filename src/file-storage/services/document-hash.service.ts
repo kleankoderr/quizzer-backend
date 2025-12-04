@@ -30,7 +30,7 @@ export class DocumentHashService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async calculateFileHash(buffer: Buffer): Promise<string> {
@@ -43,7 +43,7 @@ export class DocumentHashService {
     const cached = await this.cacheManager.get<DocumentMetadata>(cacheKey);
     if (cached) {
       this.logger.debug(
-        `Cache hit for document hash: ${hash.substring(0, 8)}...`
+        `Cache hit for document hash: ${hash.substring(0, 8)}...`,
       );
       return cached;
     }
@@ -66,7 +66,7 @@ export class DocumentHashService {
 
       await this.cacheManager.set(cacheKey, metadata, this.CACHE_TTL);
       this.logger.debug(
-        `Document found and cached: ${hash.substring(0, 8)}...`
+        `Document found and cached: ${hash.substring(0, 8)}...`,
       );
       return metadata;
     }
@@ -77,7 +77,7 @@ export class DocumentHashService {
   async storeDocumentMetadata(
     hash: string,
     urls: ProviderUrls,
-    file: Express.Multer.File
+    file: Express.Multer.File,
   ): Promise<DocumentMetadata> {
     const document = await this.prisma.document.create({
       data: {
@@ -107,7 +107,7 @@ export class DocumentHashService {
     await this.cacheManager.set(cacheKey, metadata, this.CACHE_TTL);
 
     this.logger.log(
-      `Document metadata stored: ${file.originalname} (${hash.substring(0, 8)}...)`
+      `Document metadata stored: ${file.originalname} (${hash.substring(0, 8)}...)`,
     );
     return metadata;
   }

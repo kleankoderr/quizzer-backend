@@ -30,7 +30,7 @@ export class QuizProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly httpService: HttpService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {
     super();
   }
@@ -38,7 +38,7 @@ export class QuizProcessor extends WorkerHost {
   async process(job: Job<QuizJobData>): Promise<any> {
     const { userId, dto, files } = job.data;
     this.logger.log(
-      `Processing quiz generation job ${job.id} for user ${userId}`
+      `Processing quiz generation job ${job.id} for user ${userId}`,
     );
 
     try {
@@ -54,7 +54,7 @@ export class QuizProcessor extends WorkerHost {
             try {
               this.logger.debug(`Downloading file from ${file.url}`);
               const response = await lastValueFrom(
-                this.httpService.get(file.url, { responseType: "arraybuffer" })
+                this.httpService.get(file.url, { responseType: "arraybuffer" }),
               );
               processedFiles.push({
                 buffer: Buffer.from(response.data),
@@ -64,7 +64,7 @@ export class QuizProcessor extends WorkerHost {
             } catch (error) {
               this.logger.error(
                 `Failed to download file ${file.originalname}:`,
-                error
+                error,
               );
               throw error;
             }
@@ -90,7 +90,7 @@ export class QuizProcessor extends WorkerHost {
       });
 
       this.logger.log(
-        `Job ${job.id}: AI generated ${questions.length} questions`
+        `Job ${job.id}: AI generated ${questions.length} questions`,
       );
       await job.updateProgress(70);
 
@@ -143,7 +143,7 @@ export class QuizProcessor extends WorkerHost {
 
       await job.updateProgress(100);
       this.logger.log(
-        `Job ${job.id}: Quiz generation completed successfully (Quiz ID: ${quiz.id})`
+        `Job ${job.id}: Quiz generation completed successfully (Quiz ID: ${quiz.id})`,
       );
 
       return {

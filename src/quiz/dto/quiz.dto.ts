@@ -54,7 +54,7 @@ export class GenerateQuizDto {
   @IsArray()
   @IsEnum(
     ["true-false", "single-select", "multi-select", "matching", "fill-blank"],
-    { each: true }
+    { each: true },
   )
   questionTypes?: QuestionType[];
 }

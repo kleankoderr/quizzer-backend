@@ -36,7 +36,7 @@ export class AiService {
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {
     const apiKey = this.configService.get<string>("GOOGLE_API_KEY");
     this.genAI = new GoogleGenerativeAI(apiKey);
@@ -66,7 +66,7 @@ export class AiService {
           originalname: string;
           mimetype: string;
         }
-    )[]
+    )[],
   ): Promise<{ textContent?: string; pdfParts?: any[]; fileUris?: string[] }> {
     const textContents: string[] = [];
     const pdfParts: any[] = [];
@@ -99,7 +99,7 @@ export class AiService {
           fileBuffer = await fs.readFile(file.path);
         } else {
           throw new Error(
-            `File ${file.originalname} has no path, buffer, or URL`
+            `File ${file.originalname} has no path, buffer, or URL`,
           );
         }
 
@@ -203,7 +203,7 @@ export class AiService {
       difficulty,
       `${quizType} ${quizTypeContext}`,
       questionTypeInstructions,
-      sourceContent
+      sourceContent,
     );
 
     // Build request parts - File URIs or PDFs first, then prompt
@@ -262,27 +262,27 @@ export class AiService {
 
     if (questionTypes.includes("true-false")) {
       instructions.push(
-        "- True/False: Statement questions with True or False options"
+        "- True/False: Statement questions with True or False options",
       );
     }
     if (questionTypes.includes("single-select")) {
       instructions.push(
-        "- Single-select: Multiple choice with one correct answer (4 options)"
+        "- Single-select: Multiple choice with one correct answer (4 options)",
       );
     }
     if (questionTypes.includes("multi-select")) {
       instructions.push(
-        "- Multi-select: Multiple choice with multiple correct answers (4-6 options)"
+        "- Multi-select: Multiple choice with multiple correct answers (4-6 options)",
       );
     }
     if (questionTypes.includes("matching")) {
       instructions.push(
-        "- Matching: Match items from left column to right column (3-5 pairs)"
+        "- Matching: Match items from left column to right column (3-5 pairs)",
       );
     }
     if (questionTypes.includes("fill-blank")) {
       instructions.push(
-        "- Fill-in-the-blank: Complete the sentence or phrase with the correct answer"
+        "- Fill-in-the-blank: Complete the sentence or phrase with the correct answer",
       );
     }
 
@@ -344,7 +344,7 @@ export class AiService {
     const prompt = AiPrompts.generateFlashcards(
       topic || "",
       numberOfCards,
-      sourceContent
+      sourceContent,
     );
 
     // Build request parts - File URIs or PDFs first, then prompt
@@ -411,7 +411,7 @@ export class AiService {
 
     const prompt = AiPrompts.generateRecommendations(
       weakTopics,
-      recentAttempts
+      recentAttempts,
     );
 
     const result = await this.model.generateContent(prompt);

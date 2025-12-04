@@ -51,16 +51,16 @@ export class QuizService {
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
-    private readonly documentHashService: DocumentHashService
+    private readonly documentHashService: DocumentHashService,
   ) {}
 
   async generateQuiz(
     userId: string,
     dto: GenerateQuizDto,
-    files?: Express.Multer.File[]
+    files?: Express.Multer.File[],
   ) {
     this.logger.log(
-      `User ${userId} requesting quiz generation: ${dto.numberOfQuestions} questions, difficulty: ${dto.difficulty}`
+      `User ${userId} requesting quiz generation: ${dto.numberOfQuestions} questions, difficulty: ${dto.difficulty}`,
     );
 
     let processedDocs = [];
@@ -71,15 +71,15 @@ export class QuizService {
           files,
           this.documentHashService,
           this.cloudinaryFileStorageService,
-          this.googleFileStorageService
+          this.googleFileStorageService,
         );
 
         const duplicateCount = processedDocs.filter(
-          (d) => d.isDuplicate
+          (d) => d.isDuplicate,
         ).length;
         if (duplicateCount > 0) {
           this.logger.log(
-            `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`
+            `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`,
           );
         }
       } catch (error) {
@@ -110,7 +110,7 @@ export class QuizService {
           type: "exponential",
           delay: 2000,
         },
-      }
+      },
     );
 
     const cacheKey = `quizzes:all:${userId}`;
@@ -135,7 +135,7 @@ export class QuizService {
     // Security: check if job belongs to user
     if (job.data.userId !== userId) {
       this.logger.warn(
-        `User ${userId} attempted to access job ${jobId} owned by ${job.data.userId}`
+        `User ${userId} attempted to access job ${jobId} owned by ${job.data.userId}`,
       );
       throw new NotFoundException("Job not found");
     }
@@ -144,7 +144,7 @@ export class QuizService {
     const progress = job.progress;
 
     this.logger.debug(
-      `Job ${jobId} status: ${state}, progress: ${JSON.stringify(progress)}`
+      `Job ${jobId} status: ${state}, progress: ${JSON.stringify(progress)}`,
     );
 
     return {
@@ -310,7 +310,7 @@ export class QuizService {
       await this.cacheManager.del(`challenges:daily:${userId}:${todayKey}`);
       await this.cacheManager.del(`challenges:all:${userId}`);
       this.logger.debug(
-        `Invalidated challenge cache for user ${userId} after quiz submission`
+        `Invalidated challenge cache for user ${userId} after quiz submission`,
       );
     }
 
@@ -318,7 +318,7 @@ export class QuizService {
     await this.streakService.updateStreak(
       userId,
       correctCount,
-      questions.length
+      questions.length,
     );
 
     // Update challenge progress
@@ -328,22 +328,22 @@ export class QuizService {
       .catch((err) =>
         this.logger.error(
           `Failed to update challenge progress for user ${userId}:`,
-          err
-        )
+          err,
+        ),
       );
 
     // Generate and store recommendations based on the latest attempt.
     // Fire-and-forget so the API response isn't delayed.
     this.logger.debug(
-      `Triggering recommendation generation for user ${userId}`
+      `Triggering recommendation generation for user ${userId}`,
     );
     this.recommendationService
       .generateAndStoreRecommendations(userId)
       .catch((err) =>
         this.logger.error(
           `Failed to generate recommendations for user ${userId}:`,
-          err
-        )
+          err,
+        ),
       );
 
     // Update topic progress (Retention Tracking)
@@ -353,12 +353,12 @@ export class QuizService {
       .catch((err) =>
         this.logger.error(
           `Failed to update topic progress for user ${userId}:`,
-          err
-        )
+          err,
+        ),
       );
 
     this.logger.log(
-      `Quiz ${quizId} submitted: ${correctCount}/${questions.length} correct`
+      `Quiz ${quizId} submitted: ${correctCount}/${questions.length} correct`,
     );
     return {
       attemptId: attempt.id,
@@ -401,10 +401,10 @@ export class QuizService {
         if (typeof userAnswer !== "object" || typeof correctAnswer !== "object")
           return false;
         const userKeys = Object.keys(userAnswer || {}).sort((a, b) =>
-          a.localeCompare(b)
+          a.localeCompare(b),
         );
         const correctKeys = Object.keys(correctAnswer || {}).sort((a, b) =>
-          a.localeCompare(b)
+          a.localeCompare(b),
         );
         if (userKeys.length !== correctKeys.length) return false;
         return userKeys.every((key) => userAnswer[key] === correctAnswer[key]);
@@ -457,7 +457,7 @@ export class QuizService {
     // Delete associated files from Google File API
     if (quiz.sourceFiles && quiz.sourceFiles.length > 0) {
       this.logger.debug(
-        `Deleting ${quiz.sourceFiles.length} files from storage`
+        `Deleting ${quiz.sourceFiles.length} files from storage`,
       );
       for (const fileUrl of quiz.sourceFiles) {
         try {
@@ -470,7 +470,7 @@ export class QuizService {
           await this.googleFileStorageService.deleteFile(publicId);
         } catch (error) {
           this.logger.warn(
-            `Failed to delete file ${fileUrl}: ${error.message}`
+            `Failed to delete file ${fileUrl}: ${error.message}`,
           );
         }
       }
@@ -486,7 +486,7 @@ export class QuizService {
       } catch (error) {
         // Ignore if content not found or other error
         this.logger.warn(
-          `Failed to dereference quiz ${id} from content ${quiz.contentId}: ${error.message}`
+          `Failed to dereference quiz ${id} from content ${quiz.contentId}: ${error.message}`,
         );
       }
     }

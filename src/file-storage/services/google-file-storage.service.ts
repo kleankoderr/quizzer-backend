@@ -23,7 +23,7 @@ export class GoogleFileStorageService implements IFileStorageService {
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {
     const apiKey = this.configService.get<string>("GOOGLE_API_KEY");
     this.genAI = new GoogleGenAI({ apiKey });
@@ -43,7 +43,7 @@ export class GoogleFileStorageService implements IFileStorageService {
    */
   async uploadFile(
     file: Express.Multer.File,
-    options?: UploadOptions
+    options?: UploadOptions,
   ): Promise<UploadResult> {
     try {
       // Calculate file hash for deduplication
@@ -54,13 +54,13 @@ export class GoogleFileStorageService implements IFileStorageService {
       const cachedFile = await this.cacheManager.get<UploadResult>(cacheKey);
       if (cachedFile) {
         this.logger.debug(
-          `File already uploaded (hash: ${fileHash}), reusing cached URI: ${cachedFile.secureUrl}`
+          `File already uploaded (hash: ${fileHash}), reusing cached URI: ${cachedFile.secureUrl}`,
         );
         return cachedFile;
       }
 
       this.logger.debug(
-        `Uploading file: ${file.originalname} (${file.size} bytes) to Google File API`
+        `Uploading file: ${file.originalname} (${file.size} bytes) to Google File API`,
       );
 
       // Create a Blob from the buffer (convert Buffer to Uint8Array first)
@@ -82,7 +82,7 @@ export class GoogleFileStorageService implements IFileStorageService {
 
       while (fileStatus.state === "PROCESSING" && retries < maxRetries) {
         this.logger.debug(
-          `File ${uploadedFile.name} is still processing, waiting...`
+          `File ${uploadedFile.name} is still processing, waiting...`,
         );
         await new Promise((resolve) => setTimeout(resolve, 1000));
         fileStatus = await this.genAI.files.get({ name: uploadedFile.name });
@@ -94,7 +94,7 @@ export class GoogleFileStorageService implements IFileStorageService {
       }
 
       this.logger.log(
-        `File uploaded successfully: ${fileStatus.name} - URI: ${fileStatus.uri}`
+        `File uploaded successfully: ${fileStatus.name} - URI: ${fileStatus.uri}`,
       );
 
       // Map to UploadResult interface
@@ -121,7 +121,7 @@ export class GoogleFileStorageService implements IFileStorageService {
       this.logger.error(`Failed to upload file: ${error.message}`, error.stack);
       if (error.response) {
         this.logger.error(
-          `API Error Response: ${JSON.stringify(error.response.data)}`
+          `API Error Response: ${JSON.stringify(error.response.data)}`,
         );
         this.logger.error(`API Status: ${error.response.status}`);
       }
@@ -143,7 +143,7 @@ export class GoogleFileStorageService implements IFileStorageService {
     } catch (error) {
       this.logger.error(
         `Failed to delete file ${publicId}: ${error.message}`,
-        error.stack
+        error.stack,
       );
       // Don't throw error for delete failures - log and continue
       // This prevents cascading failures when cleaning up
