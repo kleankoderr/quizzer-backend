@@ -106,4 +106,11 @@ export class UserController {
   async deleteAccount(@CurrentUser("sub") userId: string) {
     return this.userService.deleteAccount(userId);
   }
+
+  @Post("assessment-popup-shown")
+  @ApiOperation({ summary: "Mark assessment popup as shown" })
+  @ApiResponse({ status: 200, description: "Updated successfully" })
+  async updateAssessmentPopupShown(@CurrentUser("sub") userId: string) {
+    return this.userService.updateAssessmentPopupShown(userId);
+  }
 }

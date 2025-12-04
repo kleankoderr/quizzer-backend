@@ -32,7 +32,7 @@ export class TaskService {
     taskId: string,
     status: TaskStatus,
     result?: any,
-    error?: string
+    error?: string,
   ) {
     return this.prisma.task.update({
       where: { id: taskId },

@@ -8,6 +8,7 @@ import { AppModule } from "./app.module";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
 
 async function bootstrap() {
+  // Trigger restart - DB Synced
   const app = await NestFactory.create(AppModule);
   const httpAdapter = app.get(HttpAdapterHost);
   app.useGlobalFilters(new GlobalExceptionFilter(httpAdapter));

@@ -7,7 +7,7 @@ import { Cache } from "cache-manager";
 export class SchoolService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async searchSchools(query: string) {

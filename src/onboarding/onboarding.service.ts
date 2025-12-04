@@ -12,7 +12,7 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly schoolService: SchoolService
+    private readonly schoolService: SchoolService,
   ) {}
 
   async savePreferences(
@@ -22,7 +22,7 @@ export class OnboardingService {
       schoolName?: string;
       subjects?: string[];
       userType?: string;
-    }
+    },
   ) {
     const { grade, schoolName, subjects, userType } = data;
 
@@ -65,7 +65,7 @@ export class OnboardingService {
 
     if (existingTask) {
       this.logger.log(
-        `Assessment generation already triggered for user ${userId}`
+        `Assessment generation already triggered for user ${userId}`,
       );
       return existingTask;
     }
@@ -82,7 +82,7 @@ export class OnboardingService {
     // Run async generation (fire and forget from controller perspective, but tracked via Task)
     this.generateAssessment(userId, subjects, task.id).catch((err) => {
       this.logger.error(
-        `Error generating assessment for user ${userId}: ${err.message}`
+        `Error generating assessment for user ${userId}: ${err.message}`,
       );
       this.prisma.task
         .update({
@@ -90,7 +90,7 @@ export class OnboardingService {
           data: { status: TaskStatus.FAILED, error: err.message },
         })
         .catch((e) =>
-          this.logger.error(`Failed to update task status: ${e.message}`)
+          this.logger.error(`Failed to update task status: ${e.message}`),
         );
     });
 
@@ -100,7 +100,7 @@ export class OnboardingService {
   private async generateAssessment(
     userId: string,
     subjects: string[],
-    taskId: string
+    taskId: string,
   ) {
     try {
       // Determine topic based on subjects or default

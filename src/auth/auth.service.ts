@@ -19,7 +19,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly settingsService: SettingsService
+    private readonly settingsService: SettingsService,
   ) {
     this.client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
@@ -29,7 +29,7 @@ export class AuthService {
     const settings = await this.settingsService.getPublicSettings();
     if (!settings.allowRegistration) {
       throw new ForbiddenException(
-        "Registration is currently disabled. Please check back later or contact support."
+        "Registration is currently disabled. Please check back later or contact support.",
       );
     }
 
@@ -113,7 +113,7 @@ export class AuthService {
             "https://www.googleapis.com/oauth2/v3/userinfo",
             {
               headers: { Authorization: `Bearer ${token}` },
-            }
+            },
           );
 
           const userInfo = userInfoResponse.data;
@@ -124,7 +124,7 @@ export class AuthService {
         } catch (error) {
           console.error(
             "Failed to fetch user info with access token:",
-            error.response?.data || error.message
+            error.response?.data || error.message,
           );
           throw new UnauthorizedException("Invalid Google access token");
         }
@@ -152,7 +152,7 @@ export class AuthService {
         const settings = await this.settingsService.getPublicSettings();
         if (!settings.allowRegistration) {
           throw new ForbiddenException(
-            "Registration is currently disabled. Please check back later or contact support."
+            "Registration is currently disabled. Please check back later or contact support.",
           );
         }
 
@@ -192,6 +192,8 @@ export class AuthService {
         schoolName: user.schoolName,
         grade: user.grade,
         role: user.role,
+        onboardingCompleted: user.onboardingCompleted,
+        assessmentPopupShown: user.assessmentPopupShown,
         createdAt: user.createdAt,
       },
       accessToken: this.jwtService.sign(payload),
@@ -209,6 +211,8 @@ export class AuthService {
         schoolName: true,
         grade: true,
         role: true,
+        onboardingCompleted: true,
+        assessmentPopupShown: true,
         createdAt: true,
       },
     });

@@ -22,7 +22,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly fileStorageService: IFileStorageService,
-    private readonly schoolService: SchoolService
+    private readonly schoolService: SchoolService,
   ) {}
 
   async getProfile(userId: string) {
@@ -36,6 +36,7 @@ export class UserService {
         schoolName: true,
         grade: true,
         preferences: true,
+        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -80,7 +81,7 @@ export class UserService {
     let schoolId = undefined;
     if (updateProfileDto.schoolName) {
       const school = await this.schoolService.findOrCreate(
-        updateProfileDto.schoolName
+        updateProfileDto.schoolName,
       );
       schoolId = school.id;
     }
@@ -100,6 +101,7 @@ export class UserService {
         schoolId: true,
         grade: true,
         preferences: true,
+        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -130,6 +132,7 @@ export class UserService {
         schoolName: true,
         grade: true,
         preferences: true,
+        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -150,7 +153,7 @@ export class UserService {
     // Verify current password
     const isPasswordValid = await bcrypt.compare(
       changePasswordDto.currentPassword,
-      user.password
+      user.password,
     );
 
     if (!isPasswordValid) {
@@ -210,6 +213,7 @@ export class UserService {
         schoolName: true,
         grade: true,
         preferences: true,
+        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -233,5 +237,13 @@ export class UserService {
     });
 
     return { message: "Account deleted successfully" };
+  }
+
+  async updateAssessmentPopupShown(userId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { assessmentPopupShown: true },
+      select: { assessmentPopupShown: true },
+    });
   }
 }

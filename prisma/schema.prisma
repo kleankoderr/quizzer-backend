@@ -41,6 +41,7 @@ model User {
   isActive      Boolean  @default(true)
   onboardingCompleted Boolean @default(false)
   onboardingAssessmentCompleted Boolean @default(false)
+  assessmentPopupShown Boolean @default(false)
   preferences   Json?    // Store user preferences as JSON
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
