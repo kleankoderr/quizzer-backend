@@ -90,8 +90,8 @@ export class AdminService {
 
   async getUsers(filterDto: UserFilterDto) {
     const { search, role, isActive, page = "1", limit = "10" } = filterDto;
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
+    const pageNum = Number.parseInt(page, 10);
+    const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
     const where: Prisma.UserWhereInput = {};
@@ -336,12 +336,12 @@ export class AdminService {
 
   async getAllContent(filterDto: ContentFilterDto) {
     const { search, page = "1", limit = "10" } = filterDto;
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
+    const pageNum = Number.parseInt(page, 10);
+    const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
     // This is a simplified aggregation of content.
-    // In a real scenario, you might want separate endpoints or a union query.
+    // In the future, you might want separate endpoints or a union query.
     // For now, let's return quizzes and flashcards separately or combined if needed.
     // Let's focus on Quizzes for now as primary content.
 
@@ -381,8 +381,8 @@ export class AdminService {
 
   async getAllFlashcards(filterDto: ContentFilterDto) {
     const { search, page = "1", limit = "10" } = filterDto;
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
+    const pageNum = Number.parseInt(page, 10);
+    const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
     const where: Prisma.FlashcardSetWhereInput = {};
@@ -805,10 +805,10 @@ export class AdminService {
 
     // Group by date
     const growthMap = new Map<string, number>();
-    users.forEach((user) => {
+    for (const user of users) {
       const date = user.createdAt.toISOString().split("T")[0];
       growthMap.set(date, (growthMap.get(date) || 0) + 1);
-    });
+    }
 
     return Array.from(growthMap.entries())
       .map(([date, count]) => ({ date, count }))
@@ -836,7 +836,7 @@ export class AdminService {
       { quizzes: number; flashcards: number; contents: number }
     >();
 
-    quizzes.forEach((q) => {
+    for (const q of quizzes) {
       const date = q.createdAt.toISOString().split("T")[0];
       const existing = trendsMap.get(date) || {
         quizzes: 0,
@@ -844,9 +844,9 @@ export class AdminService {
         contents: 0,
       };
       trendsMap.set(date, { ...existing, quizzes: existing.quizzes + 1 });
-    });
+    }
 
-    flashcards.forEach((f) => {
+    for (const f of flashcards) {
       const date = f.createdAt.toISOString().split("T")[0];
       const existing = trendsMap.get(date) || {
         quizzes: 0,
@@ -854,9 +854,9 @@ export class AdminService {
         contents: 0,
       };
       trendsMap.set(date, { ...existing, flashcards: existing.flashcards + 1 });
-    });
+    }
 
-    contents.forEach((c) => {
+    for (const c of contents) {
       const date = c.createdAt.toISOString().split("T")[0];
       const existing = trendsMap.get(date) || {
         quizzes: 0,
@@ -864,7 +864,7 @@ export class AdminService {
         contents: 0,
       };
       trendsMap.set(date, { ...existing, contents: existing.contents + 1 });
-    });
+    }
 
     return Array.from(trendsMap.entries())
       .map(([date, data]) => ({ date, ...data }))
