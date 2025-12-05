@@ -48,16 +48,16 @@ export class QuizService {
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
-    private readonly documentHashService: DocumentHashService,
+    private readonly documentHashService: DocumentHashService
   ) {}
 
   async generateQuiz(
     userId: string,
     dto: GenerateQuizDto,
-    files?: Express.Multer.File[],
+    files?: Express.Multer.File[]
   ) {
     this.logger.log(
-      `User ${userId} requesting quiz generation: ${dto.numberOfQuestions} questions, difficulty: ${dto.difficulty}`,
+      `User ${userId} requesting quiz generation: ${dto.numberOfQuestions} questions, difficulty: ${dto.difficulty}`
     );
 
     let processedDocs = [];
@@ -68,15 +68,15 @@ export class QuizService {
           files,
           this.documentHashService,
           this.cloudinaryFileStorageService,
-          this.googleFileStorageService,
+          this.googleFileStorageService
         );
 
         const duplicateCount = processedDocs.filter(
-          (d) => d.isDuplicate,
+          (d) => d.isDuplicate
         ).length;
         if (duplicateCount > 0) {
           this.logger.log(
-            `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`,
+            `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`
           );
         }
       } catch (error) {
@@ -107,7 +107,7 @@ export class QuizService {
           type: "exponential",
           delay: 2000,
         },
-      },
+      }
     );
 
     const cacheKey = `quizzes:all:${userId}`;
@@ -132,7 +132,7 @@ export class QuizService {
     // Security: check if job belongs to user
     if (job.data.userId !== userId) {
       this.logger.warn(
-        `User ${userId} attempted to access job ${jobId} owned by ${job.data.userId}`,
+        `User ${userId} attempted to access job ${jobId} owned by ${job.data.userId}`
       );
       throw new NotFoundException("Job not found");
     }
@@ -141,7 +141,7 @@ export class QuizService {
     const progress = job.progress;
 
     this.logger.debug(
-      `Job ${jobId} status: ${state}, progress: ${JSON.stringify(progress)}`,
+      `Job ${jobId} status: ${state}, progress: ${JSON.stringify(progress)}`
     );
 
     return {
@@ -311,40 +311,43 @@ export class QuizService {
       await this.cacheManager.del(`challenges:daily:${userId}:${todayKey}`);
       await this.cacheManager.del(`challenges:all:${userId}`);
       this.logger.debug(
-        `Invalidated challenge cache for user ${userId} after quiz submission`,
+        `Invalidated challenge cache for user ${userId} after quiz submission`
       );
     }
 
-    // Update streak with score data
-    await this.streakService.updateStreak(
-      userId,
-      correctCount,
-      questions.length,
-    );
+    // Update streak with score data (fire-and-forget)
+    this.streakService
+      .updateStreak(userId, correctCount, questions.length)
+      .catch((err) =>
+        this.logger.error(
+          `Failed to update streak for user ${userId}:`,
+          err.message
+        )
+      );
 
-    // Update challenge progress
+    // Update challenge progress (fire-and-forget)
     const isPerfect = correctCount === questions.length;
     this.challengeService
       .updateChallengeProgress(userId, "quiz", isPerfect)
       .catch((err) =>
         this.logger.error(
           `Failed to update challenge progress for user ${userId}:`,
-          err,
-        ),
+          err
+        )
       );
 
     // Generate and store recommendations based on the latest attempt.
     // Fire-and-forget so the API response isn't delayed.
     this.logger.debug(
-      `Triggering recommendation generation for user ${userId}`,
+      `Triggering recommendation generation for user ${userId}`
     );
     this.recommendationService
       .generateAndStoreRecommendations(userId)
       .catch((err) =>
         this.logger.error(
           `Failed to generate recommendations for user ${userId}:`,
-          err,
-        ),
+          err
+        )
       );
 
     // Update topic progress (Retention Tracking)
@@ -354,8 +357,8 @@ export class QuizService {
       .catch((err) =>
         this.logger.error(
           `Failed to update topic progress for user ${userId}:`,
-          err,
-        ),
+          err
+        )
       );
 
     // Check if this was an onboarding assessment
@@ -367,15 +370,65 @@ export class QuizService {
       this.logger.log(`User ${userId} completed onboarding assessment`);
     }
 
+    // Calculate feedback data
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get total attempts for this quiz today to calculate percentile
+    // We use Promise.all to run these in parallel
+    const [totalAttemptsToday, betterThanCount] = await Promise.all([
+      this.prisma.attempt.count({
+        where: {
+          quizId,
+          completedAt: { gte: today },
+        },
+      }),
+      this.prisma.attempt.count({
+        where: {
+          quizId,
+          completedAt: { gte: today },
+          score: { lt: correctCount },
+        },
+      }),
+    ]);
+
+    let feedbackMessage = "";
+    let percentile = 0;
+
+    if (totalAttemptsToday > 1) {
+      percentile = Math.round((betterThanCount / totalAttemptsToday) * 100);
+      if (percentile >= 90) {
+        feedbackMessage = `Outstanding! Top **${100 - percentile}%** today. Keep leading!`;
+      } else if (percentile >= 70) {
+        feedbackMessage = `Great job! Better than **${percentile}%** of students today.`;
+      } else if (percentile >= 50) {
+        feedbackMessage = `Good effort! You're above average today.`;
+      } else {
+        feedbackMessage = `Done! You joined **${totalAttemptsToday}** others today. Review to improve!`;
+      }
+    } else {
+      if (percentage >= 90) {
+        feedbackMessage = "Excellent! You set the bar high today!";
+      } else if (percentage >= 70) {
+        feedbackMessage = "Great start! You're on the right track.";
+      } else {
+        feedbackMessage = "Good practice! Review to master this topic.";
+      }
+    }
+
     this.logger.log(
-      `Quiz ${quizId} submitted: ${correctCount}/${questions.length} correct`,
+      `Quiz ${quizId} submitted: ${correctCount}/${questions.length} correct`
     );
     return {
       attemptId: attempt.id,
       score: correctCount,
       totalQuestions: questions.length,
-      percentage: Math.round((correctCount / questions.length) * 100),
+      percentage,
       correctAnswers,
+      feedback: {
+        message: feedbackMessage,
+        percentile: totalAttemptsToday > 1 ? percentile : undefined,
+      },
     };
   }
 
@@ -411,10 +464,10 @@ export class QuizService {
         if (typeof userAnswer !== "object" || typeof correctAnswer !== "object")
           return false;
         const userKeys = Object.keys(userAnswer || {}).sort((a, b) =>
-          a.localeCompare(b),
+          a.localeCompare(b)
         );
         const correctKeys = Object.keys(correctAnswer || {}).sort((a, b) =>
-          a.localeCompare(b),
+          a.localeCompare(b)
         );
         if (userKeys.length !== correctKeys.length) return false;
         return userKeys.every((key) => userAnswer[key] === correctAnswer[key]);
@@ -467,7 +520,7 @@ export class QuizService {
     // Delete associated files from Google File API
     if (quiz.sourceFiles && quiz.sourceFiles.length > 0) {
       this.logger.debug(
-        `Deleting ${quiz.sourceFiles.length} files from storage`,
+        `Deleting ${quiz.sourceFiles.length} files from storage`
       );
       for (const fileUrl of quiz.sourceFiles) {
         try {
@@ -480,7 +533,7 @@ export class QuizService {
           await this.googleFileStorageService.deleteFile(publicId);
         } catch (error) {
           this.logger.warn(
-            `Failed to delete file ${fileUrl}: ${error.message}`,
+            `Failed to delete file ${fileUrl}: ${error.message}`
           );
         }
       }
@@ -496,7 +549,7 @@ export class QuizService {
       } catch (error) {
         // Ignore if content not found or other error
         this.logger.warn(
-          `Failed to dereference quiz ${id} from content ${quiz.contentId}: ${error.message}`,
+          `Failed to dereference quiz ${id} from content ${quiz.contentId}: ${error.message}`
         );
       }
     }

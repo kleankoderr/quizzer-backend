@@ -8,6 +8,7 @@ import { AiModule } from "../ai/ai.module";
 import { RecommendationModule } from "../recommendation/recommendation.module";
 import { StreakModule } from "../streak/streak.module";
 import { ChallengeModule } from "../challenge/challenge.module";
+import { StudyModule } from "../study/study.module";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ChallengeModule } from "../challenge/challenge.module";
     RecommendationModule,
     StreakModule,
     ChallengeModule,
+    StudyModule,
   ],
   controllers: [FlashcardController],
   providers: [FlashcardService, FlashcardProcessor],

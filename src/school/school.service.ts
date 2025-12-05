@@ -1,13 +1,16 @@
 import { Injectable, Inject } from "@nestjs/common";
+import { HttpService } from "@nestjs/axios";
 import { PrismaService } from "../prisma/prisma.service";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
+import { firstValueFrom } from "rxjs";
 
 @Injectable()
 export class SchoolService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly httpService: HttpService
   ) {}
 
   async searchSchools(query: string) {
@@ -21,7 +24,8 @@ export class SchoolService {
       return cached;
     }
 
-    const results = await this.prisma.school.findMany({
+    // 1. Search in local DB
+    let results = await this.prisma.school.findMany({
       where: {
         name: {
           contains: query,
@@ -33,6 +37,45 @@ export class SchoolService {
         name: "asc",
       },
     });
+
+    // 2. If not enough results, search external API
+    if (results.length < 5) {
+      try {
+        const { data } = await firstValueFrom(
+          this.httpService.get(
+            `http://universities.hipolabs.com/search?name=${encodeURIComponent(
+              query
+            )}`
+          )
+        );
+
+        // 3. Save new schools to DB
+        const externalSchools = data.slice(0, 10); // Limit to top 10 from API
+
+        for (const school of externalSchools) {
+          // Check if already exists in our results (to avoid unnecessary DB calls)
+          const exists = results.some(
+            (r) => r.name.toLowerCase() === school.name.toLowerCase()
+          );
+
+          if (!exists) {
+            // Save to DB (handles duplicates internally)
+            const saved = await this.findOrCreate(school.name);
+            // Only add to results if it wasn't there (findOrCreate returns the school object)
+            if (!results.some((r) => r.id === saved.id)) {
+              results.push(saved);
+            }
+          }
+        }
+
+        // Sort combined results
+        results.sort((a, b) => a.name.localeCompare(b.name));
+        results = results.slice(0, 10); // Limit total to 10
+      } catch (error) {
+        console.error("Failed to fetch from external school API:", error);
+        // Continue with local results if external fails
+      }
+    }
 
     // Cache for 24 hours (in milliseconds)
     await this.cacheManager.set(cacheKey, results, 24 * 60 * 60 * 1000);
