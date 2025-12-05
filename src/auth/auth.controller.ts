@@ -53,11 +53,11 @@ export class AuthController {
   })
   async signup(
     @Body() signupDto: SignupDto,
-    @Res({ passthrough: true }) res: Response,
+    @Res({ passthrough: true }) res: Response
   ) {
     const { user, accessToken } = await this.authService.signup(signupDto);
     this.setCookie(res, accessToken);
-    return { user, message: "Account created successfully." };
+    return { user, accessToken, message: "Account created successfully." };
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -71,11 +71,11 @@ export class AuthController {
   @ApiResponse({ status: 401, description: "Invalid credentials" })
   async login(
     @Body() loginDto: LoginDto,
-    @Res({ passthrough: true }) res: Response,
+    @Res({ passthrough: true }) res: Response
   ) {
     const { user, accessToken } = await this.authService.login(loginDto);
     this.setCookie(res, accessToken);
-    return { user };
+    return { user, accessToken };
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -89,12 +89,12 @@ export class AuthController {
   @ApiResponse({ status: 401, description: "Invalid Google token" })
   async googleLogin(
     @Body() googleAuthDto: GoogleAuthDto,
-    @Res({ passthrough: true }) res: Response,
+    @Res({ passthrough: true }) res: Response
   ) {
     const { user, accessToken } =
       await this.authService.googleLogin(googleAuthDto);
     this.setCookie(res, accessToken);
-    return { user };
+    return { user, accessToken };
   }
 
   @Get("me")
