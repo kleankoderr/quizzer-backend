@@ -104,7 +104,7 @@ export class GoogleFileStorageService implements IFileStorageService {
         secureUrl: fileStatus.uri, // Same as url for Google Files
         format: file.mimetype.split("/")[1] || "unknown",
         bytes: fileStatus.sizeBytes
-          ? parseInt(fileStatus.sizeBytes)
+          ? Number.parseInt(fileStatus.sizeBytes)
           : file.size,
         resourceType: file.mimetype.startsWith("image/")
           ? "image"

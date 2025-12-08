@@ -33,6 +33,8 @@ import { QuoteModule } from "./quote/quote.module";
 import { SchoolModule } from "./school/school.module";
 import { CoachingModule } from "./coaching/coaching.module";
 import { SettingsModule } from "./settings/settings.module";
+import { SseModule } from "./sse/sse.module";
+import { EventsModule } from "./events/events.module";
 
 @Module({
   imports: [
@@ -47,15 +49,24 @@ import { SettingsModule } from "./settings/settings.module";
       useFactory: async (configService: ConfigService) => {
         const redisUrl = configService.get<string>(
           "REDIS_URL",
-          "redis://localhost:6379",
+          "redis://localhost:6379"
         );
         const url = new URL(redisUrl);
         return {
           connection: {
             host: url.hostname,
-            port: parseInt(url.port),
+            port: Number.parseInt(url.port),
             username: url?.username,
             password: url?.password,
+          },
+
+          // GLOBAL DEFAULT JOB OPTIONS FOR ALL QUEUES
+          defaultJobOptions: {
+            attempts: 1, // No retry (1 attempt = 0 retries)
+            backoff: undefined, // Disable backoff
+            ttl: 60_000, // Jobs expire after 60s
+            removeOnComplete: { age: 60 }, // Keep completed jobs 60s
+            removeOnFail: true, // Remove failed job immediately
           },
         };
       },
@@ -96,6 +107,8 @@ import { SettingsModule } from "./settings/settings.module";
     CoachingModule,
     SettingsModule,
     OnboardingModule,
+    SseModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [

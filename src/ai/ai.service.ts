@@ -1,9 +1,8 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
-import * as fs from "node:fs/promises";
 import { AiPrompts } from "./ai.prompts";
 
 export interface QuizQuestion {
@@ -17,7 +16,6 @@ export interface QuizQuestion {
   options?: string[];
   correctAnswer: number | number[] | string | { [key: string]: string };
   explanation?: string;
-  // For matching questions
   leftColumn?: string[];
   rightColumn?: string[];
   citation?: string;
@@ -29,8 +27,63 @@ export interface Flashcard {
   explanation?: string;
 }
 
+export interface FileReference {
+  googleFileUrl?: string;
+  googleFileId?: string;
+  originalname: string;
+  mimetype?: string;
+}
+
+export interface QuizGenerationParams {
+  topic?: string;
+  content?: string;
+  fileReferences?: FileReference[];
+  numberOfQuestions: number;
+  difficulty: "easy" | "medium" | "hard";
+  quizType?: "standard" | "timed" | "scenario";
+  questionTypes?: (
+    | "true-false"
+    | "single-select"
+    | "multi-select"
+    | "matching"
+    | "fill-blank"
+  )[];
+}
+
+export interface FlashcardGenerationParams {
+  topic?: string;
+  content?: string;
+  fileReferences?: FileReference[];
+  numberOfCards: number;
+}
+
+export interface RecommendationParams {
+  weakTopics: string[];
+  recentAttempts: any[];
+}
+
+export interface ContentGenerationParams {
+  prompt: string;
+  maxTokens?: number;
+}
+
+export interface LearningGuideParams {
+  topic?: string;
+  content?: string;
+}
+
+export interface ExplanationParams {
+  topic: string;
+  context: string;
+}
+
+const CACHE_TTL_MS = 3600000; // 1 hour
+const GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_TEMPERATURE = 0.7;
+
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
   private readonly genAI: GoogleGenerativeAI;
   private readonly model: any;
 
@@ -39,223 +92,480 @@ export class AiService {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {
     const apiKey = this.configService.get<string>("GOOGLE_API_KEY");
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.7,
-      },
-    });
-  }
-
-  /**
-   * Process uploaded files - text files and PDFs are read as bytes
-   */
-  /**
-   * Process uploaded files - text files and PDFs are read as bytes
-   */
-  async processFiles(
-    files: (
-      | Express.Multer.File
-      | {
-          path?: string;
-          buffer?: Buffer;
-          url?: string;
-          googleFileUrl?: string;
-          googleFileId?: string;
-          originalname: string;
-          mimetype: string;
-        }
-    )[],
-  ): Promise<{ textContent?: string; pdfParts?: any[]; fileUris?: string[] }> {
-    const textContents: string[] = [];
-    const pdfParts: any[] = [];
-    const fileUris: string[] = [];
-
-    for (const file of files) {
-      try {
-        // Handle Google File API URLs (new dual-provider structure)
-        if ("googleFileUrl" in file && file.googleFileUrl) {
-          // Use Google File API URI for Gemini
-          const fileUri = file.googleFileUrl;
-          fileUris.push(fileUri);
-          continue;
-        }
-
-        // Handle legacy URL format
-        if ("url" in file && file.url && !file.buffer && !file.path) {
-          // Legacy format - use the URL directly
-          const fileUri = file.url;
-          fileUris.push(fileUri);
-          continue;
-        }
-
-        // Handle buffer or path (for direct uploads)
-        let fileBuffer: Buffer;
-
-        if ("buffer" in file && file.buffer) {
-          fileBuffer = file.buffer;
-        } else if (file.path) {
-          fileBuffer = await fs.readFile(file.path);
-        } else {
-          throw new Error(
-            `File ${file.originalname} has no path, buffer, or URL`,
-          );
-        }
-
-        if (file.mimetype === "application/pdf") {
-          // Read PDF as bytes for inline data
-          pdfParts.push({
-            inlineData: {
-              data: fileBuffer.toString("base64"),
-              mimeType: "application/pdf",
-            },
-          });
-        } else {
-          // Read text files directly
-          const content = fileBuffer.toString("utf-8");
-          textContents.push(content);
-        }
-
-        // Clean up uploaded file after processing if it was on disk
-        if (file.path) {
-          await fs.unlink(file.path).catch(() => {});
-        }
-      } catch (_error) {
-        throw new Error(`Failed to process file: ${file.originalname}`);
-      }
+    if (!apiKey) {
+      throw new Error("GOOGLE_API_KEY is not configured");
     }
 
-    return {
-      textContent:
-        textContents.length > 0
-          ? textContents.join("\n\n=== NEXT DOCUMENT ===\n\n")
-          : undefined,
-      pdfParts: pdfParts.length > 0 ? pdfParts : undefined,
-      fileUris: fileUris.length > 0 ? fileUris : undefined,
-    };
+    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = this.genAI.getGenerativeModel({
+      model: GEMINI_MODEL,
+      generationConfig: {
+        temperature: DEFAULT_TEMPERATURE,
+      },
+    });
+
+    this.logger.log(`Initialized AI service with model: ${GEMINI_MODEL}`);
   }
 
   /**
-   * Generate quiz questions from text or files
+   * Generate quiz questions from topic, content, or file references
    */
-  async generateQuiz(params: {
-    topic?: string;
-    content?: string;
-    files?: (
-      | Express.Multer.File
-      | {
-          path?: string;
-          buffer?: Buffer;
-          originalname: string;
-          mimetype: string;
-        }
-    )[];
-    numberOfQuestions: number;
-    difficulty: "easy" | "medium" | "hard";
-    quizType?: "standard" | "timed" | "scenario";
-    questionTypes?: (
-      | "true-false"
-      | "single-select"
-      | "multi-select"
-      | "matching"
-      | "fill-blank"
-    )[];
-  }): Promise<{ questions: QuizQuestion[]; title: string; topic: string }> {
+  async generateQuiz(
+    params: QuizGenerationParams,
+  ): Promise<{ questions: QuizQuestion[]; title: string; topic: string }> {
     const {
       topic,
       content,
-      files,
+      fileReferences,
       numberOfQuestions,
       difficulty,
       quizType = "standard",
       questionTypes = ["single-select", "true-false"],
     } = params;
 
-    // Process files if provided
-    let sourceContent = content || "";
-    let pdfParts: any[] | undefined;
-    let fileUris: string[] | undefined;
-    if (files && files.length > 0) {
-      const processed = await this.processFiles(files);
-      sourceContent = processed.textContent || sourceContent;
-      pdfParts = processed.pdfParts;
-      fileUris = processed.fileUris;
-    }
+    // Validate input
+    this.validateGenerationInput(topic, content, fileReferences, "quiz");
 
-    // Generate cache key based on params (excluding files for now as they are complex to hash efficiently here)
-    const cacheKey = `quiz:${topic}:${numberOfQuestions}:${difficulty}:${quizType}:${questionTypes.join(",")}`;
-    if (!files || files.length === 0) {
-      const cached = await this.cacheManager.get(cacheKey);
+    // Check cache (only for non-file generations)
+    const shouldCache = !fileReferences || fileReferences.length === 0;
+    if (shouldCache) {
+      const cacheKey = this.buildQuizCacheKey(
+        topic,
+        numberOfQuestions,
+        difficulty,
+        quizType,
+        questionTypes,
+      );
+      const cached = await this.getFromCache<any>(cacheKey);
       if (cached) {
-        return cached as any;
+        this.logger.debug(`Cache hit for quiz: ${cacheKey}`);
+        return cached;
       }
     }
 
-    // Build question type instructions
+    // Build prompt
     const questionTypeInstructions =
       this.buildQuestionTypeInstructions(questionTypes);
     const quizTypeContext = this.buildQuizTypeContext(quizType);
-
     const prompt = AiPrompts.generateQuiz(
       topic || "",
       numberOfQuestions,
       difficulty,
       `${quizType} ${quizTypeContext}`,
       questionTypeInstructions,
-      sourceContent,
+      content || "",
     );
 
-    // Build request parts - File URIs or PDFs first, then prompt
-    const parts: any[] = [];
-    if (fileUris && fileUris.length > 0) {
-      // Use Google File API URIs for Gemini
-      for (const uri of fileUris) {
-        parts.push({
-          fileData: {
-            mimeType: "application/pdf",
-            fileUri: uri,
-          },
-        });
-      }
-    } else if (pdfParts && pdfParts.length > 0) {
-      // Fallback to inline PDF data
-      parts.push(...pdfParts);
+    // Generate with Gemini
+    const result = await this.generateWithGemini(prompt, fileReferences);
+
+    // Parse and validate
+    const parsed = this.parseJsonResponse<any>(result, "quiz");
+    const finalResult = {
+      title: parsed.title || `${topic || "Quiz"} - ${difficulty}`,
+      topic: parsed.topic || topic || "General Knowledge",
+      questions: this.validateQuizQuestions(parsed.questions),
+    };
+
+    // Cache if applicable
+    if (shouldCache) {
+      const cacheKey = this.buildQuizCacheKey(
+        topic,
+        numberOfQuestions,
+        difficulty,
+        quizType,
+        questionTypes,
+      );
+      await this.setCache(cacheKey, finalResult);
     }
-    parts.push({ text: prompt });
 
-    const result = await this.model.generateContent(parts);
-    const response = await result.response;
-    const responseText = response.text();
+    return finalResult;
+  }
 
-    // Parse JSON response
-    try {
-      // Remove markdown code blocks if present
-      const cleanedResponse = responseText
-        .replaceAll(/```json\n?/g, "")
-        .replaceAll(/```\n?/g, "")
-        .trim();
+  /**
+   * Generate flashcards from topic, content, or file references
+   */
+  async generateFlashcards(
+    params: FlashcardGenerationParams,
+  ): Promise<{ cards: Flashcard[]; title: string; topic: string }> {
+    const { topic, content, fileReferences, numberOfCards } = params;
 
-      const parsed = JSON.parse(cleanedResponse);
-      const finalResult = {
-        title: parsed.title || `${topic || "Quiz"} - ${difficulty}`,
-        topic: parsed.topic || topic || "General Knowledge",
-        questions: parsed.questions,
-      };
+    // Validate input
+    this.validateGenerationInput(topic, content, fileReferences, "flashcards");
 
-      // Cache result if no files were used
-      if (!files || files.length === 0) {
-        await this.cacheManager.set(cacheKey, finalResult, 3600000); // Cache for 1 hour
+    // Check cache (only for non-file generations)
+    const shouldCache = !fileReferences || fileReferences.length === 0;
+    if (shouldCache) {
+      const cacheKey = `flashcards:${topic}:${numberOfCards}`;
+      const cached = await this.getFromCache<any>(cacheKey);
+      if (cached) {
+        this.logger.debug(`Cache hit for flashcards: ${cacheKey}`);
+        return cached;
       }
+    }
 
-      return finalResult;
-    } catch (_error) {
-      throw new Error("Failed to generate valid quiz format");
+    // Build prompt
+    const prompt = AiPrompts.generateFlashcards(
+      topic || "",
+      numberOfCards,
+      content || "",
+    );
+
+    // Generate with Gemini
+    const result = await this.generateWithGemini(prompt, fileReferences);
+
+    // Parse and validate
+    const parsed = this.parseJsonResponse<any>(result, "flashcards");
+    const finalResult = {
+      title: parsed.title || `${topic || "Flashcards"}`,
+      topic: parsed.topic || topic || "Study Cards",
+      cards: this.validateFlashcards(parsed.cards),
+    };
+
+    // Cache if applicable
+    if (shouldCache) {
+      const cacheKey = `flashcards:${topic}:${numberOfCards}`;
+      await this.setCache(cacheKey, finalResult);
+    }
+
+    return finalResult;
+  }
+
+  /**
+   * Generate personalized recommendations based on user performance
+   */
+  async generateRecommendations(
+    params: RecommendationParams,
+  ): Promise<Array<{ topic: string; reason: string; priority: string }>> {
+    const { weakTopics, recentAttempts } = params;
+
+    // Check cache
+    const cacheKey = `recommendations:${weakTopics.join(",")}`;
+    const cached = await this.getFromCache<any[]>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for recommendations: ${cacheKey}`);
+      return cached;
+    }
+
+    // Build prompt
+    const prompt = AiPrompts.generateRecommendations(
+      weakTopics,
+      recentAttempts,
+    );
+
+    // Generate with Gemini
+    const result = await this.generateWithGemini(prompt);
+
+    // Parse response
+    try {
+      const parsed = this.parseJsonResponse<any[]>(result, "recommendations");
+      await this.setCache(cacheKey, parsed);
+      return parsed;
+    } catch (error) {
+      this.logger.error("Failed to parse recommendations:", error.stack);
+      return []; // Return empty array on failure
     }
   }
 
   /**
-   * Build instructions for question types
+   * Generate a structured learning guide
+   */
+  async generateLearningGuide(params: LearningGuideParams): Promise<any> {
+    const { topic, content } = params;
+
+    // Build cache key
+    const contentHash = content
+      ? Buffer.from(content).toString("base64").substring(0, 20)
+      : "no-content";
+    const cacheKey = `learning-guide:${topic}:${contentHash}`;
+
+    // Check cache
+    const cached = await this.getFromCache<any>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for learning guide: ${cacheKey}`);
+      return cached;
+    }
+
+    // Build prompt
+    const prompt = AiPrompts.generateLearningGuide(topic || "", content || "");
+
+    // Generate with Gemini
+    const result = await this.generateWithGemini(prompt);
+
+    // Parse and cache
+    const parsed = this.parseJsonResponse<any>(result, "learning guide");
+    await this.setCache(cacheKey, parsed);
+
+    return parsed;
+  }
+
+  /**
+   * Generate a simpler explanation for a concept
+   */
+  async generateExplanation(params: ExplanationParams): Promise<string> {
+    const { topic, context } = params;
+    const prompt = AiPrompts.generateExplanation(topic, context);
+    return this.generateContent({ prompt });
+  }
+
+  /**
+   * Generate more examples for a concept
+   */
+  async generateExample(params: ExplanationParams): Promise<string> {
+    const { topic, context } = params;
+    const prompt = AiPrompts.generateExample(topic, context);
+    return this.generateContent({ prompt });
+  }
+
+  /**
+   * Generate generic content using AI
+   */
+  async generateContent(params: ContentGenerationParams): Promise<string> {
+    const { prompt, maxTokens } = params;
+
+    // Build cache key
+    const promptHash = Buffer.from(prompt).toString("base64").substring(0, 50);
+    const cacheKey = `content:${promptHash}`;
+
+    // Check cache
+    const cached = await this.getFromCache<string>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for content: ${cacheKey}`);
+      return cached;
+    }
+
+    // Generate with optional token limit
+    let result: { response: any };
+    if (maxTokens) {
+      result = await this.model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+        },
+      });
+    } else {
+      result = await this.model.generateContent(prompt);
+    }
+
+    const response = await result.response;
+    const text = response.text();
+
+    // Cache result
+    await this.setCache(cacheKey, text);
+
+    return text;
+  }
+
+  /**
+   * Generate content with Gemini, optionally including file references
+   */
+  private async generateWithGemini(
+    prompt: string,
+    fileReferences?: FileReference[],
+  ): Promise<string> {
+    try {
+      const parts = this.buildGeminiRequestParts(fileReferences, prompt);
+      const result = await this.model.generateContent(parts);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      this.logger.error("Gemini API call failed:", error.stack);
+      throw new Error(
+        `AI generation failed: ${error.message || "Unknown error"}`,
+      );
+    }
+  }
+
+  /**
+   * Build Gemini API request parts with Google File API references
+   * Based on: https://ai.google.dev/gemini-api/docs/files#javascript
+   */
+  private buildGeminiRequestParts(
+    fileReferences: FileReference[] | undefined,
+    prompt: string,
+  ): any[] {
+    const parts: any[] = [];
+
+    // Add file references using Google File API URIs
+    if (fileReferences && fileReferences.length > 0) {
+      for (const fileRef of fileReferences) {
+        const fileUri = this.extractFileUri(fileRef);
+        if (fileUri) {
+          parts.push({
+            fileData: {
+              mimeType:
+                fileRef.mimetype || this.inferMimeType(fileRef.originalname),
+              fileUri: fileUri,
+            },
+          });
+        } else {
+          this.logger.warn(
+            `Skipping file ${fileRef.originalname}: no valid Google File URI`,
+          );
+        }
+      }
+    }
+
+    // Add the text prompt
+    parts.push({ text: prompt });
+
+    return parts;
+  }
+
+  /**
+   * Extract Google File URI from file reference
+   */
+  private extractFileUri(fileRef: FileReference): string | null {
+    if (fileRef.googleFileUrl) {
+      // If it's already a full URI, return as-is
+      if (
+        fileRef.googleFileUrl.startsWith(
+          "https://generativelanguage.googleapis.com/v1beta/files/",
+        )
+      ) {
+        return fileRef.googleFileUrl;
+      }
+
+      // If it contains "files/", extract the ID
+      if (fileRef.googleFileUrl.includes("files/")) {
+        const fileId = fileRef.googleFileUrl.split("files/")[1].split("?")[0];
+        return `https://generativelanguage.googleapis.com/v1beta/files/${fileId}`;
+      }
+
+      // Assume it's a bare file ID
+      return `https://generativelanguage.googleapis.com/v1beta/files/${fileRef.googleFileUrl}`;
+    }
+
+    if (fileRef.googleFileId) {
+      return `https://generativelanguage.googleapis.com/v1beta/files/${fileRef.googleFileId}`;
+    }
+
+    return null;
+  }
+
+  /**
+   * Infer MIME type from filename
+   */
+  private inferMimeType(filename: string): string {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      pdf: "application/pdf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      txt: "text/plain",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      webp: "image/webp",
+    };
+    return mimeTypes[ext || ""] || "application/octet-stream";
+  }
+
+  /**
+   * Parse JSON response from Gemini
+   */
+  private parseJsonResponse<T>(responseText: string, context: string): T {
+    try {
+      // Remove Markdown code blocks if present
+      const cleanedResponse = responseText
+        .replaceAll(/```json\s*/g, "")
+        .replaceAll(/```\s*/g, "")
+        .trim();
+
+      return JSON.parse(cleanedResponse);
+    } catch (error) {
+      this.logger.error(`Failed to parse ${context} response:`, error.stack);
+      this.logger.debug("Raw response:", responseText);
+      throw new Error(
+        `Failed to parse ${context} response: ${error.message || "Invalid JSON"}`,
+      );
+    }
+  }
+
+  /**
+   * Validate input sources for generation
+   */
+  private validateGenerationInput(
+    topic: string | undefined,
+    content: string | undefined,
+    fileReferences: FileReference[] | undefined,
+    generationType: string,
+  ): void {
+    if (
+      !topic &&
+      !content &&
+      (!fileReferences || fileReferences.length === 0)
+    ) {
+      throw new Error(
+        `At least one of topic, content, or fileReferences must be provided for ${generationType} generation`,
+      );
+    }
+  }
+
+  /**
+   * Validate quiz questions structure
+   */
+  private validateQuizQuestions(questions: any[]): QuizQuestion[] {
+    if (!Array.isArray(questions)) {
+      throw new TypeError("Invalid questions format: expected array");
+    }
+
+    const validQuestions = questions.filter(
+      (q) => q.question && q.questionType,
+    );
+
+    if (validQuestions.length === 0) {
+      throw new Error("No valid questions found in response");
+    }
+
+    if (validQuestions.length < questions.length) {
+      this.logger.warn(
+        `Filtered out ${questions.length - validQuestions.length} invalid question(s)`,
+      );
+    }
+
+    return validQuestions;
+  }
+
+  /**
+   * Validate flashcards structure
+   */
+  private validateFlashcards(cards: any[]): Flashcard[] {
+    if (!Array.isArray(cards)) {
+      throw new TypeError("Invalid cards format: expected array");
+    }
+
+    const validCards = cards.filter((card) => card.front && card.back);
+
+    if (validCards.length === 0) {
+      throw new Error("No valid flashcards found in response");
+    }
+
+    if (validCards.length < cards.length) {
+      this.logger.warn(
+        `Filtered out ${cards.length - validCards.length} invalid card(s)`,
+      );
+    }
+
+    return validCards;
+  }
+
+  /**
+   * Build cache key for quiz generation
+   */
+  private buildQuizCacheKey(
+    topic: string | undefined,
+    numberOfQuestions: number,
+    difficulty: string,
+    quizType: string,
+    questionTypes: string[],
+  ): string {
+    return `quiz:${topic}:${numberOfQuestions}:${difficulty}:${quizType}:${questionTypes.join(",")}`;
+  }
+
+  /**
+   * Build question type instructions for prompt
    */
   private buildQuestionTypeInstructions(questionTypes: string[]): string {
     const instructions: string[] = [];
@@ -290,7 +600,7 @@ export class AiService {
   }
 
   /**
-   * Build context for quiz type
+   * Build quiz type context for prompt
    */
   private buildQuizTypeContext(quizType: string): string {
     switch (quizType) {
@@ -304,224 +614,27 @@ export class AiService {
   }
 
   /**
-   * Generate flashcards from topic, text, or files
+   * Get item from cache with error handling
    */
-  async generateFlashcards(params: {
-    topic?: string;
-    content?: string;
-    files?: (
-      | Express.Multer.File
-      | {
-          path?: string;
-          buffer?: Buffer;
-          originalname: string;
-          mimetype: string;
-        }
-    )[];
-    numberOfCards: number;
-  }): Promise<{ cards: Flashcard[]; title: string; topic: string }> {
-    const { topic, content, files, numberOfCards } = params;
-
-    // Process files if provided
-    let sourceContent = content || "";
-    let pdfParts: any[] | undefined;
-    let fileUris: string[] | undefined;
-    if (files && files.length > 0) {
-      const processed = await this.processFiles(files);
-      sourceContent = processed.textContent || sourceContent;
-      pdfParts = processed.pdfParts;
-      fileUris = processed.fileUris;
-    }
-
-    const cacheKey = `flashcards:${topic}:${numberOfCards}`;
-    if (!files || files.length === 0) {
-      const cached = await this.cacheManager.get(cacheKey);
-      if (cached) {
-        return cached as any;
-      }
-    }
-
-    const prompt = AiPrompts.generateFlashcards(
-      topic || "",
-      numberOfCards,
-      sourceContent,
-    );
-
-    // Build request parts - File URIs or PDFs first, then prompt
-    const parts: any[] = [];
-    if (fileUris && fileUris.length > 0) {
-      // Use Google File API URIs for Gemini
-      for (const uri of fileUris) {
-        parts.push({
-          fileData: {
-            mimeType: "application/pdf",
-            fileUri: uri,
-          },
-        });
-      }
-    } else if (pdfParts && pdfParts.length > 0) {
-      // Fallback to inline PDF data
-      parts.push(...pdfParts);
-    }
-    parts.push({ text: prompt });
-
-    const result = await this.model.generateContent(parts);
-    const response = await result.response;
-    const responseText = response.text();
-
-    // Parse JSON response
+  private async getFromCache<T>(key: string): Promise<T | null> {
     try {
-      // Remove markdown code blocks if present
-      const cleanedResponse = responseText
-        .replaceAll(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-
-      const parsed = JSON.parse(cleanedResponse);
-      const finalResult = {
-        title: parsed.title || `${topic || "Flashcards"}`,
-        topic: parsed.topic || topic || "Study Cards",
-        cards: parsed.cards,
-      };
-
-      if (!files || files.length === 0) {
-        await this.cacheManager.set(cacheKey, finalResult, 3600000); // Cache for 1 hour
-      }
-
-      return finalResult;
-    } catch (_error) {
-      throw new Error("Failed to generate valid flashcard format");
+      return (await this.cacheManager.get(key)) as T | null;
+    } catch (error) {
+      this.logger.warn(`Cache retrieval failed for ${key}:`, error.message);
+      return null;
     }
   }
 
   /**
-   * Generate personalized recommendations based on user performance
+   * Set item in cache with error handling
    */
-  async generateRecommendations(params: {
-    weakTopics: string[];
-    recentAttempts: any[];
-  }): Promise<Array<{ topic: string; reason: string; priority: string }>> {
-    const { weakTopics, recentAttempts } = params;
-
-    const cacheKey = `recommendations:${weakTopics.join(",")}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) {
-      return cached as any;
-    }
-
-    const prompt = AiPrompts.generateRecommendations(
-      weakTopics,
-      recentAttempts,
-    );
-
-    const result = await this.model.generateContent(prompt);
-    const response = await result.response;
-    const responseText = response.text();
-
+  private async setCache(key: string, value: any): Promise<void> {
     try {
-      const cleanedResponse = responseText
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-
-      const finalResult = JSON.parse(cleanedResponse);
-      await this.cacheManager.set(cacheKey, finalResult, 3600000); // Cache for 1 hour
-      return finalResult;
-    } catch (_error) {
-      return [];
+      await this.cacheManager.set(key, value, CACHE_TTL_MS);
+      this.logger.debug(`Cached result: ${key}`);
+    } catch (error) {
+      this.logger.warn(`Cache storage failed for ${key}:`, error.message);
+      // Non-critical error, continue execution
     }
-  }
-
-  /**
-   * Generate generic content using AI
-   */
-  async generateContent(params: {
-    prompt: string;
-    maxTokens?: number;
-  }): Promise<string> {
-    const { prompt, maxTokens } = params;
-
-    // Simple caching for generic content
-    const cacheKey = `content:${Buffer.from(prompt).toString("base64").substring(0, 50)}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) {
-      return cached as string;
-    }
-
-    let result;
-    if (maxTokens) {
-      result = await this.model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          maxOutputTokens: maxTokens,
-        },
-      });
-    } else {
-      result = await this.model.generateContent(prompt);
-    }
-
-    const response = await result.response;
-    const text = response.text();
-
-    await this.cacheManager.set(cacheKey, text, 3600000); // Cache for 1 hour
-    return text;
-  }
-  /**
-   * Generate a structured learning guide
-   */
-  async generateLearningGuide(params: {
-    topic?: string;
-    content?: string;
-  }): Promise<any> {
-    const { topic, content } = params;
-    const cacheKey = `learning-guide:${topic}:${content ? Buffer.from(content).toString("base64").substring(0, 20) : "no-content"}`;
-
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const prompt = AiPrompts.generateLearningGuide(topic || "", content || "");
-
-    const result = await this.model.generateContent(prompt);
-    const response = await result.response;
-    const responseText = response.text();
-
-    try {
-      const cleanedResponse = responseText
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-
-      const finalResult = JSON.parse(cleanedResponse);
-      await this.cacheManager.set(cacheKey, finalResult, 3600000); // Cache for 1 hour
-      return finalResult;
-    } catch (_error) {
-      throw new Error("Failed to generate valid learning guide format");
-    }
-  }
-
-  /**
-   * Generate a simpler explanation for a concept
-   */
-  async generateExplanation(params: {
-    topic: string;
-    context: string;
-  }): Promise<string> {
-    const { topic, context } = params;
-    const prompt = AiPrompts.generateExplanation(topic, context);
-    return this.generateContent({ prompt });
-  }
-
-  /**
-   * Generate more examples for a concept
-   */
-  async generateExample(params: {
-    topic: string;
-    context: string;
-  }): Promise<string> {
-    const { topic, context } = params;
-    const prompt = AiPrompts.generateExample(topic, context);
-    return this.generateContent({ prompt });
   }
 }
