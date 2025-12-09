@@ -42,10 +42,6 @@ NestJS + TypeScript + PostgreSQL + Prisma + LangChain + Google Gemini backend fo
 # Install dependencies
 npm install
 
-# Copy environment variables
-cp .env.example .env
-
-# Update .env with your credentials
 ```
 
 ### Environment Setup
