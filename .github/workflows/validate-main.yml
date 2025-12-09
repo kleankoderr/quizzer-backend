@@ -1,0 +1,39 @@
+name: Validate Backend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    name: Validate Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Prettier auto-fix
+        run: npm run format:write
+
+      - name: Run ESLint
+        run: npm run lint:check
+
+      - name: Run tests
+        run: npm run test:ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Validation complete
+        run: echo "✅ All validation checks passed! Render will now deploy automatically."
