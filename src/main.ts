@@ -19,12 +19,18 @@ async function bootstrap() {
   // Enable body parsing explicitly
   app.use(json({ limit: '50mb' }));
 
-  // Enable CORS - Allow all origins
+  // Enable CORS - Allow all origins with SSE support
   app.enableCors({
     origin: true, // Allow all origins
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Cache-Control',
+    ],
+    exposedHeaders: ['Cache-Control', 'X-Accel-Buffering'], // Required for SSE
   });
 
   // Use cookie-parser middleware
