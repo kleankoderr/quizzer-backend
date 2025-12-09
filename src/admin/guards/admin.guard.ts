@@ -3,8 +3,8 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
-} from "@nestjs/common";
-import { UserRole } from "@prisma/client";
+} from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -20,6 +20,6 @@ export class AdminGuard implements CanActivate {
       return true;
     }
 
-    throw new ForbiddenException("Admin access required");
+    throw new ForbiddenException('Admin access required');
   }
 }

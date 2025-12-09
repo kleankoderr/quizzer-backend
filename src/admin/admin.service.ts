@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { ChallengeService } from "../challenge/challenge.service";
-import { UserRole, Prisma } from "@prisma/client";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { ChallengeService } from '../challenge/challenge.service';
+import { UserRole, Prisma } from '@prisma/client';
 import {
   UserFilterDto,
   UpdateUserStatusDto,
@@ -12,33 +12,33 @@ import {
   CreateSchoolDto,
   UpdateSchoolDto,
   PlatformSettingsDto,
-} from "./dto/admin.dto";
-import { ForbiddenException } from "@nestjs/common";
+} from './dto/admin.dto';
+import { ForbiddenException } from '@nestjs/common';
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly challengeService: ChallengeService,
+    private readonly challengeService: ChallengeService
   ) {}
 
   async deleteContent(contentId: string) {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },
     });
-    if (!content) throw new NotFoundException("Content not found");
+    if (!content) throw new NotFoundException('Content not found');
 
     await this.prisma.content.delete({ where: { id: contentId } });
-    return { success: true, message: "Content deleted successfully" };
+    return { success: true, message: 'Content deleted successfully' };
   }
 
   async deleteQuiz(quizId: string) {
     const quiz = await this.prisma.quiz.findUnique({ where: { id: quizId } });
-    if (!quiz) throw new NotFoundException("Quiz not found");
+    if (!quiz) throw new NotFoundException('Quiz not found');
 
     await this.prisma.quiz.delete({ where: { id: quizId } });
-    return { success: true, message: "Quiz deleted successfully" };
+    return { success: true, message: 'Quiz deleted successfully' };
   }
 
   async getSystemStats() {
@@ -89,7 +89,7 @@ export class AdminService {
   }
 
   async getUsers(filterDto: UserFilterDto) {
-    const { search, role, isActive, page = "1", limit = "10" } = filterDto;
+    const { search, role, isActive, page = '1', limit = '10' } = filterDto;
     const pageNum = Number.parseInt(page, 10);
     const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -98,8 +98,8 @@ export class AdminService {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -116,7 +116,7 @@ export class AdminService {
         where,
         skip,
         take: limitNum,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           email: true,
@@ -166,14 +166,14 @@ export class AdminService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
 
     // Get recent activity
     const recentAttempts = await this.prisma.attempt.findMany({
       where: { userId },
       take: 5,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       include: {
         quiz: { select: { title: true } },
         flashcardSet: { select: { title: true } },
@@ -187,7 +187,7 @@ export class AdminService {
   }
 
   async getUserContent(userId: string, filterDto: ContentFilterDto) {
-    const { type = "all", page = "1", limit = "10" } = filterDto;
+    const { type = 'all', page = '1', limit = '10' } = filterDto;
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -195,13 +195,13 @@ export class AdminService {
     let data: any[] = [];
     let total = 0;
 
-    if (type === "quiz" || type === "all") {
+    if (type === 'quiz' || type === 'all') {
       const [quizzes, quizCount] = await Promise.all([
         this.prisma.quiz.findMany({
           where: { userId },
-          skip: type === "quiz" ? skip : 0,
-          take: type === "quiz" ? limitNum : undefined,
-          orderBy: { createdAt: "desc" },
+          skip: type === 'quiz' ? skip : 0,
+          take: type === 'quiz' ? limitNum : undefined,
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
             title: true,
@@ -214,21 +214,21 @@ export class AdminService {
         this.prisma.quiz.count({ where: { userId } }),
       ]);
 
-      if (type === "quiz") {
-        data = quizzes.map((q) => ({ ...q, type: "quiz" }));
+      if (type === 'quiz') {
+        data = quizzes.map((q) => ({ ...q, type: 'quiz' }));
         total = quizCount;
       } else {
-        data.push(...quizzes.map((q) => ({ ...q, type: "quiz" })));
+        data.push(...quizzes.map((q) => ({ ...q, type: 'quiz' })));
       }
     }
 
-    if (type === "flashcard" || type === "all") {
+    if (type === 'flashcard' || type === 'all') {
       const [flashcards, flashcardCount] = await Promise.all([
         this.prisma.flashcardSet.findMany({
           where: { userId },
-          skip: type === "flashcard" ? skip : 0,
-          take: type === "flashcard" ? limitNum : undefined,
-          orderBy: { createdAt: "desc" },
+          skip: type === 'flashcard' ? skip : 0,
+          take: type === 'flashcard' ? limitNum : undefined,
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
             title: true,
@@ -240,21 +240,21 @@ export class AdminService {
         this.prisma.flashcardSet.count({ where: { userId } }),
       ]);
 
-      if (type === "flashcard") {
-        data = flashcards.map((f) => ({ ...f, type: "flashcard" }));
+      if (type === 'flashcard') {
+        data = flashcards.map((f) => ({ ...f, type: 'flashcard' }));
         total = flashcardCount;
       } else {
-        data.push(...flashcards.map((f) => ({ ...f, type: "flashcard" })));
+        data.push(...flashcards.map((f) => ({ ...f, type: 'flashcard' })));
       }
     }
 
-    if (type === "content" || type === "all") {
+    if (type === 'content' || type === 'all') {
       const [contents, contentCount] = await Promise.all([
         this.prisma.content.findMany({
           where: { userId },
-          skip: type === "content" ? skip : 0,
-          take: type === "content" ? limitNum : undefined,
-          orderBy: { createdAt: "desc" },
+          skip: type === 'content' ? skip : 0,
+          take: type === 'content' ? limitNum : undefined,
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
             title: true,
@@ -265,19 +265,19 @@ export class AdminService {
         this.prisma.content.count({ where: { userId } }),
       ]);
 
-      if (type === "content") {
-        data = contents.map((c) => ({ ...c, type: "content" }));
+      if (type === 'content') {
+        data = contents.map((c) => ({ ...c, type: 'content' }));
         total = contentCount;
       } else {
-        data.push(...contents.map((c) => ({ ...c, type: "content" })));
+        data.push(...contents.map((c) => ({ ...c, type: 'content' })));
       }
     }
 
     // If type is "all", sort by createdAt and paginate
-    if (type === "all") {
+    if (type === 'all') {
       data.sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       total = data.length;
       data = data.slice(skip, skip + limitNum);
@@ -296,11 +296,11 @@ export class AdminService {
 
   async updateUserStatus(userId: string, updateStatusDto: UpdateUserStatusDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException("User not found");
+    if (!user) throw new NotFoundException('User not found');
 
     // Prevent disabling Super Admin
     if (user.role === UserRole.SUPER_ADMIN && !updateStatusDto.isActive) {
-      throw new ForbiddenException("Cannot disable Super Admin account");
+      throw new ForbiddenException('Cannot disable Super Admin account');
     }
 
     return this.prisma.user.update({
@@ -311,7 +311,7 @@ export class AdminService {
 
   async updateUserRole(userId: string, updateRoleDto: UpdateUserRoleDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException("User not found");
+    if (!user) throw new NotFoundException('User not found');
 
     return this.prisma.user.update({
       where: { id: userId },
@@ -321,10 +321,10 @@ export class AdminService {
 
   async deleteUser(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException("User not found");
+    if (!user) throw new NotFoundException('User not found');
 
     if (user.role === UserRole.SUPER_ADMIN) {
-      throw new ForbiddenException("Cannot delete Super Admin account");
+      throw new ForbiddenException('Cannot delete Super Admin account');
     }
 
     // Use transaction to ensure all related data is deleted properly
@@ -335,7 +335,7 @@ export class AdminService {
   }
 
   async getAllContent(filterDto: ContentFilterDto) {
-    const { search, page = "1", limit = "10" } = filterDto;
+    const { search, page = '1', limit = '10' } = filterDto;
     const pageNum = Number.parseInt(page, 10);
     const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -349,8 +349,8 @@ export class AdminService {
 
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { topic: { contains: search, mode: "insensitive" } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { topic: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -359,7 +359,7 @@ export class AdminService {
         where,
         skip,
         take: limitNum,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { name: true, email: true } },
           _count: { select: { attempts: true } },
@@ -380,7 +380,7 @@ export class AdminService {
   }
 
   async getAllFlashcards(filterDto: ContentFilterDto) {
-    const { search, page = "1", limit = "10" } = filterDto;
+    const { search, page = '1', limit = '10' } = filterDto;
     const pageNum = Number.parseInt(page, 10);
     const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -389,8 +389,8 @@ export class AdminService {
 
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { topic: { contains: search, mode: "insensitive" } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { topic: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -399,7 +399,7 @@ export class AdminService {
         where,
         skip,
         take: limitNum,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { name: true, email: true } },
           _count: { select: { attempts: true } },
@@ -420,7 +420,7 @@ export class AdminService {
   }
 
   async getAllChallenges(filterDto: ContentFilterDto) {
-    const { search, page = "1", limit = "10" } = filterDto;
+    const { search, page = '1', limit = '10' } = filterDto;
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -429,8 +429,8 @@ export class AdminService {
 
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -439,7 +439,7 @@ export class AdminService {
         where,
         skip,
         take: limitNum,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           _count: { select: { completions: true } },
         },
@@ -465,7 +465,7 @@ export class AdminService {
         content: { select: { title: true } },
         quiz: { select: { title: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -474,7 +474,7 @@ export class AdminService {
     // We need to find reports associated with this content and resolve them.
     // And perform the action.
 
-    if (actionDto.action === "DELETE") {
+    if (actionDto.action === 'DELETE') {
       // Try to delete from Quiz or Content
       // This is a bit ambiguous without knowing the type.
       // For now, we try both or rely on the fact that IDs are UUIDs and unique across tables (usually not guaranteed but likely distinct enough or we check existence).
@@ -494,7 +494,7 @@ export class AdminService {
     // Resolve reports
     await this.prisma.report.updateMany({
       where: { OR: [{ quizId: id }, { contentId: id }] },
-      data: { status: "RESOLVED" },
+      data: { status: 'RESOLVED' },
     });
 
     return { success: true };
@@ -502,7 +502,7 @@ export class AdminService {
 
   async getSchools() {
     return this.prisma.school.findMany({
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
   }
 
@@ -517,12 +517,12 @@ export class AdminService {
   async getAiAnalytics() {
     const totalTasks = await this.prisma.task.count();
     const failedTasks = await this.prisma.task.count({
-      where: { status: "FAILED" },
+      where: { status: 'FAILED' },
     });
 
     // Get tasks by type
     const tasksByType = await this.prisma.task.groupBy({
-      by: ["type"],
+      by: ['type'],
       _count: { _all: true },
     });
 
@@ -564,10 +564,10 @@ export class AdminService {
     const flashcardSet = await this.prisma.flashcardSet.findUnique({
       where: { id: flashcardSetId },
     });
-    if (!flashcardSet) throw new NotFoundException("Flashcard set not found");
+    if (!flashcardSet) throw new NotFoundException('Flashcard set not found');
 
     await this.prisma.flashcardSet.delete({ where: { id: flashcardSetId } });
-    return { success: true, message: "Flashcard set deleted successfully" };
+    return { success: true, message: 'Flashcard set deleted successfully' };
   }
 
   async createChallenge(dto: any) {
@@ -592,8 +592,8 @@ export class AdminService {
               quizId,
               order: index,
             },
-          }),
-        ),
+          })
+        )
       );
     }
 
@@ -604,10 +604,10 @@ export class AdminService {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
     });
-    if (!challenge) throw new NotFoundException("Challenge not found");
+    if (!challenge) throw new NotFoundException('Challenge not found');
 
     await this.prisma.challenge.delete({ where: { id: challengeId } });
-    return { success: true, message: "Challenge deleted successfully" };
+    return { success: true, message: 'Challenge deleted successfully' };
   }
 
   async getAnalytics() {
@@ -630,7 +630,7 @@ export class AdminService {
       this.prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
       this.prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
       this.prisma.user.groupBy({
-        by: ["role"],
+        by: ['role'],
         _count: { _all: true },
       }),
     ]);
@@ -670,11 +670,11 @@ export class AdminService {
         where: { createdAt: { gte: sevenDaysAgo } },
       }),
       this.prisma.attempt.groupBy({
-        by: ["type"],
+        by: ['type'],
         _count: { _all: true },
       }),
       this.prisma.attempt.aggregate({
-        where: { type: "quiz", score: { not: null } },
+        where: { type: 'quiz', score: { not: null } },
         _avg: { score: true },
       }),
     ]);
@@ -696,7 +696,7 @@ export class AdminService {
       this.prisma.challengeCompletion.count(),
       this.prisma.challenge.findMany({
         take: 5,
-        orderBy: { completions: { _count: "desc" } },
+        orderBy: { completions: { _count: 'desc' } },
         include: {
           _count: { select: { completions: true } },
         },
@@ -706,7 +706,7 @@ export class AdminService {
     // Top performing content
     const topQuizzes = await this.prisma.quiz.findMany({
       take: 5,
-      orderBy: { attempts: { _count: "desc" } },
+      orderBy: { attempts: { _count: 'desc' } },
       include: {
         user: { select: { name: true } },
         _count: { select: { attempts: true } },
@@ -715,7 +715,7 @@ export class AdminService {
 
     const topFlashcards = await this.prisma.flashcardSet.findMany({
       take: 5,
-      orderBy: { attempts: { _count: "desc" } },
+      orderBy: { attempts: { _count: 'desc' } },
       include: {
         user: { select: { name: true } },
         _count: { select: { attempts: true } },
@@ -806,7 +806,7 @@ export class AdminService {
     // Group by date
     const growthMap = new Map<string, number>();
     for (const user of users) {
-      const date = user.createdAt.toISOString().split("T")[0];
+      const date = user.createdAt.toISOString().split('T')[0];
       growthMap.set(date, (growthMap.get(date) || 0) + 1);
     }
 
@@ -837,7 +837,7 @@ export class AdminService {
     >();
 
     for (const q of quizzes) {
-      const date = q.createdAt.toISOString().split("T")[0];
+      const date = q.createdAt.toISOString().split('T')[0];
       const existing = trendsMap.get(date) || {
         quizzes: 0,
         flashcards: 0,
@@ -847,7 +847,7 @@ export class AdminService {
     }
 
     for (const f of flashcards) {
-      const date = f.createdAt.toISOString().split("T")[0];
+      const date = f.createdAt.toISOString().split('T')[0];
       const existing = trendsMap.get(date) || {
         quizzes: 0,
         flashcards: 0,
@@ -857,7 +857,7 @@ export class AdminService {
     }
 
     for (const c of contents) {
-      const date = c.createdAt.toISOString().split("T")[0];
+      const date = c.createdAt.toISOString().split('T')[0];
       const existing = trendsMap.get(date) || {
         quizzes: 0,
         flashcards: 0,
@@ -875,7 +875,7 @@ export class AdminService {
     await this.challengeService.generateDailyChallenges();
     return {
       success: true,
-      message: "Daily challenges generated successfully",
+      message: 'Daily challenges generated successfully',
     };
   }
 
@@ -883,7 +883,7 @@ export class AdminService {
     await this.challengeService.generateWeeklyChallenges();
     return {
       success: true,
-      message: "Weekly challenges generated successfully",
+      message: 'Weekly challenges generated successfully',
     };
   }
 
@@ -891,12 +891,12 @@ export class AdminService {
     await this.challengeService.generateMonthlyChallenges();
     return {
       success: true,
-      message: "Monthly challenges generated successfully",
+      message: 'Monthly challenges generated successfully',
     };
   }
 
   async generateHotChallenges() {
     await this.challengeService.generateHotChallenges();
-    return { success: true, message: "Hot challenges generated successfully" };
+    return { success: true, message: 'Hot challenges generated successfully' };
   }
 }

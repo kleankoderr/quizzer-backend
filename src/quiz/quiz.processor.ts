@@ -1,149 +1,128 @@
-import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { Logger, Inject } from "@nestjs/common";
-import { Job } from "bullmq";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { GenerateQuizDto } from "./dto/quiz.dto";
-import { HttpService } from "@nestjs/axios";
-import { lastValueFrom } from "rxjs";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { QuizType } from "@prisma/client";
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger, Inject } from '@nestjs/common';
+import { Job } from 'bullmq';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { GenerateQuizDto } from './dto/quiz.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { QuizType } from '@prisma/client';
+import { EventFactory } from '../events/events.types';
+import { EVENTS } from '../events/events.constants';
+
+export interface FileReference {
+  originalname: string;
+  cloudinaryUrl?: string;
+  cloudinaryId?: string;
+  googleFileUrl?: string;
+  googleFileId?: string;
+  mimetype?: string;
+}
 
 export interface QuizJobData {
   userId: string;
   dto: GenerateQuizDto;
-  files?: Array<{
-    path: string;
-    originalname: string;
-    mimetype: string;
-    url?: string;
-    publicId?: string;
-  }>;
+  contentId?: string;
+  files?: FileReference[];
 }
 
-@Processor("quiz-generation")
+// ==================== CONSTANTS ====================
+
+const QUIZ_TYPE_MAP: Record<string, QuizType> = {
+  standard: QuizType.STANDARD,
+  timed: QuizType.TIMED_TEST,
+  scenario: QuizType.SCENARIO_BASED,
+};
+
+// ==================== PROCESSOR ====================
+
+@Processor('quiz-generation')
 export class QuizProcessor extends WorkerHost {
   private readonly logger = new Logger(QuizProcessor.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly httpService: HttpService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly eventEmitter: EventEmitter2,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {
     super();
   }
 
   async process(job: Job<QuizJobData>): Promise<any> {
-    const { userId, dto, files } = job.data;
+    const { userId, dto, contentId, files } = job.data;
+    const jobId = job.id?.toString() || 'unknown';
+
     this.logger.log(
-      `Processing quiz generation job ${job.id} for user ${userId}`,
+      `Processing quiz generation job ${jobId} for user ${userId}`
     );
 
     try {
-      // Update progress
-      await job.updateProgress(10);
-      this.logger.debug(`Job ${job.id}: Converting file data`);
+      // Step 1: Initialize and prepare
+      await this.emitProgress(userId, jobId, 'Starting quiz generation...', 10);
 
-      // Download files if URLs are present
-      const processedFiles: any[] = [];
-      if (files && files.length > 0) {
-        for (const file of files) {
-          if (file.url) {
-            try {
-              this.logger.debug(`Downloading file from ${file.url}`);
-              const response = await lastValueFrom(
-                this.httpService.get(file.url, { responseType: "arraybuffer" }),
-              );
-              processedFiles.push({
-                buffer: Buffer.from(response.data),
-                originalname: file.originalname,
-                mimetype: file.mimetype,
-              });
-            } catch (error) {
-              this.logger.error(
-                `Failed to download file ${file.originalname}:`,
-                error,
-              );
-              throw error;
-            }
-          } else {
-            // Fallback for local paths (though likely undefined in this context)
-            processedFiles.push(file);
-          }
-        }
+      const fileReferences = this.prepareFileReferences(files);
+
+      if (fileReferences.length > 0) {
+        await this.emitProgress(
+          userId,
+          jobId,
+          `Processing ${fileReferences.length} file(s)...`,
+          20
+        );
+      } else {
+        await job.updateProgress(20);
       }
 
-      await job.updateProgress(20);
+      // Step 2: Generate quiz with AI
+      await this.emitProgress(
+        userId,
+        jobId,
+        'Generating questions... This might take a moment.',
+        40
+      );
 
-      // Generate quiz using AI
-      this.logger.log(`Job ${job.id}: Calling AI service to generate quiz`);
-      const { questions, title, topic } = await this.aiService.generateQuiz({
-        topic: dto.topic,
-        content: dto.content,
-        files: processedFiles,
-        numberOfQuestions: dto.numberOfQuestions,
-        difficulty: dto.difficulty,
-        quizType: dto.quizType,
-        questionTypes: dto.questionTypes,
-      });
+      const { questions, title, topic } = await this.generateQuizWithAI(
+        dto,
+        fileReferences
+      );
 
       this.logger.log(
-        `Job ${job.id}: AI generated ${questions.length} questions`,
+        `Job ${jobId}: Generated ${questions.length} question(s)`
       );
-      await job.updateProgress(70);
 
-      // Determine source type
-      let sourceType = "topic";
-      if (dto.content) sourceType = "text";
-      if (files && files.length > 0) sourceType = "file";
+      // Step 3: Save quiz to database
+      await this.emitProgress(userId, jobId, 'Finalizing and saving...', 70);
 
-      // Get file URLs from job data
-      const fileUrls = files?.map((f) => f.url).filter(Boolean) || [];
+      const quiz = await this.saveQuiz(
+        userId,
+        dto,
+        contentId,
+        title,
+        topic,
+        questions,
+        files
+      );
 
-      await job.updateProgress(85);
-
-      // Save quiz to database
-      this.logger.debug(`Job ${job.id}: Saving quiz to database`);
-
-      // Convert quizType string to enum
-      let quizTypeEnum: QuizType = QuizType.STANDARD;
-      if (dto.quizType) {
-        const typeMap: Record<string, QuizType> = {
-          standard: QuizType.STANDARD,
-          timed: QuizType.TIMED_TEST,
-          scenario: QuizType.SCENARIO_BASED,
-        };
-        quizTypeEnum = typeMap[dto.quizType.toLowerCase()] || QuizType.STANDARD;
-      }
-
-      const quiz = await this.prisma.quiz.create({
-        data: {
-          title,
-          topic,
-          difficulty: dto.difficulty,
-          quizType: quizTypeEnum,
-          timeLimit: dto.timeLimit,
-          questions: questions as any,
-          userId,
-          sourceType,
-          sourceFiles: fileUrls as string[],
-          contentId: dto.contentId,
-        },
-      });
-
-      // Update content quizId mapping if applicable
-      if (dto.contentId) {
-        await this.prisma.content.update({
-          where: { id: dto.contentId },
-          data: { quizId: quiz.id },
-        });
+      // Step 4: Link to content if applicable
+      if (contentId) {
+        await this.linkToContent(contentId, quiz.id);
       }
 
       await job.updateProgress(100);
+
       this.logger.log(
-        `Job ${job.id}: Quiz generation completed successfully (Quiz ID: ${quiz.id})`,
+        `Job ${jobId}: Successfully completed (Quiz ID: ${quiz.id})`
+      );
+
+      // Emit completion event
+      this.eventEmitter.emit(
+        EVENTS.QUIZ.COMPLETED,
+        EventFactory.quizCompleted(userId, quiz.id, questions.length, {
+          title: quiz.title,
+          topic: quiz.topic,
+        })
       );
 
       return {
@@ -151,8 +130,156 @@ export class QuizProcessor extends WorkerHost {
         quiz,
       };
     } catch (error) {
-      this.logger.error(`Job ${job.id}: Quiz generation failed`, error);
+      this.logger.error(`Job ${jobId}: Failed to generate quiz`, error.stack);
+
+      // Emit failure event
+      this.eventEmitter.emit(
+        EVENTS.QUIZ.FAILED,
+        EventFactory.quizFailed(userId, jobId, error.message)
+      );
+
       throw error;
     }
+  }
+
+  // ==================== PRIVATE HELPER METHODS ====================
+
+  /**
+   * Prepare file references for AI service
+   */
+  private prepareFileReferences(files?: FileReference[]): FileReference[] {
+    if (!files || files.length === 0) {
+      return [];
+    }
+
+    const fileRefs = files.map((file) => ({
+      googleFileUrl: file.googleFileUrl,
+      googleFileId: file.googleFileId,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+    }));
+
+    this.logger.debug(`Using ${fileRefs.length} pre-uploaded file(s)`);
+    return fileRefs;
+  }
+
+  /**
+   * Generate quiz using AI service
+   */
+  private async generateQuizWithAI(
+    dto: GenerateQuizDto,
+    fileReferences: FileReference[]
+  ) {
+    return this.aiService.generateQuiz({
+      topic: dto.topic,
+      content: dto.content,
+      fileReferences,
+      numberOfQuestions: dto.numberOfQuestions,
+      difficulty: dto.difficulty,
+      quizType: dto.quizType,
+      questionTypes: dto.questionTypes,
+    });
+  }
+
+  /**
+   * Save quiz to database
+   */
+  private async saveQuiz(
+    userId: string,
+    dto: GenerateQuizDto,
+    contentId: string | undefined,
+    title: string,
+    topic: string,
+    questions: any[],
+    files?: FileReference[]
+  ) {
+    const quizType = this.mapQuizType(dto.quizType);
+    const sourceType = this.determineSourceType(dto, files);
+    const sourceFiles = this.extractFileUrls(files);
+
+    return this.prisma.quiz.create({
+      data: {
+        title,
+        topic,
+        difficulty: dto.difficulty,
+        quizType,
+        timeLimit: dto.timeLimit,
+        questions: questions as any,
+        userId,
+        sourceType,
+        sourceFiles,
+        contentId,
+      },
+    });
+  }
+
+  /**
+   * Map quiz type string to Prisma enum
+   */
+  private mapQuizType(quizType?: string): QuizType {
+    if (!quizType) {
+      return QuizType.STANDARD;
+    }
+
+    return QUIZ_TYPE_MAP[quizType.toLowerCase()] || QuizType.STANDARD;
+  }
+
+  /**
+   * Determine source type based on input
+   */
+  private determineSourceType(
+    dto: GenerateQuizDto,
+    files?: FileReference[]
+  ): string {
+    if (files && files.length > 0) return 'file';
+    if (dto.content) return 'text';
+    return 'topic';
+  }
+
+  /**
+   * Extract file URLs from file references
+   */
+  private extractFileUrls(files?: FileReference[]): string[] {
+    if (!files || files.length === 0) {
+      return [];
+    }
+
+    return files.map((f) => f.googleFileUrl).filter(Boolean);
+  }
+
+  /**
+   * Link quiz to content
+   */
+  private async linkToContent(
+    contentId: string,
+    quizId: string
+  ): Promise<void> {
+    try {
+      await this.prisma.content.update({
+        where: { id: contentId },
+        data: { quizId },
+      });
+      this.logger.debug(`Linked quiz ${quizId} to content ${contentId}`);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to link quiz ${quizId} to content ${contentId}:`,
+        error.message
+      );
+    }
+  }
+
+  /**
+   * Emit progress event
+   */
+  private async emitProgress(
+    userId: string,
+    jobId: string,
+    step: string,
+    percentage: number
+  ): Promise<void> {
+    this.eventEmitter.emit(
+      EVENTS.QUIZ.PROGRESS,
+      EventFactory.quizProgress(userId, jobId, step, percentage)
+    );
   }
 }

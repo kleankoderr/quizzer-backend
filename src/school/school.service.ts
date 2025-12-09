@@ -1,9 +1,9 @@
-import { Injectable, Inject } from "@nestjs/common";
-import { HttpService } from "@nestjs/axios";
-import { PrismaService } from "../prisma/prisma.service";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { firstValueFrom } from "rxjs";
+import { Injectable, Inject } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { PrismaService } from '../prisma/prisma.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class SchoolService {
@@ -29,12 +29,12 @@ export class SchoolService {
       where: {
         name: {
           contains: query,
-          mode: "insensitive",
+          mode: 'insensitive',
         },
       },
       take: 10,
       orderBy: {
-        name: "asc",
+        name: 'asc',
       },
     });
 
@@ -72,7 +72,7 @@ export class SchoolService {
         results.sort((a, b) => a.name.localeCompare(b.name));
         results = results.slice(0, 10); // Limit total to 10
       } catch (error) {
-        console.error("Failed to fetch from external school API:", error);
+        console.error('Failed to fetch from external school API:', error);
         // Continue with local results if external fails
       }
     }
@@ -90,7 +90,7 @@ export class SchoolService {
       where: {
         name: {
           equals: normalizedName,
-          mode: "insensitive",
+          mode: 'insensitive',
         },
       },
     });
@@ -114,17 +114,17 @@ export class SchoolService {
     try {
       const store = (this.cacheManager as any).store;
       // Check if we have access to the redis client directly
-      if ("client" in store) {
+      if ('client' in store) {
         const client = (store as any).client;
         // In node-redis v4+, keys returns an array of keys
         // We need to handle the prefix if the store adds one, but usually it doesn't unless configured
-        const keys = await client.keys("schools:search:*");
+        const keys = await client.keys('schools:search:*');
         if (keys && keys.length > 0) {
           await client.del(keys);
         }
       }
     } catch (error) {
-      console.error("Failed to invalidate school cache:", error);
+      console.error('Failed to invalidate school cache:', error);
     }
   }
 }

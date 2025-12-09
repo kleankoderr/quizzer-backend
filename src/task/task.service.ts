@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { TaskStatus, TaskType } from "@prisma/client";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { TaskStatus, TaskType } from '@prisma/client';
 
 @Injectable()
 export class TaskService {
@@ -22,7 +22,7 @@ export class TaskService {
     });
 
     if (!task || task.userId !== userId) {
-      throw new NotFoundException("Task not found");
+      throw new NotFoundException('Task not found');
     }
 
     return task;
@@ -32,7 +32,7 @@ export class TaskService {
     taskId: string,
     status: TaskStatus,
     result?: any,
-    error?: string,
+    error?: string
   ) {
     return this.prisma.task.update({
       where: { id: taskId },

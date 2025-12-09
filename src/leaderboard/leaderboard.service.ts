@@ -1,13 +1,13 @@
-import { Injectable, Inject } from "@nestjs/common";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class LeaderboardService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
   async getGlobalLeaderboard(currentUserId: string) {
@@ -21,7 +21,7 @@ export class LeaderboardService {
     // Get top 11 from Streak table based on totalXP
     const topStreaks = await this.prisma.streak.findMany({
       take: 11,
-      orderBy: { totalXP: "desc" },
+      orderBy: { totalXP: 'desc' },
       include: {
         user: {
           select: {
@@ -128,7 +128,7 @@ export class LeaderboardService {
         },
       },
       take: 11,
-      orderBy: { totalXP: "desc" },
+      orderBy: { totalXP: 'desc' },
       include: {
         user: {
           select: {

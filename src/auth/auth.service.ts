@@ -1,16 +1,16 @@
-import { OAuth2Client } from "google-auth-library";
+import { OAuth2Client } from 'google-auth-library';
 import {
   Injectable,
   UnauthorizedException,
   ConflictException,
   ForbiddenException,
-} from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { PrismaService } from "../prisma/prisma.service";
-import * as bcrypt from "bcrypt";
-import { SignupDto, LoginDto, GoogleAuthDto } from "./dto/auth.dto";
-import { SettingsService } from "../settings/settings.service";
-import axios from "axios";
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
+import { SignupDto, LoginDto, GoogleAuthDto } from './dto/auth.dto';
+import { SettingsService } from '../settings/settings.service';
+import axios from 'axios';
 
 @Injectable()
 export class AuthService {
@@ -19,7 +19,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly settingsService: SettingsService,
+    private readonly settingsService: SettingsService
   ) {
     this.client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
@@ -29,7 +29,7 @@ export class AuthService {
     const settings = await this.settingsService.getPublicSettings();
     if (!settings.allowRegistration) {
       throw new ForbiddenException(
-        "Registration is currently disabled. Please check back later or contact support.",
+        'Registration is currently disabled. Please check back later or contact support.'
       );
     }
 
@@ -41,7 +41,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException("User with this email already exists");
+      throw new ConflictException('User with this email already exists');
     }
 
     // Hash password
@@ -68,14 +68,14 @@ export class AuthService {
     });
 
     if (!user?.password) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password ?? "");
+    const isPasswordValid = await bcrypt.compare(password, user.password ?? '');
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     return this.generateAuthResponse(user);
@@ -91,7 +91,7 @@ export class AuthService {
       let uid: string;
 
       // Check if token is JWT (ID Token)
-      if (token.split(".").length === 3) {
+      if (token.split('.').length === 3) {
         const ticket = await this.client.verifyIdToken({
           idToken: token,
           audience: process.env.GOOGLE_CLIENT_ID,
@@ -99,7 +99,7 @@ export class AuthService {
         const payload = ticket.getPayload();
 
         if (!payload) {
-          throw new UnauthorizedException("Invalid Google token");
+          throw new UnauthorizedException('Invalid Google token');
         }
 
         email = payload.email;
@@ -110,10 +110,10 @@ export class AuthService {
         // Assume Access Token - Fetch user info
         try {
           const userInfoResponse = await axios.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
+            'https://www.googleapis.com/oauth2/v3/userinfo',
             {
               headers: { Authorization: `Bearer ${token}` },
-            },
+            }
           );
 
           const userInfo = userInfoResponse.data;
@@ -123,15 +123,15 @@ export class AuthService {
           uid = userInfo.sub;
         } catch (error) {
           console.error(
-            "Failed to fetch user info with access token:",
-            error.response?.data || error.message,
+            'Failed to fetch user info with access token:',
+            error.response?.data || error.message
           );
-          throw new UnauthorizedException("Invalid Google access token");
+          throw new UnauthorizedException('Invalid Google access token');
         }
       }
 
       if (!email) {
-        throw new UnauthorizedException("Email not found in Google token");
+        throw new UnauthorizedException('Email not found in Google token');
       }
 
       // Check if user exists
@@ -152,7 +152,7 @@ export class AuthService {
         const settings = await this.settingsService.getPublicSettings();
         if (!settings.allowRegistration) {
           throw new ForbiddenException(
-            "Registration is currently disabled. Please check back later or contact support.",
+            'Registration is currently disabled. Please check back later or contact support.'
           );
         }
 
@@ -160,7 +160,7 @@ export class AuthService {
         user = await this.prisma.user.create({
           data: {
             email,
-            name: name || email.split("@")[0],
+            name: name || email.split('@')[0],
             googleId: uid,
             avatar: picture,
             password: null, // No password for Google users
@@ -170,8 +170,8 @@ export class AuthService {
 
       return this.generateAuthResponse(user);
     } catch (error) {
-      console.error("Google login error:", error);
-      throw new UnauthorizedException("Invalid Google token");
+      console.error('Google login error:', error);
+      throw new UnauthorizedException('Invalid Google token');
     }
   }
 

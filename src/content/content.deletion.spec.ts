@@ -1,14 +1,14 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { ContentService } from "./content.service";
-import { PrismaService } from "../prisma/prisma.service";
-import { QuizService } from "../quiz/quiz.service";
-import { FlashcardService } from "../flashcard/flashcard.service";
-import { AiService } from "../ai/ai.service";
-import { TaskService } from "../task/task.service";
-import { NotificationService } from "../notification/notification.service";
-import { NotFoundException } from "@nestjs/common";
+import { Test, TestingModule } from '@nestjs/testing';
+import { ContentService } from './content.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { QuizService } from '../quiz/quiz.service';
+import { FlashcardService } from '../flashcard/flashcard.service';
+import { AiService } from '../ai/ai.service';
+import { TaskService } from '../task/task.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotFoundException } from '@nestjs/common';
 
-describe("ContentService Deletion", () => {
+describe('ContentService Deletion', () => {
   let service: ContentService;
   let prismaService: PrismaService;
   let quizService: QuizService;
@@ -52,16 +52,16 @@ describe("ContentService Deletion", () => {
     flashcardService = module.get<FlashcardService>(FlashcardService);
   });
 
-  it("should be defined", () => {
+  it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  describe("deleteContent", () => {
-    it("should delete content and associated quiz/flashcards", async () => {
-      const userId = "user-1";
-      const contentId = "content-1";
-      const quizId = "quiz-1";
-      const flashcardSetId = "flashcard-1";
+  describe('deleteContent', () => {
+    it('should delete content and associated quiz/flashcards', async () => {
+      const userId = 'user-1';
+      const contentId = 'content-1';
+      const quizId = 'quiz-1';
+      const flashcardSetId = 'flashcard-1';
 
       mockPrismaService.content.findUnique.mockResolvedValue({
         id: contentId,
@@ -77,29 +77,29 @@ describe("ContentService Deletion", () => {
       expect(quizService.deleteQuiz).toHaveBeenCalledWith(quizId, userId);
       expect(flashcardService.deleteFlashcardSet).toHaveBeenCalledWith(
         flashcardSetId,
-        userId,
+        userId
       );
       expect(prismaService.content.delete).toHaveBeenCalledWith({
         where: { id: contentId },
       });
     });
 
-    it("should throw NotFoundException if content not found", async () => {
+    it('should throw NotFoundException if content not found', async () => {
       mockPrismaService.content.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.deleteContent("user-1", "content-1"),
+        service.deleteContent('user-1', 'content-1')
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("should throw NotFoundException if user does not own content", async () => {
+    it('should throw NotFoundException if user does not own content', async () => {
       mockPrismaService.content.findUnique.mockResolvedValue({
-        id: "content-1",
-        userId: "other-user",
+        id: 'content-1',
+        userId: 'other-user',
       });
 
       await expect(
-        service.deleteContent("user-1", "content-1"),
+        service.deleteContent('user-1', 'content-1')
       ).rejects.toThrow(NotFoundException);
     });
   });

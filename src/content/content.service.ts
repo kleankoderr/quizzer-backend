@@ -2,326 +2,174 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
+  Inject,
+  Logger,
+} from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
 import {
   CreateContentDto,
   CreateHighlightDto,
   UpdateContentDto,
-} from "./dto/content.dto";
-import { TaskService } from "../task/task.service";
+} from './dto/content.dto';
+import { QuizService } from '../quiz/quiz.service';
+import { FlashcardService } from '../flashcard/flashcard.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import {
+  IFileStorageService,
+  FILE_STORAGE_SERVICE,
+} from '../file-storage/interfaces/file-storage.interface';
+import { DocumentHashService } from '../file-storage/services/document-hash.service';
+import { processFileUploads } from '../common/helpers/file-upload.helpers';
 
-import { QuizService } from "../quiz/quiz.service";
-import { FlashcardService } from "../flashcard/flashcard.service";
-import { PDFParse } from "pdf-parse";
+const MAX_LEARNING_GUIDE_LENGTH = 10000;
+const AI_ENHANCEMENT_MAX_TOKENS = 2000;
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
+
+interface ContentWithRelations {
+  id: string;
+  quizId?: string | null;
+  flashcardSetId?: string | null;
+  quiz?: { id: string } | null;
+  flashcardSet?: { id: string } | null;
+}
 
 @Injectable()
 export class ContentService {
+  private readonly logger = new Logger(ContentService.name);
+
   constructor(
+    @InjectQueue('content-generation')
+    private readonly contentQueue: Queue,
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly taskService: TaskService,
-
     private readonly quizService: QuizService,
-    private readonly flashcardService: FlashcardService
+    private readonly flashcardService: FlashcardService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject('GOOGLE_FILE_STORAGE_SERVICE')
+    private readonly googleFileStorageService: IFileStorageService,
+    @Inject(FILE_STORAGE_SERVICE)
+    private readonly cloudinaryFileStorageService: IFileStorageService,
+    private readonly documentHashService: DocumentHashService
   ) {}
 
   /**
-   * Sanitize extracted text to remove null bytes and other characters
-   * that are invalid in PostgreSQL UTF-8 encoding
+   * Queue content generation job
    */
-  private sanitizeText(text: string): string {
-    if (!text) return "";
-
-    return (
-      text
-        // Remove null bytes (0x00) which are invalid in PostgreSQL UTF-8
-        .replace(/\0/g, "")
-        // Remove other control characters except newlines, tabs, and carriage returns
-        .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
-        // Normalize whitespace - replace multiple spaces with single space
-        .replace(/  +/g, " ")
-        // Normalize line breaks
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n")
-        // Remove excessive newlines (more than 2 consecutive)
-        .replace(/\n{3,}/g, "\n\n")
-        .trim()
-    );
-  }
-
-  async deleteContent(userId: string, contentId: string) {
-    const content = await this.prisma.content.findUnique({
-      where: { id: contentId },
-    });
-
-    if (!content || content.userId !== userId) {
-      throw new NotFoundException("Content not found");
-    }
-
-    // Delete associated quiz if exists
-    if (content.quizId) {
-      try {
-        await this.quizService.deleteQuiz(content.quizId, userId);
-      } catch (_error) {}
-    }
-
-    // Delete associated flashcard set if exists
-    if (content.flashcardSetId) {
-      try {
-        await this.flashcardService.deleteFlashcardSet(
-          content.flashcardSetId,
-          userId
-        );
-      } catch (_error) {}
-    }
-
-    return this.prisma.content.delete({
-      where: { id: contentId },
-    });
-  }
-
-  async generateFromTopic(userId: string, topic: string) {
-    const task = await this.taskService.createTask(
-      userId,
-      "CONTENT_GENERATION"
-    );
-
-    // Run in background
-    this.generateContentInBackground(userId, topic, task.id);
-
-    return { taskId: task.id };
-  }
-
-  private async generateContentInBackground(
+  async generate(
     userId: string,
-    topic: string,
-    taskId: string
+    dto: { topic?: string; content?: string },
+    files?: Express.Multer.File[]
   ) {
-    try {
-      // Verify user exists before creating content
-      const userExists = await this.prisma.user.findUnique({
-        where: { id: userId },
-      });
+    this.validateContentRequest(dto, files);
 
-      if (!userExists) {
-        throw new BadRequestException(
-          `User with ID ${userId} not found. Please log in again.`
-        );
-      }
+    this.logger.log(`User ${userId} requesting content generation`);
 
-      const generatedContent = await this.aiService.generateContent({
-        prompt: `Generate comprehensive educational content about: ${topic}, tailored for a Nigerian student. Include key concepts, explanations, and examples relevant to the Nigerian context.`,
-        maxTokens: 2000,
-      });
-
-      const content = await this.prisma.content.create({
-        data: {
-          title: `${topic} - Study Material`,
-          content: generatedContent,
-          topic,
-          userId,
-        },
-      });
-
-      // Generate learning guide
-      try {
-        const learningGuide = await this.aiService.generateLearningGuide({
-          topic,
-          content: generatedContent,
-        });
-
-        await this.prisma.content.update({
-          where: { id: content.id },
-          data: { learningGuide },
-        });
-      } catch (_err) {}
-
-      await this.taskService.updateTask(taskId, "COMPLETED", {
-        contentId: content.id,
-      });
-    } catch (error) {
-      await this.taskService.updateTask(taskId, "FAILED", null, error.message);
-    }
-  }
-
-  async createFromFile(userId: string, file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException("No file uploaded");
-    }
-
-    // Check file type
-    const allowedTypes = [
-      "text/plain",
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-    if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException(
-        "Invalid file type. Only PDF, DOCX, and TXT files are allowed."
-      );
-    }
-
-    // Extract text from file
-    let extractedText = "";
+    const processedFiles = await this.processUploadedFiles(userId, files);
 
     try {
-      if (file.mimetype === "text/plain") {
-        extractedText = file.buffer.toString("utf-8");
-      } else if (file.mimetype === "application/pdf") {
-        // Use pdf-parse for PDF files
-        const parser = new PDFParse({ data: file.buffer });
-        const pdfData = await parser.getText();
-        extractedText = pdfData.text;
-      } else if (
-        file.mimetype ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      ) {
-        // Use mammoth for DOCX files
-        const mammoth = require("mammoth");
-        const result = await mammoth.extractRawText({ buffer: file.buffer });
-        extractedText = result.value;
-      }
-    } catch (error) {
-      // Log the error stack for debugging
-      if (error instanceof Error) {
-      }
-      throw new BadRequestException(
-        `Failed to extract text from ${file.originalname}. Please ensure the file is valid and not corrupted.`
-      );
-    }
-
-    // Sanitize the extracted text to remove null bytes and invalid characters
-    extractedText = this.sanitizeText(extractedText);
-
-    if (!extractedText || extractedText.trim().length === 0) {
-      throw new BadRequestException(
-        "No readable text content found in the uploaded file. The file may be corrupted or contain only images."
-      );
-    }
-
-    // Determine topic using AI
-    const topic = await this.aiService.generateContent({
-      prompt: `Based on the following text, identify the main academic topic (max 3 words). Return ONLY the topic name.\n\nText:\n${extractedText.substring(0, 1000)}`,
-      maxTokens: 50,
-    });
-
-    // Generate title using AI
-    let title = await this.aiService.generateContent({
-      prompt: `Based on the following text, generate a concise, descriptive, and professional title (max 10 words). Return ONLY the title, do not use quotes or prefixes like "Title:".\n\nText:\n${extractedText.substring(0, 1000)}`,
-      maxTokens: 100,
-    });
-
-    // Clean up title
-    title = title
-      .replace(/^["']|["']$/g, "")
-      .replace(/^Title:\s*/i, "")
-      .trim();
-
-    // Fallback if title is empty
-    if (!title) {
-      title = "Generated Study Material";
-    }
-
-    // Verify user exists before creating content
-    const userExists = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!userExists) {
-      throw new BadRequestException(
-        `User with ID ${userId} not found. Please log in again.`
-      );
-    }
-
-    const content = await this.prisma.content.create({
-      data: {
-        title: title.trim(),
-        content: extractedText,
-        topic: topic.trim(),
+      const job = await this.contentQueue.add('generate', {
         userId,
-      },
-    });
-
-    // Generate learning guide in background
-    try {
-      const learningGuide = await this.aiService.generateLearningGuide({
-        topic,
-        content: extractedText.substring(0, 10000),
+        dto,
+        files: processedFiles.map((doc) => ({
+          originalname: doc.originalName,
+          cloudinaryUrl: doc.cloudinaryUrl,
+          cloudinaryId: doc.cloudinaryId,
+          googleFileUrl: doc.googleFileUrl,
+          googleFileId: doc.googleFileId,
+        })),
       });
 
-      await this.prisma.content.update({
-        where: { id: content.id },
-        data: { learningGuide },
-      });
-    } catch (_err) {}
+      await this.invalidateUserCache(userId);
 
-    return content;
-  }
-
-  async createContent(userId: string, createContentDto: CreateContentDto) {
-    // Verify user exists before creating content
-    const userExists = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!userExists) {
+      this.logger.log(`Content job created: ${job.id}`);
+      return {
+        jobId: job.id,
+        status: 'pending',
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to queue content job for user ${userId}:`,
+        error.stack
+      );
       throw new BadRequestException(
-        `User with ID ${userId} not found. Please log in again.`
+        'Failed to start content generation. Please try again.'
       );
     }
+  }
 
-    let finalContent = createContentDto.content;
+  /**
+   * Get content generation job status
+   */
+  async getJobStatus(jobId: string, userId: string) {
+    this.logger.debug(`Checking job ${jobId} for user ${userId}`);
 
-    // Enhance content using AI
-    try {
-      const enhancedContent = await this.aiService.generateContent({
-        prompt: `Enhance and structure the following study notes into a comprehensive study guide tailored for a Nigerian student. Keep the original meaning but improve clarity, structure, and add missing key details if obvious. Use Markdown formatting.
-        
-        Original Notes:
-        ${createContentDto.content}
-        `,
-        maxTokens: 2000,
-      });
+    const job = await this.contentQueue.getJob(jobId);
 
-      if (enhancedContent) {
-        finalContent = enhancedContent;
-      }
-    } catch (error) {
-      console.error("Failed to enhance content with AI:", error);
-      // Fallback to original content
+    if (!job) {
+      throw new NotFoundException('Job not found');
     }
+
+    const [state, progress] = await Promise.all([
+      job.getState(),
+      Promise.resolve(job.progress),
+    ]);
+
+    this.logger.debug(`Job ${jobId}: ${state} (${JSON.stringify(progress)}%)`);
+
+    return {
+      jobId: job.id,
+      status: state,
+      progress,
+      result: state === 'completed' ? await job.returnvalue : null,
+      error: state === 'failed' ? job.failedReason : null,
+    };
+  }
+
+  // ==================== CONTENT CRUD ====================
+
+  /**
+   * Create content manually
+   */
+  async createContent(userId: string, createContentDto: CreateContentDto) {
+    await this.verifyUserExists(userId);
+
+    const enhancedContent = await this.enhanceContentWithAI(
+      createContentDto.content
+    );
 
     const content = await this.prisma.content.create({
       data: {
         ...createContentDto,
-        content: finalContent,
+        content: enhancedContent,
         userId,
       },
     });
 
     // Generate learning guide in background
-    try {
-      const learningGuide = await this.aiService.generateLearningGuide({
-        topic: createContentDto.topic,
-        content: finalContent.substring(0, 10000),
-      });
+    this.generateLearningGuideAsync(
+      content.id,
+      createContentDto.topic,
+      enhancedContent
+    );
 
-      await this.prisma.content.update({
-        where: { id: content.id },
-        data: { learningGuide },
-      });
-    } catch (_err) {}
+    await this.invalidateUserCache(userId);
 
     return content;
   }
 
+  /**
+   * Get all content for a user with pagination
+   */
   async getContents(
     userId: string,
     topic?: string,
-    page: number = 1,
-    limit: number = 10
+    page: number = DEFAULT_PAGE,
+    limit: number = DEFAULT_LIMIT
   ) {
     const skip = (page - 1) * limit;
 
@@ -336,7 +184,7 @@ export class ContentService {
           flashcardSet: { select: { id: true } },
         },
         orderBy: {
-          createdAt: "desc",
+          createdAt: 'desc',
         },
         skip,
         take: limit,
@@ -349,13 +197,7 @@ export class ContentService {
       }),
     ]);
 
-    const mappedData = data.map((item) => ({
-      ...item,
-      quizId: item.quizId || item.quiz?.id,
-      flashcardSetId: item.flashcardSetId || item.flashcardSet?.id,
-      quiz: undefined,
-      flashcardSet: undefined,
-    }));
+    const mappedData = data.map((item) => this.normalizeContentRelations(item));
 
     return {
       data: mappedData,
@@ -368,6 +210,9 @@ export class ContentService {
     };
   }
 
+  /**
+   * Get a single content item by ID
+   */
   async getContentById(userId: string, contentId: string) {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },
@@ -383,74 +228,78 @@ export class ContentService {
     });
 
     if (!content || content.userId !== userId) {
-      throw new NotFoundException("Content not found");
+      throw new NotFoundException('Content not found');
     }
 
-    let quizId = content.quizId;
-    let flashcardSetId = content.flashcardSetId;
+    // Backfill missing IDs from relations (backward compatibility)
+    await this.backfillContentRelations(content);
 
-    // Backfill IDs from relations if missing (backward compatibility)
-    const relationQuizId = content.quiz?.id;
-    const relationFlashcardSetId = content.flashcardSet?.id;
-
-    if (!quizId && relationQuizId) {
-      quizId = relationQuizId;
-      // Async update to persist the mapping
-      this.prisma.content.update({
-        where: { id: contentId },
-        data: { quizId },
-      });
-    }
-
-    if (!flashcardSetId && relationFlashcardSetId) {
-      flashcardSetId = relationFlashcardSetId;
-      // Async update to persist the mapping
-      this.prisma.content
-        .update({
-          where: { id: contentId },
-          data: { flashcardSetId },
-        })
-        .catch((_err) => {});
-    }
-
-    return {
-      ...content,
-      quizId,
-      flashcardSetId,
-    };
+    return this.normalizeContentRelations(content);
   }
 
+  /**
+   * Update content
+   */
   async updateContent(
     userId: string,
     contentId: string,
     updateContentDto: UpdateContentDto
   ) {
+    await this.verifyContentOwnership(userId, contentId);
+
+    const updatedContent = await this.prisma.content.update({
+      where: { id: contentId },
+      data: updateContentDto,
+    });
+
+    await this.invalidateUserCache(userId);
+
+    return updatedContent;
+  }
+
+  /**
+   * Delete content and associated resources
+   */
+  async deleteContent(userId: string, contentId: string) {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },
     });
 
-    if (!content || content.userId !== userId) {
-      throw new NotFoundException("Content not found");
+    if (content?.userId !== userId) {
+      throw new NotFoundException('Content not found');
     }
 
-    return this.prisma.content.update({
+    // Delete associated quiz
+    if (content.quizId) {
+      await this.deleteQuizSilently(content.quizId, userId);
+    }
+
+    // Delete associated flashcard set
+    if (content.flashcardSetId) {
+      await this.deleteFlashcardSetSilently(content.flashcardSetId, userId);
+    }
+
+    const deleted = await this.prisma.content.delete({
       where: { id: contentId },
-      data: updateContentDto,
     });
+
+    await this.invalidateUserCache(userId);
+
+    this.logger.log(`Content ${contentId} deleted successfully`);
+    return deleted;
   }
 
+  // ==================== HIGHLIGHTS ====================
+
+  /**
+   * Add a highlight to content
+   */
   async addHighlight(
     userId: string,
     contentId: string,
     createHighlightDto: CreateHighlightDto
   ) {
-    const content = await this.prisma.content.findUnique({
-      where: { id: contentId },
-    });
-
-    if (!content || content.userId !== userId) {
-      throw new NotFoundException("Content not found");
-    }
+    await this.verifyContentOwnership(userId, contentId);
 
     return this.prisma.highlight.create({
       data: {
@@ -461,28 +310,73 @@ export class ContentService {
     });
   }
 
+  /**
+   * Delete a highlight
+   */
   async deleteHighlight(userId: string, highlightId: string) {
     const highlight = await this.prisma.highlight.findUnique({
       where: { id: highlightId },
     });
 
-    if (!highlight || highlight.userId !== userId) {
-      throw new NotFoundException("Highlight not found");
+    if (highlight?.userId !== userId) {
+      throw new NotFoundException('Highlight not found');
     }
 
     return this.prisma.highlight.delete({
       where: { id: highlightId },
     });
   }
+
+  // ==================== AI FEATURES ====================
+
+  /**
+   * Generate explanation for a section
+   */
+  async generateExplanation(
+    userId: string,
+    contentId: string,
+    sectionTitle: string,
+    sectionContent: string
+  ) {
+    await this.verifyContentOwnership(userId, contentId);
+
+    return this.aiService.generateExplanation({
+      topic: sectionTitle,
+      context: sectionContent,
+    });
+  }
+
+  /**
+   * Generate example for a section
+   */
+  async generateExample(
+    userId: string,
+    contentId: string,
+    sectionTitle: string,
+    sectionContent: string
+  ) {
+    await this.verifyContentOwnership(userId, contentId);
+
+    return this.aiService.generateExample({
+      topic: sectionTitle,
+      context: sectionContent,
+    });
+  }
+
+  // ==================== ANALYTICS ====================
+
+  /**
+   * Get popular topics across all users
+   */
   async getPopularTopics() {
     const topics = await this.prisma.content.groupBy({
-      by: ["topic"],
+      by: ['topic'],
       _count: {
         topic: true,
       },
       orderBy: {
         _count: {
-          topic: "desc",
+          topic: 'desc',
         },
       },
       take: 10,
@@ -491,43 +385,216 @@ export class ContentService {
     return topics.map((t) => t.topic);
   }
 
-  async generateExplanation(
-    userId: string,
-    contentId: string,
-    sectionTitle: string,
-    sectionContent: string
-  ) {
-    const content = await this.prisma.content.findUnique({
-      where: { id: contentId },
-    });
-
-    if (!content || content.userId !== userId) {
-      throw new NotFoundException("Content not found");
+  /**
+   * Validate content generation request
+   */
+  private validateContentRequest(
+    dto: { topic?: string; content?: string },
+    files?: Express.Multer.File[]
+  ): void {
+    if (!dto.topic && !dto.content && (!files || files.length === 0)) {
+      throw new BadRequestException(
+        'Please provide either a topic, content, or upload files to generate study material'
+      );
     }
-
-    return this.aiService.generateExplanation({
-      topic: sectionTitle,
-      context: sectionContent,
-    });
   }
 
-  async generateExample(
+  /**
+   * Process uploaded files
+   */
+  private async processUploadedFiles(
     userId: string,
-    contentId: string,
-    sectionTitle: string,
-    sectionContent: string
+    files?: Express.Multer.File[]
   ) {
-    const content = await this.prisma.content.findUnique({
-      where: { id: contentId },
-    });
-
-    if (!content || content.userId !== userId) {
-      throw new NotFoundException("Content not found");
+    if (!files || files.length === 0) {
+      return [];
     }
 
-    return this.aiService.generateExample({
-      topic: sectionTitle,
-      context: sectionContent,
+    try {
+      const processedDocs = await processFileUploads(
+        files,
+        this.documentHashService,
+        this.cloudinaryFileStorageService,
+        this.googleFileStorageService
+      );
+
+      const duplicateCount = processedDocs.filter((d) => d.isDuplicate).length;
+
+      if (duplicateCount > 0) {
+        this.logger.log(
+          `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`
+        );
+      }
+
+      return processedDocs;
+    } catch (error) {
+      this.logger.error(
+        `File processing failed for user ${userId}:`,
+        error.stack
+      );
+      throw new BadRequestException(`Failed to upload files: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verify user exists
+   */
+  private async verifyUserExists(userId: string): Promise<void> {
+    const userExists = await this.prisma.user.findUnique({
+      where: { id: userId },
     });
+
+    if (!userExists) {
+      throw new BadRequestException(
+        `User with ID ${userId} not found. Please log in again.`
+      );
+    }
+  }
+
+  /**
+   * Verify content ownership
+   */
+  private async verifyContentOwnership(
+    userId: string,
+    contentId: string
+  ): Promise<void> {
+    const content = await this.prisma.content.findUnique({
+      where: { id: contentId },
+      select: { userId: true },
+    });
+
+    if (content?.userId !== userId) {
+      throw new NotFoundException('Content not found');
+    }
+  }
+
+  /**
+   * Enhance content using AI
+   */
+  private async enhanceContentWithAI(originalContent: string): Promise<string> {
+    try {
+      const enhancedContent = await this.aiService.generateContent({
+        prompt: `Enhance and structure the following study notes into a comprehensive study guide tailored for a Nigerian student. Keep the original meaning but improve clarity, structure, and add missing key details if obvious. Use Markdown formatting.
+        
+Original Notes:
+${originalContent}`,
+        maxTokens: AI_ENHANCEMENT_MAX_TOKENS,
+      });
+
+      return enhancedContent || originalContent;
+    } catch (error) {
+      this.logger.error('Failed to enhance content with AI:', error.stack);
+      return originalContent; // Fallback to original
+    }
+  }
+
+  /**
+   * Generate learning guide asynchronously
+   */
+  private generateLearningGuideAsync(
+    contentId: string,
+    topic: string,
+    content: string
+  ): void {
+    this.aiService
+      .generateLearningGuide({
+        topic,
+        content: content.substring(0, MAX_LEARNING_GUIDE_LENGTH),
+      })
+      .then((learningGuide) => {
+        return this.prisma.content.update({
+          where: { id: contentId },
+          data: { learningGuide },
+        });
+      })
+      .catch((error) => {
+        this.logger.warn(
+          `Failed to generate learning guide for ${contentId}:`,
+          error.message
+        );
+      });
+  }
+
+  /**
+   * Normalize content relations (remove nested objects)
+   */
+  private normalizeContentRelations(content: ContentWithRelations) {
+    return {
+      ...content,
+      quizId: content.quizId || content.quiz?.id,
+      flashcardSetId: content.flashcardSetId || content.flashcardSet?.id,
+      quiz: undefined,
+      flashcardSet: undefined,
+    };
+  }
+
+  /**
+   * Backfill missing relation IDs from nested objects
+   */
+  private async backfillContentRelations(
+    content: ContentWithRelations
+  ): Promise<void> {
+    const updates: Record<string, string> = {};
+
+    if (!content.quizId && content.quiz?.id) {
+      updates.quizId = content.quiz.id;
+    }
+
+    if (!content.flashcardSetId && content.flashcardSet?.id) {
+      updates.flashcardSetId = content.flashcardSet.id;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await this.prisma.content
+        .update({
+          where: { id: content.id },
+          data: updates,
+        })
+        .catch((error) => {
+          this.logger.warn(
+            `Failed to backfill relations for ${content.id}:`,
+            error.message
+          );
+        });
+    }
+  }
+
+  /**
+   * Delete quiz silently (ignore errors)
+   */
+  private async deleteQuizSilently(
+    quizId: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      await this.quizService.deleteQuiz(quizId, userId);
+    } catch (error) {
+      this.logger.warn(`Failed to delete quiz ${quizId}:`, error.message);
+    }
+  }
+
+  /**
+   * Delete flashcard set silently (ignore errors)
+   */
+  private async deleteFlashcardSetSilently(
+    flashcardSetId: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      await this.flashcardService.deleteFlashcardSet(flashcardSetId, userId);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to delete flashcard set ${flashcardSetId}:`,
+        error.message
+      );
+    }
+  }
+
+  /**
+   * Invalidate user cache
+   */
+  private async invalidateUserCache(userId: string): Promise<void> {
+    const cacheKey = `content:all:${userId}`;
+    await this.cacheManager.del(cacheKey);
   }
 }

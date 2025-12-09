@@ -5,13 +5,13 @@ export class AiPrompts {
     difficulty: string,
     quizType: string,
     questionTypeInstructions: string,
-    sourceContent: string = ""
+    sourceContent: string = ''
   ) {
     return `
 You are an expert quiz generator. Generate ${numberOfQuestions} questions based on the following:
 
-${topic ? `Topic: ${topic}` : ""}
-${sourceContent ? `Content:\n${sourceContent}` : ""}
+${topic ? `Topic: ${topic}` : ''}
+${sourceContent ? `Content:\n${sourceContent}` : ''}
 
 Difficulty Level: ${difficulty}
 Quiz Type: ${quizType}
@@ -86,13 +86,13 @@ Return ONLY a valid JSON object in this exact format (no markdown, no code block
   static generateFlashcards(
     topic: string,
     numberOfCards: number,
-    sourceContent: string = ""
+    sourceContent: string = ''
   ) {
     return `
 You are an expert flashcard creator. Generate ${numberOfCards} flashcards based on the following:
 
-${topic ? `Topic: ${topic}` : ""}
-${sourceContent ? `Content:\n${sourceContent}` : ""}
+${topic ? `Topic: ${topic}` : ''}
+${sourceContent ? `Content:\n${sourceContent}` : ''}
 
 Requirements:
 1. Front side should be a concise question or term
@@ -105,7 +105,7 @@ Requirements:
 
 Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
 {
-  "title": "Generated flashcard set title",
+  "title": "Specific, descriptive title that reflects the content (NOT generic like 'General Knowledge')",
   "topic": "Main topic covered",
   "cards": [
     {
@@ -149,12 +149,12 @@ Return ONLY a valid JSON array in this exact format (no markdown, no code blocks
   static extractTopic(text: string) {
     return `Based on this text, provide a single concise topic name (max 3 words): ${text}`;
   }
-  static generateLearningGuide(topic: string, sourceContent: string = "") {
+  static generateLearningGuide(topic: string, sourceContent: string = '') {
     return `
 You are an expert educational content creator. Create a structured learning guide for the following, tailored for a Nigerian student:
 
-${topic ? `Topic: ${topic}` : ""}
-${sourceContent ? `Content:\n${sourceContent}` : ""}
+${topic ? `Topic: ${topic}` : ''}
+${sourceContent ? `Content:\n${sourceContent}` : ''}
 
 Requirements:
 1. Extract the most important key concepts

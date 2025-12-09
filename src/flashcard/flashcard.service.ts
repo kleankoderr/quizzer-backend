@@ -4,23 +4,23 @@ import {
   BadRequestException,
   Logger,
   Inject,
-} from "@nestjs/common";
-import { InjectQueue } from "@nestjs/bullmq";
-import { Queue } from "bullmq";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { PrismaService } from "../prisma/prisma.service";
-import { RecommendationService } from "../recommendation/recommendation.service";
-import { StreakService } from "../streak/streak.service";
-import { ChallengeService } from "../challenge/challenge.service";
-import { StudyService } from "../study/study.service";
-import { GenerateFlashcardDto } from "./dto/flashcard.dto";
+} from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { PrismaService } from '../prisma/prisma.service';
+import { RecommendationService } from '../recommendation/recommendation.service';
+import { StreakService } from '../streak/streak.service';
+import { ChallengeService } from '../challenge/challenge.service';
+import { StudyService } from '../study/study.service';
+import { GenerateFlashcardDto } from './dto/flashcard.dto';
 import {
   IFileStorageService,
   FILE_STORAGE_SERVICE,
-} from "../file-storage/interfaces/file-storage.interface";
-import { DocumentHashService } from "../file-storage/services/document-hash.service";
-import { processFileUploads } from "../common/helpers/file-upload.helpers";
+} from '../file-storage/interfaces/file-storage.interface';
+import { DocumentHashService } from '../file-storage/services/document-hash.service';
+import { processFileUploads } from '../common/helpers/file-upload.helpers';
 
 const FLASHCARD_MIN_CARDS = 5;
 const FLASHCARD_MAX_CARDS = 100;
@@ -31,7 +31,7 @@ export class FlashcardService {
   private readonly logger = new Logger(FlashcardService.name);
 
   constructor(
-    @InjectQueue("flashcard-generation")
+    @InjectQueue('flashcard-generation')
     private readonly flashcardQueue: Queue,
     private readonly prisma: PrismaService,
     private readonly recommendationService: RecommendationService,
@@ -39,11 +39,11 @@ export class FlashcardService {
     private readonly challengeService: ChallengeService,
     private readonly studyService: StudyService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    @Inject("GOOGLE_FILE_STORAGE_SERVICE")
+    @Inject('GOOGLE_FILE_STORAGE_SERVICE')
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
-    private readonly documentHashService: DocumentHashService,
+    private readonly documentHashService: DocumentHashService
   ) {}
 
   /**
@@ -52,18 +52,18 @@ export class FlashcardService {
   async generateFlashcards(
     userId: string,
     dto: GenerateFlashcardDto,
-    files?: Express.Multer.File[],
+    files?: Express.Multer.File[]
   ) {
     this.validateFlashcardRequest(dto, files);
 
     this.logger.log(
-      `User ${userId} requesting ${dto.numberOfCards} flashcard(s)`,
+      `User ${userId} requesting ${dto.numberOfCards} flashcard(s)`
     );
 
     const processedFiles = await this.processUploadedFiles(userId, files);
 
     try {
-      const job = await this.flashcardQueue.add("generate", {
+      const job = await this.flashcardQueue.add('generate', {
         userId,
         dto,
         files: processedFiles.map((doc) => ({
@@ -81,15 +81,15 @@ export class FlashcardService {
       this.logger.log(`Flashcard job created: ${job.id}`);
       return {
         jobId: job.id,
-        status: "pending",
+        status: 'pending',
       };
     } catch (error) {
       this.logger.error(
         `Failed to queue flashcard job for user ${userId}:`,
-        error.stack,
+        error.stack
       );
       throw new BadRequestException(
-        "Failed to start flashcard generation. Please try again.",
+        'Failed to start flashcard generation. Please try again.'
       );
     }
   }
@@ -103,7 +103,7 @@ export class FlashcardService {
     const job = await this.flashcardQueue.getJob(jobId);
 
     if (!job) {
-      throw new NotFoundException("Job not found");
+      throw new NotFoundException('Job not found');
     }
 
     const [state, progress] = await Promise.all([
@@ -112,7 +112,7 @@ export class FlashcardService {
     ]);
 
     const progressString =
-      typeof progress === "object" ? JSON.stringify(progress) : progress;
+      typeof progress === 'object' ? JSON.stringify(progress) : progress;
 
     this.logger.debug(`Job ${jobId}: ${state} (${progressString}%)`);
 
@@ -120,8 +120,8 @@ export class FlashcardService {
       jobId: job.id,
       status: state,
       progress,
-      result: state === "completed" ? await job.returnvalue : null,
-      error: state === "failed" ? job.failedReason : null,
+      result: state === 'completed' ? await job.returnvalue : null,
+      error: state === 'failed' ? job.failedReason : null,
     };
   }
 
@@ -139,7 +139,7 @@ export class FlashcardService {
 
     const flashcardSets = await this.prisma.flashcardSet.findMany({
       where: { userId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         title: true,
@@ -165,7 +165,7 @@ export class FlashcardService {
     });
 
     if (!flashcardSet) {
-      throw new NotFoundException("Flashcard set not found");
+      throw new NotFoundException('Flashcard set not found');
     }
 
     return flashcardSet;
@@ -179,11 +179,11 @@ export class FlashcardService {
     flashcardSetId: string,
     cardResponses: Array<{
       cardIndex: number;
-      response: "know" | "dont-know" | "skipped";
-    }>,
+      response: 'know' | 'dont-know' | 'skipped';
+    }>
   ) {
     this.logger.log(
-      `Recording session for user ${userId}, set ${flashcardSetId}`,
+      `Recording session for user ${userId}, set ${flashcardSetId}`
     );
 
     const flashcardSet = await this.prisma.flashcardSet.findFirst({
@@ -191,7 +191,7 @@ export class FlashcardService {
     });
 
     if (!flashcardSet) {
-      throw new NotFoundException("Flashcard set not found");
+      throw new NotFoundException('Flashcard set not found');
     }
 
     const cards = flashcardSet.cards as any[];
@@ -202,7 +202,7 @@ export class FlashcardService {
       data: {
         userId,
         flashcardSetId,
-        type: "flashcard",
+        type: 'flashcard',
         score: metrics.correctCount,
         totalQuestions: cards.length,
         answers: cardResponses,
@@ -216,7 +216,7 @@ export class FlashcardService {
     await this.streakService.updateStreak(
       userId,
       metrics.correctCount,
-      cards.length,
+      cards.length
     );
 
     // Trigger async updates (non-blocking)
@@ -225,12 +225,12 @@ export class FlashcardService {
       userId,
       flashcardSet.topic,
       metrics.percentage,
-      flashcardSet.contentId,
+      flashcardSet.contentId
     );
     this.generateRecommendationsAsync(userId);
 
     this.logger.log(
-      `Session recorded: ${metrics.correctCount}/${cards.length} correct`,
+      `Session recorded: ${metrics.correctCount}/${cards.length} correct`
     );
 
     return {
@@ -250,7 +250,7 @@ export class FlashcardService {
     });
 
     if (!flashcardSet) {
-      throw new NotFoundException("Flashcard set not found");
+      throw new NotFoundException('Flashcard set not found');
     }
 
     // Delete attempts first (foreign key constraint)
@@ -260,6 +260,9 @@ export class FlashcardService {
 
     // Clean up Google File API resources
     await this.deleteGoogleFiles(flashcardSet.sourceFiles);
+
+    // Delete document hash entries
+    await this.deleteDocumentHashes(flashcardSet.sourceFiles);
 
     // Dereference from content if linked
     await this.dereferenceFromContent(flashcardSet.contentId, id);
@@ -273,7 +276,7 @@ export class FlashcardService {
     await this.invalidateUserCache(userId);
 
     this.logger.log(`Flashcard set ${id} deleted`);
-    return { success: true, message: "Flashcard set deleted successfully" };
+    return { success: true, message: 'Flashcard set deleted successfully' };
   }
 
   // ==================== PRIVATE HELPER METHODS ====================
@@ -283,12 +286,12 @@ export class FlashcardService {
    */
   private validateFlashcardRequest(
     dto: GenerateFlashcardDto,
-    files?: Express.Multer.File[],
+    files?: Express.Multer.File[]
   ): void {
     // Validate input sources
     if (!dto.topic && !dto.content && (!files || files.length === 0)) {
       throw new BadRequestException(
-        "Please provide either a topic, content, or upload files to generate flashcards",
+        'Please provide either a topic, content, or upload files to generate flashcards'
       );
     }
 
@@ -299,7 +302,7 @@ export class FlashcardService {
       dto.numberOfCards > FLASHCARD_MAX_CARDS
     ) {
       throw new BadRequestException(
-        `Number of cards must be between ${FLASHCARD_MIN_CARDS} and ${FLASHCARD_MAX_CARDS}`,
+        `Number of cards must be between ${FLASHCARD_MIN_CARDS} and ${FLASHCARD_MAX_CARDS}`
       );
     }
   }
@@ -309,7 +312,7 @@ export class FlashcardService {
    */
   private async processUploadedFiles(
     userId: string,
-    files?: Express.Multer.File[],
+    files?: Express.Multer.File[]
   ) {
     if (!files || files.length === 0) {
       return [];
@@ -320,14 +323,14 @@ export class FlashcardService {
         files,
         this.documentHashService,
         this.cloudinaryFileStorageService,
-        this.googleFileStorageService,
+        this.googleFileStorageService
       );
 
       const duplicateCount = processedDocs.filter((d) => d.isDuplicate).length;
 
       if (duplicateCount > 0) {
         this.logger.log(
-          `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`,
+          `Skipped ${duplicateCount} duplicate file(s) for user ${userId}`
         );
       }
 
@@ -335,7 +338,7 @@ export class FlashcardService {
     } catch (error) {
       this.logger.error(
         `File processing failed for user ${userId}:`,
-        error.stack,
+        error.stack
       );
       throw new BadRequestException(`Failed to upload files: ${error.message}`);
     }
@@ -345,17 +348,17 @@ export class FlashcardService {
    * Calculate session metrics from card responses
    */
   private calculateSessionMetrics(
-    cardResponses: Array<{ response: "know" | "dont-know" | "skipped" }>,
-    totalCards: number,
+    cardResponses: Array<{ response: 'know' | 'dont-know' | 'skipped' }>,
+    totalCards: number
   ) {
     const correctCount = cardResponses.filter(
-      (r) => r.response === "know",
+      (r) => r.response === 'know'
     ).length;
     const incorrectCount = cardResponses.filter(
-      (r) => r.response === "dont-know",
+      (r) => r.response === 'dont-know'
     ).length;
     const skippedCount = cardResponses.filter(
-      (r) => r.response === "skipped",
+      (r) => r.response === 'skipped'
     ).length;
 
     return {
@@ -393,11 +396,34 @@ export class FlashcardService {
    * Extract Google File ID from URL
    */
   private extractGoogleFileId(fileUrl: string): string {
-    if (fileUrl.includes("files/")) {
-      const parts = fileUrl.split("files/")[1].split("?");
+    if (fileUrl.includes('files/')) {
+      const parts = fileUrl.split('files/')[1].split('?');
       return parts[0];
     }
     return fileUrl;
+  }
+
+  /**
+   * Delete document hash entries from database
+   */
+  private async deleteDocumentHashes(sourceFiles?: string[]): Promise<void> {
+    if (!sourceFiles || sourceFiles.length === 0) {
+      return;
+    }
+
+    this.logger.debug(
+      `Deleting document hashes for ${sourceFiles.length} file(s)`
+    );
+
+    for (const fileUrl of sourceFiles) {
+      try {
+        await this.documentHashService.deleteDocumentByGoogleFileUrl(fileUrl);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to delete document hash for ${fileUrl}: ${error.message}`
+        );
+      }
+    }
   }
 
   /**
@@ -405,7 +431,7 @@ export class FlashcardService {
    */
   private async dereferenceFromContent(
     contentId?: string,
-    flashcardSetId?: string,
+    flashcardSetId?: string
   ): Promise<void> {
     if (!contentId) {
       return;
@@ -418,7 +444,7 @@ export class FlashcardService {
       });
     } catch (error) {
       this.logger.warn(
-        `Failed to dereference flashcard ${flashcardSetId} from content ${contentId}: ${error.message}`,
+        `Failed to dereference flashcard ${flashcardSetId} from content ${contentId}: ${error.message}`
       );
     }
   }
@@ -436,12 +462,12 @@ export class FlashcardService {
    */
   private updateChallengeProgressAsync(
     userId: string,
-    isPerfect: boolean,
+    isPerfect: boolean
   ): void {
     this.challengeService
-      .updateChallengeProgress(userId, "flashcard", isPerfect)
+      .updateChallengeProgress(userId, 'flashcard', isPerfect)
       .catch((err) =>
-        this.logger.error(`Challenge update failed for ${userId}:`, err.stack),
+        this.logger.error(`Challenge update failed for ${userId}:`, err.stack)
       );
   }
 
@@ -452,15 +478,15 @@ export class FlashcardService {
     userId: string,
     topic: string,
     percentage: number,
-    contentId?: string,
+    contentId?: string
   ): void {
     this.studyService
       .updateProgress(userId, topic, percentage, contentId)
       .catch((err) =>
         this.logger.error(
           `Topic progress update failed for ${userId}:`,
-          err.stack,
-        ),
+          err.stack
+        )
       );
   }
 
@@ -474,8 +500,8 @@ export class FlashcardService {
       .catch((err) =>
         this.logger.error(
           `Recommendation generation failed for ${userId}:`,
-          err.stack,
-        ),
+          err.stack
+        )
       );
   }
 }

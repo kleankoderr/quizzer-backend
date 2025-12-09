@@ -1,10 +1,10 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { HttpService } from "@nestjs/axios";
-import { Cron, CronExpression } from "@nestjs/schedule";
-import { firstValueFrom } from "rxjs";
-import { Cache } from "cache-manager";
-import { Inject } from "@nestjs/common";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { firstValueFrom } from 'rxjs';
+import { Cache } from 'cache-manager';
+import { Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 export interface Quote {
   q: string; // quote text
@@ -15,11 +15,11 @@ export interface Quote {
 @Injectable()
 export class QuoteService implements OnModuleInit {
   private readonly logger = new Logger(QuoteService.name);
-  private readonly CACHE_KEY = "daily_quote";
+  private readonly CACHE_KEY = 'daily_quote';
 
   constructor(
     private readonly httpService: HttpService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
   async onModuleInit() {
@@ -40,7 +40,7 @@ export class QuoteService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_DAY_AT_7AM)
   async handleDailyQuoteRefresh() {
-    this.logger.log("Refreshing daily quote...");
+    this.logger.log('Refreshing daily quote...');
     await this.fetchAndCacheQuote();
   }
 
@@ -51,23 +51,23 @@ export class QuoteService implements OnModuleInit {
     try {
       // Fetch a batch of 50 quotes to filter from
       const response = await firstValueFrom(
-        this.httpService.get<Quote[]>("https://zenquotes.io/api/quotes"),
+        this.httpService.get<Quote[]>('https://zenquotes.io/api/quotes')
       );
 
       if (response.data && response.data.length > 0) {
         // Filter for keywords
         const keywords = [
-          "success",
-          "learn",
-          "education",
-          "confidence",
-          "wisdom",
-          "mind",
-          "future",
-          "goal",
+          'success',
+          'learn',
+          'education',
+          'confidence',
+          'wisdom',
+          'mind',
+          'future',
+          'goal',
         ];
         const relevantQuotes = response.data.filter((q) =>
-          keywords.some((k) => q.q.toLowerCase().includes(k)),
+          keywords.some((k) => q.q.toLowerCase().includes(k))
         );
 
         // Use a relevant quote if found, otherwise just the first one (or random from batch)
@@ -84,22 +84,22 @@ export class QuoteService implements OnModuleInit {
         await this.cacheManager.set(
           this.CACHE_KEY,
           formattedQuote,
-          25 * 60 * 60 * 1000,
+          25 * 60 * 60 * 1000
         );
         this.logger.log(`Daily quote updated: "${formattedQuote.text}"`);
         return formattedQuote;
       }
     } catch (error) {
       this.logger.warn(
-        "Failed to fetch daily quote from API, using fallback",
-        error,
+        'Failed to fetch daily quote from API, using fallback',
+        error
       );
     }
 
     // Fallback quote if API fails
     return {
-      text: "The expert in anything was once a beginner.",
-      author: "Helen Hayes",
+      text: 'The expert in anything was once a beginner.',
+      author: 'Helen Hayes',
     };
   }
 }

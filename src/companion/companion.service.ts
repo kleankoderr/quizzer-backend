@@ -1,24 +1,24 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { AssessmentService } from "../assessment/assessment.service";
-import { InsightsService } from "../insights/insights.service";
-import { RetentionLevel } from "@prisma/client";
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { AssessmentService } from '../assessment/assessment.service';
+import { InsightsService } from '../insights/insights.service';
+import { RetentionLevel } from '@prisma/client';
 
 export interface CompanionMessage {
   type:
-    | "reminder"
-    | "encouragement"
-    | "suggestion"
-    | "reflection"
-    | "celebration";
+    | 'reminder'
+    | 'encouragement'
+    | 'suggestion'
+    | 'reflection'
+    | 'celebration';
   title: string;
   message: string;
   action?: {
     label: string;
     link: string;
   };
-  priority: "high" | "medium" | "low";
+  priority: 'high' | 'medium' | 'low';
 }
 
 @Injectable()
@@ -50,14 +50,14 @@ export class CompanionService {
     // Review reminders
     if (timing.dueTopics.length > 0) {
       messages.push({
-        type: "reminder",
-        title: "📚 Time to Review!",
+        type: 'reminder',
+        title: '📚 Time to Review!',
         message: `You have ${timing.dueTopics.length} topic(s) ready for review. Spaced repetition works best when you review on time!`,
         action: {
-          label: "Start Review",
-          link: "/quizzes",
+          label: 'Start Review',
+          link: '/quizzes',
         },
-        priority: "high",
+        priority: 'high',
       });
     }
 
@@ -65,10 +65,10 @@ export class CompanionService {
     if (streak) {
       if (streak.currentStreak >= 7) {
         messages.push({
-          type: "celebration",
-          title: "🔥 Amazing Streak!",
+          type: 'celebration',
+          title: '🔥 Amazing Streak!',
           message: `You're on a ${streak.currentStreak}-day streak! You're building incredible learning habits.`,
-          priority: "medium",
+          priority: 'medium',
         });
       } else if (streak.currentStreak === 0) {
         const lastActivity = new Date(streak.lastActivityDate);
@@ -77,15 +77,15 @@ export class CompanionService {
         );
         if (daysSince === 1) {
           messages.push({
-            type: "encouragement",
-            title: "💪 Come Back Strong!",
+            type: 'encouragement',
+            title: '💪 Come Back Strong!',
             message:
               "Don't let yesterday's break become a habit. Start a new streak today!",
             action: {
-              label: "Take a Quick Quiz",
-              link: "/quizzes",
+              label: 'Take a Quick Quiz',
+              link: '/quizzes',
             },
-            priority: "high",
+            priority: 'high',
           });
         }
       }
@@ -97,10 +97,10 @@ export class CompanionService {
     ).length;
     if (masteryCount > 0 && masteryCount % 5 === 0) {
       messages.push({
-        type: "celebration",
-        title: "🎉 Milestone Achieved!",
+        type: 'celebration',
+        title: '🎉 Milestone Achieved!',
         message: `You've mastered ${masteryCount} topics! Your dedication is paying off.`,
-        priority: "medium",
+        priority: 'medium',
       });
     }
 
@@ -108,14 +108,14 @@ export class CompanionService {
     if (timing.upcomingTopics.length > 0 && messages.length < 2) {
       const preferredTime = performance.preferredTime;
       messages.push({
-        type: "suggestion",
-        title: "✨ Study Session Suggestion",
+        type: 'suggestion',
+        title: '✨ Study Session Suggestion',
         message: `Based on your patterns, ${preferredTime} is your best study time. You have ${timing.upcomingTopics.length} topic(s) coming up for review.`,
         action: {
-          label: "Plan Study Session",
-          link: "/insights",
+          label: 'Plan Study Session',
+          link: '/insights',
         },
-        priority: "low",
+        priority: 'low',
       });
     }
 
@@ -126,10 +126,10 @@ export class CompanionService {
         performance
       );
       messages.push({
-        type: "reflection",
-        title: "🤔 Reflection Time",
+        type: 'reflection',
+        title: '🤔 Reflection Time',
         message: reflectiveQuestion,
-        priority: "low",
+        priority: 'low',
       });
     }
 
@@ -138,14 +138,14 @@ export class CompanionService {
     if (weakAreas.length > 0 && messages.length < 3) {
       const topWeakArea = weakAreas[0];
       messages.push({
-        type: "encouragement",
+        type: 'encouragement',
         title: "💡 Let's Tackle This Together",
         message: `I noticed you're finding ${topWeakArea.topic} challenging. How about we break it down with some scenario-based questions?`,
         action: {
-          label: "Practice Now",
+          label: 'Practice Now',
           link: `/quizzes?topic=${encodeURIComponent(topWeakArea.topic)}`,
         },
-        priority: "medium",
+        priority: 'medium',
       });
     }
 
@@ -156,10 +156,10 @@ export class CompanionService {
       messages.length < 3
     ) {
       messages.push({
-        type: "encouragement",
+        type: 'encouragement',
         title: "🌟 You're Doing Great!",
         message: `Your average score is ${performance.averageScore.toFixed(0)}%! Keep up this consistent effort and you'll reach mastery in no time.`,
-        priority: "low",
+        priority: 'low',
       });
     }
 
@@ -176,8 +176,8 @@ export class CompanionService {
     try {
       const prompt = `Generate a brief, thoughtful reflection question for a learner with these stats:
 - Average score: ${performance.averageScore.toFixed(0)}%
-- Strong topics: ${performance.strongTopics.join(", ") || "None yet"}
-- Weak topics: ${performance.weakTopics.join(", ") || "None yet"}
+- Strong topics: ${performance.strongTopics.join(', ') || 'None yet'}
+- Weak topics: ${performance.weakTopics.join(', ') || 'None yet'}
 - Total attempts: ${performance.attemptCount}
 
 The question should be encouraging, help them think about their learning process, and be 1-2 sentences max. Tailor the tone to be relatable to a Nigerian student.`;
@@ -188,8 +188,8 @@ The question should be encouraging, help them think about their learning process
       });
       return question.trim();
     } catch (error) {
-      this.logger.error("Error generating reflective question:", error);
-      return "What learning strategy has worked best for you so far?";
+      this.logger.error('Error generating reflective question:', error);
+      return 'What learning strategy has worked best for you so far?';
     }
   }
 
@@ -266,7 +266,7 @@ The question should be encouraging, help them think about their learning process
         userId,
         startedAt: { gte: since },
       },
-      orderBy: { startedAt: "desc" },
+      orderBy: { startedAt: 'desc' },
     });
 
     const totalDuration = sessions.reduce((sum, s) => sum + s.duration, 0);
@@ -311,7 +311,7 @@ Keep it to 1-2 sentences, friendly and encouraging. Tailor the tone to be relata
       });
       return motivation.trim();
     } catch (error) {
-      this.logger.error("Error generating daily motivation:", error);
+      this.logger.error('Error generating daily motivation:', error);
       return "Every step forward is progress. Let's make today count! 🌟";
     }
   }

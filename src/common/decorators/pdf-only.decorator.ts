@@ -4,8 +4,8 @@ import {
   ExecutionContext,
   CallHandler,
   BadRequestException,
-} from "@nestjs/common";
-import { Observable } from "rxjs";
+} from '@nestjs/common';
+import { Observable } from 'rxjs';
 
 export interface PdfOnlyOptions {
   maxFiles?: number;
@@ -28,20 +28,20 @@ export function PdfOnly(options: PdfOnlyOptions = {}) {
 
       if (files.length > maxFiles) {
         throw new BadRequestException(
-          `Maximum ${maxFiles} file${maxFiles > 1 ? "s" : ""} allowed`,
+          `Maximum ${maxFiles} file${maxFiles > 1 ? 's' : ''} allowed`
         );
       }
 
       for (const file of files) {
-        if (file.mimetype !== "application/pdf") {
+        if (file.mimetype !== 'application/pdf') {
           throw new BadRequestException(
-            `Only PDF files are allowed. Received: ${file.mimetype}`,
+            `Only PDF files are allowed. Received: ${file.mimetype}`
           );
         }
 
-        if (!file.originalname.toLowerCase().endsWith(".pdf")) {
+        if (!file.originalname.toLowerCase().endsWith('.pdf')) {
           throw new BadRequestException(
-            `Only PDF files are allowed. File: ${file.originalname}`,
+            `Only PDF files are allowed. File: ${file.originalname}`
           );
         }
 
@@ -49,7 +49,7 @@ export function PdfOnly(options: PdfOnlyOptions = {}) {
           const maxSizeMB = (maxSizePerFile / (1024 * 1024)).toFixed(1);
           const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
           throw new BadRequestException(
-            `File size exceeds ${maxSizeMB}MB limit. File: ${file.originalname} (${fileSizeMB}MB)`,
+            `File size exceeds ${maxSizeMB}MB limit. File: ${file.originalname} (${fileSizeMB}MB)`
           );
         }
       }

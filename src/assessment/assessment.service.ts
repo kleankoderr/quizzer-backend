@@ -1,7 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { QuizType, RetentionLevel } from "@prisma/client";
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { QuizType, RetentionLevel } from '@prisma/client';
 
 export interface PerformancePattern {
   averageScore: number;
@@ -18,7 +18,7 @@ export class AssessmentService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly aiService: AiService
   ) {}
 
   /**
@@ -30,7 +30,7 @@ export class AssessmentService {
     const [attempts, topicProgress] = await Promise.all([
       this.prisma.attempt.findMany({
         where: { userId },
-        orderBy: { completedAt: "desc" },
+        orderBy: { completedAt: 'desc' },
         take: 50,
         include: {
           quiz: { select: { topic: true, quizType: true } },
@@ -44,13 +44,13 @@ export class AssessmentService {
 
     // Calculate average score
     const quizAttempts = attempts.filter(
-      (a) => a.type === "quiz" && a.score != null,
+      (a) => a.type === 'quiz' && a.score != null
     );
     const averageScore =
       quizAttempts.length > 0
         ? quizAttempts.reduce(
             (sum, a) => sum + (a.score! / a.totalQuestions!) * 100,
-            0,
+            0
           ) / quizAttempts.length
         : 0;
 
@@ -95,10 +95,10 @@ export class AssessmentService {
 
     const preferredTime =
       preferredHour < 12
-        ? "morning"
+        ? 'morning'
         : preferredHour < 17
-          ? "afternoon"
-          : "evening";
+          ? 'afternoon'
+          : 'evening';
 
     // Build retention levels map
     const retentionLevels: Record<string, RetentionLevel> = {};
@@ -130,7 +130,7 @@ export class AssessmentService {
       .filter(
         ([_topic, level]) =>
           level === RetentionLevel.LEARNING ||
-          level === RetentionLevel.REINFORCEMENT,
+          level === RetentionLevel.REINFORCEMENT
       )
       .map(([topic]) => topic);
 
@@ -139,7 +139,7 @@ export class AssessmentService {
         quizType: QuizType.QUICK_CHECK,
         reason: "Quick checks help reinforce new concepts you're learning",
         suggestedTopics: learningTopics.slice(0, 3),
-        priority: "high",
+        priority: 'high',
       });
     }
 
@@ -147,16 +147,16 @@ export class AssessmentService {
     const recallTopics = Object.entries(performance.retentionLevels)
       .filter(
         ([_topic, level]) =>
-          level === RetentionLevel.RECALL || level === RetentionLevel.MASTERY,
+          level === RetentionLevel.RECALL || level === RetentionLevel.MASTERY
       )
       .map(([topic]) => topic);
 
     if (recallTopics.length > 0) {
       recommendations.push({
         quizType: QuizType.TIMED_TEST,
-        reason: "Timed tests help you practice recall under pressure",
+        reason: 'Timed tests help you practice recall under pressure',
         suggestedTopics: recallTopics.slice(0, 3),
-        priority: "medium",
+        priority: 'medium',
       });
     }
 
@@ -165,9 +165,9 @@ export class AssessmentService {
       recommendations.push({
         quizType: QuizType.SCENARIO_BASED,
         reason:
-          "Scenario-based questions help you apply concepts in real situations",
+          'Scenario-based questions help you apply concepts in real situations',
         suggestedTopics: performance.weakTopics.slice(0, 3),
-        priority: "high",
+        priority: 'high',
       });
     }
 
@@ -175,12 +175,12 @@ export class AssessmentService {
     recommendations.push({
       quizType: QuizType.CONFIDENCE_BASED,
       reason:
-        "Confidence-based quizzes help identify what you truly understand",
+        'Confidence-based quizzes help identify what you truly understand',
       suggestedTopics: [...performance.weakTopics, ...learningTopics].slice(
         0,
-        3,
+        3
       ),
-      priority: "medium",
+      priority: 'medium',
     });
 
     return recommendations;
@@ -196,18 +196,18 @@ export class AssessmentService {
       this.analyzePerformance(userId),
       this.prisma.topicProgress.findMany({
         where: { userId },
-        orderBy: { nextReviewAt: "asc" },
+        orderBy: { nextReviewAt: 'asc' },
       }),
     ]);
 
     const dueTopics = topicProgress.filter(
-      (tp) => new Date(tp.nextReviewAt) <= new Date(),
+      (tp) => new Date(tp.nextReviewAt) <= new Date()
     );
 
     const upcomingTopics = topicProgress.filter(
       (tp) =>
         new Date(tp.nextReviewAt) > new Date() &&
-        new Date(tp.nextReviewAt) <= new Date(Date.now() + 24 * 60 * 60 * 1000),
+        new Date(tp.nextReviewAt) <= new Date(Date.now() + 24 * 60 * 60 * 1000)
     );
 
     return {
@@ -242,22 +242,22 @@ export class AssessmentService {
         userId,
         quiz: { topic },
       },
-      orderBy: { completedAt: "desc" },
+      orderBy: { completedAt: 'desc' },
       take: 5,
       include: { quiz: true },
     });
 
-    if (recentAttempts.length === 0) return "medium";
+    if (recentAttempts.length === 0) return 'medium';
 
     const avgScore =
       recentAttempts.reduce(
         (sum, a) => sum + (a.score! / a.totalQuestions!) * 100,
-        0,
+        0
       ) / recentAttempts.length;
 
-    if (avgScore >= 85) return "hard";
-    if (avgScore >= 70) return "medium";
-    return "easy";
+    if (avgScore >= 85) return 'hard';
+    if (avgScore >= 70) return 'medium';
+    return 'easy';
   }
 
   /**
@@ -266,7 +266,7 @@ export class AssessmentService {
   async trackWeakAreas(
     userId: string,
     topic: string,
-    answers: any[],
+    answers: any[]
   ): Promise<void> {
     this.logger.log(`Tracking weak areas for user ${userId}, topic ${topic}`);
 
@@ -306,7 +306,7 @@ export class AssessmentService {
   async getWeakAreas(userId: string, resolved: boolean = false) {
     return this.prisma.weakArea.findMany({
       where: { userId, resolved },
-      orderBy: { errorCount: "desc" },
+      orderBy: { errorCount: 'desc' },
       take: 10,
     });
   }

@@ -1,12 +1,12 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { v2 as cloudinary } from "cloudinary";
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { v2 as cloudinary } from 'cloudinary';
 import {
   IFileStorageService,
   UploadOptions,
   UploadResult,
   TransformOptions,
-} from "../interfaces/file-storage.interface";
+} from '../interfaces/file-storage.interface';
 
 /**
  * Cloudinary implementation of the file storage service
@@ -19,13 +19,13 @@ export class CloudinaryFileStorageService implements IFileStorageService {
   constructor(private readonly configService: ConfigService) {
     // Configure Cloudinary with environment variables
     cloudinary.config({
-      cloud_name: this.configService.get<string>("CLOUDINARY_CLOUD_NAME"),
-      api_key: this.configService.get<string>("CLOUDINARY_API_KEY"),
-      api_secret: this.configService.get<string>("CLOUDINARY_API_SECRET"),
+      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
+      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
+      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
       secure: true, // Always use HTTPS
     });
 
-    this.logger.log("Cloudinary configured successfully");
+    this.logger.log('Cloudinary configured successfully');
   }
 
   /**
@@ -33,16 +33,16 @@ export class CloudinaryFileStorageService implements IFileStorageService {
    */
   async uploadFile(
     file: Express.Multer.File,
-    options?: UploadOptions,
+    options?: UploadOptions
   ): Promise<UploadResult> {
     try {
       const uploadOptions = {
         folder:
           options?.folder ||
-          this.configService.get<string>("CLOUDINARY_UPLOAD_FOLDER", "quizzer"),
-        resource_type: options?.resourceType || "auto",
-        type: "upload", // Use 'upload' type for publicly accessible URLs
-        access_mode: "public", // Explicitly set public access
+          this.configService.get<string>('CLOUDINARY_UPLOAD_FOLDER', 'quizzer'),
+        resource_type: options?.resourceType || 'auto',
+        type: 'upload', // Use 'upload' type for publicly accessible URLs
+        access_mode: 'public', // Explicitly set public access
         invalidate: true, // Invalidate CDN cache if updating existing file
         public_id: options?.publicId,
         overwrite: options?.overwrite ?? false,
@@ -53,7 +53,7 @@ export class CloudinaryFileStorageService implements IFileStorageService {
       };
 
       this.logger.debug(
-        `Uploading file: ${file.originalname} to folder: ${uploadOptions.folder} with public access`,
+        `Uploading file: ${file.originalname} to folder: ${uploadOptions.folder} with public access`
       );
 
       // Upload to Cloudinary using buffer
@@ -66,14 +66,14 @@ export class CloudinaryFileStorageService implements IFileStorageService {
             } else {
               resolve(result);
             }
-          },
+          }
         );
 
         uploadStream.end(file.buffer);
       });
 
       this.logger.log(
-        `File uploaded successfully: ${result.public_id} - URL: ${result.secure_url}`,
+        `File uploaded successfully: ${result.public_id} - URL: ${result.secure_url}`
       );
 
       // Return the secure URL which should be publicly accessible
@@ -104,17 +104,17 @@ export class CloudinaryFileStorageService implements IFileStorageService {
         invalidate: true, // Invalidate CDN cache
       });
 
-      if (result.result === "ok" || result.result === "not found") {
+      if (result.result === 'ok' || result.result === 'not found') {
         this.logger.log(`File deleted successfully: ${publicId}`);
       } else {
         this.logger.warn(
-          `Unexpected delete result for ${publicId}: ${result.result}`,
+          `Unexpected delete result for ${publicId}: ${result.result}`
         );
       }
     } catch (error) {
       this.logger.error(
         `Failed to delete file ${publicId}: ${error.message}`,
-        error.stack,
+        error.stack
       );
       // Don't throw error for delete failures - log and continue
       // This prevents cascading failures when cleaning up
@@ -140,8 +140,8 @@ export class CloudinaryFileStorageService implements IFileStorageService {
 
       const url = cloudinary.url(publicId, {
         secure: true, // Always use HTTPS
-        type: "upload", // Use 'upload' type for public access
-        resource_type: "auto",
+        type: 'upload', // Use 'upload' type for public access
+        resource_type: 'auto',
         transformation:
           Object.keys(transformation).length > 0 ? transformation : undefined,
       });
@@ -149,7 +149,7 @@ export class CloudinaryFileStorageService implements IFileStorageService {
       return url;
     } catch (error) {
       this.logger.error(
-        `Failed to generate URL for ${publicId}: ${error.message}`,
+        `Failed to generate URL for ${publicId}: ${error.message}`
       );
       throw new Error(`URL generation failed: ${error.message}`);
     }

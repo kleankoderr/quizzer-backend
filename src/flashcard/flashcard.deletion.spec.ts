@@ -1,14 +1,14 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { FlashcardService } from "./flashcard.service";
-import { PrismaService } from "../prisma/prisma.service";
-import { RecommendationService } from "../recommendation/recommendation.service";
-import { StreakService } from "../streak/streak.service";
-import { ChallengeService } from "../challenge/challenge.service";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { FILE_STORAGE_SERVICE } from "../file-storage/interfaces/file-storage.interface";
-import { getQueueToken } from "@nestjs/bullmq";
+import { Test, TestingModule } from '@nestjs/testing';
+import { FlashcardService } from './flashcard.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RecommendationService } from '../recommendation/recommendation.service';
+import { StreakService } from '../streak/streak.service';
+import { ChallengeService } from '../challenge/challenge.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { FILE_STORAGE_SERVICE } from '../file-storage/interfaces/file-storage.interface';
+import { getQueueToken } from '@nestjs/bullmq';
 
-describe("FlashcardService Deletion", () => {
+describe('FlashcardService Deletion', () => {
   let service: FlashcardService;
   let prismaService: PrismaService;
 
@@ -47,7 +47,7 @@ describe("FlashcardService Deletion", () => {
         { provide: ChallengeService, useValue: {} },
         { provide: CACHE_MANAGER, useValue: mockCacheManager },
         { provide: FILE_STORAGE_SERVICE, useValue: mockFileStorageService },
-        { provide: getQueueToken("flashcard-generation"), useValue: mockQueue },
+        { provide: getQueueToken('flashcard-generation'), useValue: mockQueue },
       ],
     }).compile();
 
@@ -55,11 +55,11 @@ describe("FlashcardService Deletion", () => {
     prismaService = module.get<PrismaService>(PrismaService);
   });
 
-  describe("deleteFlashcardSet", () => {
-    it("should dereference content when deleting flashcard set", async () => {
-      const userId = "user-1";
-      const flashcardSetId = "flashcard-1";
-      const contentId = "content-1";
+  describe('deleteFlashcardSet', () => {
+    it('should dereference content when deleting flashcard set', async () => {
+      const userId = 'user-1';
+      const flashcardSetId = 'flashcard-1';
+      const contentId = 'content-1';
 
       mockPrismaService.flashcardSet.findFirst.mockResolvedValue({
         id: flashcardSetId,

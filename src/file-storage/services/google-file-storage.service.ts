@@ -1,15 +1,15 @@
-import { Injectable, Logger, Inject } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import * as crypto from "crypto";
-import { GoogleGenAI } from "@google/genai";
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import * as crypto from 'crypto';
+import { GoogleGenAI } from '@google/genai';
 import {
   IFileStorageService,
   UploadOptions,
   UploadResult,
   TransformOptions,
-} from "../interfaces/file-storage.interface";
+} from '../interfaces/file-storage.interface';
 
 /**
  * Google File API implementation of the file storage service
@@ -23,18 +23,18 @@ export class GoogleFileStorageService implements IFileStorageService {
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {
-    const apiKey = this.configService.get<string>("GOOGLE_API_KEY");
+    const apiKey = this.configService.get<string>('GOOGLE_API_KEY');
     this.genAI = new GoogleGenAI({ apiKey });
-    this.logger.log("Google File API configured successfully");
+    this.logger.log('Google File API configured successfully');
   }
 
   /**
    * Calculate SHA-256 hash of file buffer for caching
    */
   private calculateFileHash(buffer: Buffer): string {
-    return crypto.createHash("sha256").update(buffer).digest("hex");
+    return crypto.createHash('sha256').update(buffer).digest('hex');
   }
 
   /**
@@ -43,7 +43,7 @@ export class GoogleFileStorageService implements IFileStorageService {
    */
   async uploadFile(
     file: Express.Multer.File,
-    options?: UploadOptions,
+    options?: UploadOptions
   ): Promise<UploadResult> {
     try {
       // Calculate file hash for deduplication
@@ -54,13 +54,13 @@ export class GoogleFileStorageService implements IFileStorageService {
       const cachedFile = await this.cacheManager.get<UploadResult>(cacheKey);
       if (cachedFile) {
         this.logger.debug(
-          `File already uploaded (hash: ${fileHash}), reusing cached URI: ${cachedFile.secureUrl}`,
+          `File already uploaded (hash: ${fileHash}), reusing cached URI: ${cachedFile.secureUrl}`
         );
         return cachedFile;
       }
 
       this.logger.debug(
-        `Uploading file: ${file.originalname} (${file.size} bytes) to Google File API`,
+        `Uploading file: ${file.originalname} (${file.size} bytes) to Google File API`
       );
 
       // Create a Blob from the buffer (convert Buffer to Uint8Array first)
@@ -80,21 +80,21 @@ export class GoogleFileStorageService implements IFileStorageService {
       let retries = 0;
       const maxRetries = 10;
 
-      while (fileStatus.state === "PROCESSING" && retries < maxRetries) {
+      while (fileStatus.state === 'PROCESSING' && retries < maxRetries) {
         this.logger.debug(
-          `File ${uploadedFile.name} is still processing, waiting...`,
+          `File ${uploadedFile.name} is still processing, waiting...`
         );
         await new Promise((resolve) => setTimeout(resolve, 1000));
         fileStatus = await this.genAI.files.get({ name: uploadedFile.name });
         retries++;
       }
 
-      if (fileStatus.state === "FAILED") {
-        throw new Error("File processing failed");
+      if (fileStatus.state === 'FAILED') {
+        throw new Error('File processing failed');
       }
 
       this.logger.log(
-        `File uploaded successfully: ${fileStatus.name} - URI: ${fileStatus.uri}`,
+        `File uploaded successfully: ${fileStatus.name} - URI: ${fileStatus.uri}`
       );
 
       // Map to UploadResult interface
@@ -102,15 +102,15 @@ export class GoogleFileStorageService implements IFileStorageService {
         publicId: fileStatus.name, // e.g., "files/abc123"
         url: fileStatus.uri, // Google File URI
         secureUrl: fileStatus.uri, // Same as url for Google Files
-        format: file.mimetype.split("/")[1] || "unknown",
+        format: file.mimetype.split('/')[1] || 'unknown',
         bytes: fileStatus.sizeBytes
           ? Number.parseInt(fileStatus.sizeBytes)
           : file.size,
-        resourceType: file.mimetype.startsWith("image/")
-          ? "image"
-          : file.mimetype.startsWith("video/")
-            ? "video"
-            : "raw",
+        resourceType: file.mimetype.startsWith('image/')
+          ? 'image'
+          : file.mimetype.startsWith('video/')
+            ? 'video'
+            : 'raw',
       };
 
       // Cache for 48 hours (172800 seconds) - matching Google's retention
@@ -121,7 +121,7 @@ export class GoogleFileStorageService implements IFileStorageService {
       this.logger.error(`Failed to upload file: ${error.message}`, error.stack);
       if (error.response) {
         this.logger.error(
-          `API Error Response: ${JSON.stringify(error.response.data)}`,
+          `API Error Response: ${JSON.stringify(error.response.data)}`
         );
         this.logger.error(`API Status: ${error.response.status}`);
       }
@@ -143,7 +143,7 @@ export class GoogleFileStorageService implements IFileStorageService {
     } catch (error) {
       this.logger.error(
         `Failed to delete file ${publicId}: ${error.message}`,
-        error.stack,
+        error.stack
       );
       // Don't throw error for delete failures - log and continue
       // This prevents cascading failures when cleaning up

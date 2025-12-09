@@ -1,12 +1,12 @@
-import { Controller, Get, Query } from "@nestjs/common";
-import { SchoolService } from "./school.service";
+import { Controller, Get, Query } from '@nestjs/common';
+import { SchoolService } from './school.service';
 
-@Controller("schools")
+@Controller('schools')
 export class SchoolController {
   constructor(private readonly schoolService: SchoolService) {}
 
-  @Get("search")
-  async search(@Query("q") query: string) {
+  @Get('search')
+  async search(@Query('q') query: string) {
     return this.schoolService.searchSchools(query);
   }
 }

@@ -1,8 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { AssessmentService } from "../assessment/assessment.service";
-import { RetentionLevel } from "@prisma/client";
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { AssessmentService } from '../assessment/assessment.service';
+import { RetentionLevel } from '@prisma/client';
 
 export interface StudyInsights {
   understanding: {
@@ -15,7 +15,7 @@ export interface StudyInsights {
     topics: Array<{
       topic: string;
       reason: string;
-      priority: "high" | "medium" | "low";
+      priority: 'high' | 'medium' | 'low';
     }>;
   };
   focusAreas: {
@@ -118,7 +118,7 @@ export class InsightsService {
     const quizRecommendations =
       await this.assessmentService.recommendQuizTypes(userId);
     const suggestedQuizzes = quizRecommendations.slice(0, 3).map((rec) => ({
-      topic: rec.suggestedTopics[0] || "General",
+      topic: rec.suggestedTopics[0] || 'General',
       quizType: rec.quizType,
       reason: rec.reason,
     }));
@@ -168,18 +168,18 @@ export class InsightsService {
    */
   private getRevisionReason(level: RetentionLevel, strength: number): string {
     if (level === RetentionLevel.LEARNING) {
-      return "Still learning - needs regular practice";
+      return 'Still learning - needs regular practice';
     }
     if (level === RetentionLevel.REINFORCEMENT) {
-      return "Building confidence - review to strengthen memory";
+      return 'Building confidence - review to strengthen memory';
     }
     if (level === RetentionLevel.RECALL) {
-      return "Due for spaced repetition review";
+      return 'Due for spaced repetition review';
     }
     if (strength < 70) {
-      return "Memory strength declining - review recommended";
+      return 'Memory strength declining - review recommended';
     }
-    return "Scheduled review to maintain mastery";
+    return 'Scheduled review to maintain mastery';
   }
 
   /**
@@ -188,11 +188,11 @@ export class InsightsService {
   private getRevisionPriority(
     level: RetentionLevel,
     strength: number
-  ): "high" | "medium" | "low" {
-    if (level === RetentionLevel.LEARNING || strength < 50) return "high";
+  ): 'high' | 'medium' | 'low' {
+    if (level === RetentionLevel.LEARNING || strength < 50) return 'high';
     if (level === RetentionLevel.REINFORCEMENT || strength < 70)
-      return "medium";
-    return "low";
+      return 'medium';
+    return 'low';
   }
 
   /**
@@ -213,17 +213,17 @@ export class InsightsService {
 
     if (performance.weakTopics.length > 0) {
       recommendations.push(
-        `Review ${performance.weakTopics.join(", ")} - your scores are below 60%`
+        `Review ${performance.weakTopics.join(', ')} - your scores are below 60%`
       );
     }
 
     if (performance.averageScore < 70) {
       recommendations.push(
-        "Consider taking more Quick Check quizzes to build confidence"
+        'Consider taking more Quick Check quizzes to build confidence'
       );
     } else if (performance.averageScore > 85) {
       recommendations.push(
-        "Great progress! Try Timed Tests to challenge yourself"
+        'Great progress! Try Timed Tests to challenge yourself'
       );
     }
 
@@ -257,8 +257,8 @@ export class InsightsService {
   ): Promise<string> {
     try {
       const prompt = `Generate a brief, encouraging summary of a learner's progress:
-- Mastered topics: ${masteredTopics.join(", ") || "None yet"}
-- Currently learning: ${learningTopics.join(", ") || "None yet"}
+- Mastered topics: ${masteredTopics.join(', ') || 'None yet'}
+- Currently learning: ${learningTopics.join(', ') || 'None yet'}
 - Overall progress: ${progressPercentage.toFixed(0)}%
 
 Write a 2-3 sentence summary that is warm, encouraging, and specific. Focus on achievements and next steps. Tailor the tone to be relatable to a Nigerian student.`;
@@ -269,7 +269,7 @@ Write a 2-3 sentence summary that is warm, encouraging, and specific. Focus on a
       });
       return summary.trim();
     } catch (error) {
-      this.logger.error("Error generating understanding summary:", error);
+      this.logger.error('Error generating understanding summary:', error);
       return this.getDefaultSummary(
         masteredTopics,
         learningTopics,
@@ -293,7 +293,7 @@ Write a 2-3 sentence summary that is warm, encouraging, and specific. Focus on a
       return `You're making progress! You've mastered ${masteredTopics.length} topic(s) and are actively learning ${learningTopics.length} more. Keep up the consistent effort!`;
     }
     if (progressPercentage < 70) {
-      return `Great work! You're ${progressPercentage.toFixed(0)}% of the way there. You've mastered ${masteredTopics.join(", ")} and are building strong foundations in ${learningTopics.length} other topics.`;
+      return `Great work! You're ${progressPercentage.toFixed(0)}% of the way there. You've mastered ${masteredTopics.join(', ')} and are building strong foundations in ${learningTopics.length} other topics.`;
     }
     return `Excellent progress! You've mastered ${masteredTopics.length} topics and are well on your way to complete mastery. Keep reviewing to maintain your knowledge!`;
   }

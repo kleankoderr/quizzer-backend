@@ -9,110 +9,110 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
-} from "@nestjs/common";
-import { FilesInterceptor } from "@nestjs/platform-express";
+} from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiConsumes,
-} from "@nestjs/swagger";
-import { QuizService } from "./quiz.service";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { CurrentUser } from "../auth/decorators/current-user.decorator";
-import { GenerateQuizDto, SubmitQuizDto } from "./dto/quiz.dto";
-import { PdfOnly } from "../common/decorators/pdf-only.decorator";
+} from '@nestjs/swagger';
+import { QuizService } from './quiz.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { GenerateQuizDto, SubmitQuizDto } from './dto/quiz.dto';
+import { PdfOnly } from '../common/decorators/pdf-only.decorator';
 
-@ApiTags("Quizzes")
+@ApiTags('Quizzes')
 @ApiBearerAuth()
-@Controller("quiz")
+@Controller('quiz')
 @UseGuards(JwtAuthGuard)
 export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
-  @Post("generate")
-  @ApiOperation({ summary: "Generate a new quiz" })
-  @ApiConsumes("multipart/form-data")
-  @ApiResponse({ status: 201, description: "Quiz successfully generated" })
-  @ApiResponse({ status: 400, description: "Invalid input data" })
+  @Post('generate')
+  @ApiOperation({ summary: 'Generate a new quiz' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Quiz successfully generated' })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
   @UseInterceptors(
     PdfOnly({ maxFiles: 5, maxSizePerFile: 5 * 1024 * 1024 }),
-    FilesInterceptor("files", 5)
+    FilesInterceptor('files', 5)
   )
   async generateQuiz(
-    @CurrentUser("sub") userId: string,
+    @CurrentUser('sub') userId: string,
     @Body() dto: GenerateQuizDto,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
     if (!dto.topic && !dto.content && (!files || files.length === 0)) {
       throw new BadRequestException(
-        "Please provide either a topic, content, or upload files"
+        'Please provide either a topic, content, or upload files'
       );
     }
 
     return this.quizService.generateQuiz(userId, dto, files);
   }
 
-  @Get("status/:jobId")
-  @ApiOperation({ summary: "Check quiz generation job status" })
-  @ApiResponse({ status: 200, description: "Job status" })
-  @ApiResponse({ status: 404, description: "Job not found" })
+  @Get('status/:jobId')
+  @ApiOperation({ summary: 'Check quiz generation job status' })
+  @ApiResponse({ status: 200, description: 'Job status' })
+  @ApiResponse({ status: 404, description: 'Job not found' })
   async getJobStatus(
-    @Param("jobId") jobId: string,
-    @CurrentUser("sub") userId: string
+    @Param('jobId') jobId: string,
+    @CurrentUser('sub') userId: string
   ) {
     return this.quizService.getJobStatus(jobId, userId);
   }
 
-  @Get("attempt/:id")
-  @ApiOperation({ summary: "Get a specific attempt by ID" })
-  @ApiResponse({ status: 200, description: "Attempt details" })
-  @ApiResponse({ status: 404, description: "Attempt not found" })
+  @Get('attempt/:id')
+  @ApiOperation({ summary: 'Get a specific attempt by ID' })
+  @ApiResponse({ status: 200, description: 'Attempt details' })
+  @ApiResponse({ status: 404, description: 'Attempt not found' })
   async getAttempt(
-    @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string
   ) {
     return this.quizService.getAttemptById(id, userId);
   }
 
   @Get()
-  @ApiOperation({ summary: "Get all quizzes for current user" })
-  @ApiResponse({ status: 200, description: "List of user quizzes" })
-  async getAllQuizzes(@CurrentUser("sub") userId: string) {
+  @ApiOperation({ summary: 'Get all quizzes for current user' })
+  @ApiResponse({ status: 200, description: 'List of user quizzes' })
+  async getAllQuizzes(@CurrentUser('sub') userId: string) {
     return this.quizService.getAllQuizzes(userId);
   }
 
-  @Get(":id")
-  @ApiOperation({ summary: "Get quiz by ID" })
-  @ApiResponse({ status: 200, description: "Quiz details" })
-  @ApiResponse({ status: 404, description: "Quiz not found" })
+  @Get(':id')
+  @ApiOperation({ summary: 'Get quiz by ID' })
+  @ApiResponse({ status: 200, description: 'Quiz details' })
+  @ApiResponse({ status: 404, description: 'Quiz not found' })
   async getQuizById(
-    @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string
   ) {
     return this.quizService.getQuizById(id, userId);
   }
 
-  @Post(":id/submit")
-  @ApiOperation({ summary: "Submit quiz answers and get results" })
-  @ApiResponse({ status: 200, description: "Quiz results" })
-  @ApiResponse({ status: 400, description: "Invalid submission" })
+  @Post(':id/submit')
+  @ApiOperation({ summary: 'Submit quiz answers and get results' })
+  @ApiResponse({ status: 200, description: 'Quiz results' })
+  @ApiResponse({ status: 400, description: 'Invalid submission' })
   async submitQuiz(
-    @Param("id") id: string,
-    @CurrentUser("sub") userId: string,
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string,
     @Body() dto: SubmitQuizDto
   ) {
     return this.quizService.submitQuiz(userId, id, dto);
   }
 
-  @Delete(":id")
-  @ApiOperation({ summary: "Delete quiz" })
-  @ApiResponse({ status: 200, description: "Quiz deleted successfully" })
-  @ApiResponse({ status: 404, description: "Quiz not found" })
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete quiz' })
+  @ApiResponse({ status: 200, description: 'Quiz deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Quiz not found' })
   async deleteQuiz(
-    @Param("id") id: string,
-    @CurrentUser("sub") userId: string
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string
   ) {
     return this.quizService.deleteQuiz(id, userId);
   }

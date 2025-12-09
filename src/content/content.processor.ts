@@ -1,10 +1,10 @@
-import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { Logger } from "@nestjs/common";
-import { Job } from "bullmq";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { EventFactory, EVENTS } from "../events/events.types";
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger } from '@nestjs/common';
+import { Job } from 'bullmq';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { EventFactory, EVENTS } from '../events/events.types';
 
 export interface ContentJobData {
   userId: string;
@@ -21,27 +21,27 @@ export interface ContentJobData {
   }>;
 }
 
-@Processor("content-generation")
+@Processor('content-generation')
 export class ContentProcessor extends WorkerHost {
   private readonly logger = new Logger(ContentProcessor.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {
     super();
   }
 
   async process(job: Job<ContentJobData>): Promise<any> {
     const { userId, dto, files } = job.data;
-    const jobId = job.id?.toString() || "unknown";
+    const jobId = job.id?.toString() || 'unknown';
     this.logger.log(
-      `Processing content generation job ${jobId} for user ${userId}`,
+      `Processing content generation job ${jobId} for user ${userId}`
     );
 
     try {
-      this.emitProgress(userId, jobId, "Starting content generation...", 10);
+      this.emitProgress(userId, jobId, 'Starting content generation...', 10);
       await job.updateProgress(10);
 
       const userExists = await this.prisma.user.findUnique({
@@ -60,7 +60,7 @@ export class ContentProcessor extends WorkerHost {
         })) || [];
 
       this.logger.debug(
-        `Job ${jobId}: Using ${fileReferences.length} pre-uploaded file(s)`,
+        `Job ${jobId}: Using ${fileReferences.length} pre-uploaded file(s)`
       );
 
       if (fileReferences.length > 0) {
@@ -68,20 +68,20 @@ export class ContentProcessor extends WorkerHost {
           userId,
           jobId,
           `Processing ${fileReferences.length} file(s)...`,
-          20,
+          20
         );
       }
 
       await job.updateProgress(20);
 
       this.logger.log(
-        `Job ${jobId}: Generating content for topic: "${dto.topic || "from files/text"}"`,
+        `Job ${jobId}: Generating content for topic: "${dto.topic || 'from files/text'}"`
       );
       this.emitProgress(
         userId,
         jobId,
         `Creating study material.. This might take a moment.`,
-        40,
+        40
       );
 
       let generatedText: string;
@@ -111,12 +111,12 @@ export class ContentProcessor extends WorkerHost {
           maxTokens: 100,
         });
       } else {
-        topic = "Study Material";
-        title = "Generated Study Material";
-        generatedText = "Content will be generated from uploaded files.";
+        topic = 'Study Material';
+        title = 'Generated Study Material';
+        generatedText = 'Content will be generated from uploaded files.';
       }
 
-      this.emitProgress(userId, jobId, "Finalizing and saving...", 70);
+      this.emitProgress(userId, jobId, 'Finalizing and saving...', 70);
       await job.updateProgress(70);
 
       const content = await this.prisma.content.create({
@@ -128,7 +128,7 @@ export class ContentProcessor extends WorkerHost {
         },
       });
 
-      this.emitProgress(userId, jobId, "Generating learning guide...", 85);
+      this.emitProgress(userId, jobId, 'Generating learning guide...', 85);
       await job.updateProgress(85);
 
       try {
@@ -143,13 +143,13 @@ export class ContentProcessor extends WorkerHost {
         });
       } catch (_error) {
         this.logger.warn(
-          `Failed to generate learning guide: ${_error.message}`,
+          `Failed to generate learning guide: ${_error.message}`
         );
       }
 
       await job.updateProgress(100);
       this.logger.log(
-        `Job ${jobId}: Successfully completed (Content ID: ${content.id})`,
+        `Job ${jobId}: Successfully completed (Content ID: ${content.id})`
       );
 
       this.eventEmitter.emit(
@@ -157,7 +157,7 @@ export class ContentProcessor extends WorkerHost {
         EventFactory.contentCompleted(userId, content.id, {
           title: content.title,
           topic: content.topic,
-        }),
+        })
       );
 
       return {
@@ -167,11 +167,11 @@ export class ContentProcessor extends WorkerHost {
     } catch (error) {
       this.logger.error(
         `Job ${jobId}: Failed to generate content`,
-        error.stack,
+        error.stack
       );
       this.eventEmitter.emit(
         EVENTS.CONTENT.FAILED,
-        EventFactory.contentFailed(userId, jobId, error.message),
+        EventFactory.contentFailed(userId, jobId, error.message)
       );
       throw error;
     }
@@ -181,11 +181,11 @@ export class ContentProcessor extends WorkerHost {
     userId: string,
     jobId: string,
     step: string,
-    percentage: number,
+    percentage: number
   ) {
     this.eventEmitter.emit(
       EVENTS.CONTENT.PROGRESS,
-      EventFactory.contentProgress(userId, jobId, step, percentage),
+      EventFactory.contentProgress(userId, jobId, step, percentage)
     );
   }
 }

@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class StatisticsService {
@@ -17,24 +17,24 @@ export class StatisticsService {
 
     // Calculate statistics
     const totalAttempts = attempts.length;
-    const quizAttempts = attempts.filter((a) => a.type === "quiz").length;
+    const quizAttempts = attempts.filter((a) => a.type === 'quiz').length;
     const flashcardAttempts = attempts.filter(
-      (a) => a.type === "flashcard",
+      (a) => a.type === 'flashcard'
     ).length;
 
     const challengeAttempts = attempts.filter(
-      (a) => a.type === "challenge",
+      (a) => a.type === 'challenge'
     ).length;
 
     // Calculate average accuracy
     const attemptsWithScores = attempts.filter(
-      (a) => a.score !== null && a.totalQuestions !== null,
+      (a) => a.score !== null && a.totalQuestions !== null
     );
     const averageAccuracy =
       attemptsWithScores.length > 0
         ? attemptsWithScores.reduce(
             (sum, a) => sum + (Math.max(0, a.score!) / a.totalQuestions!) * 100,
-            0,
+            0
           ) / attemptsWithScores.length
         : 0;
 
@@ -60,7 +60,7 @@ export class StatisticsService {
   async getAttempts(
     userId: string,
     filters?: {
-      type?: "quiz" | "flashcard" | "challenge";
+      type?: 'quiz' | 'flashcard' | 'challenge';
       quizId?: string;
       flashcardSetId?: string;
       challengeId?: string;
@@ -68,7 +68,7 @@ export class StatisticsService {
       endDate?: string;
       limit?: number;
       page?: number;
-    },
+    }
   ) {
     const where: any = { userId };
 
@@ -129,7 +129,7 @@ export class StatisticsService {
           },
         },
         orderBy: {
-          completedAt: "desc",
+          completedAt: 'desc',
         },
         take: limit,
         skip: skip,
@@ -171,7 +171,7 @@ export class StatisticsService {
 
     attempts.forEach((attempt) => {
       const topic =
-        attempt.quiz?.topic || attempt.flashcardSet?.topic || "Unknown";
+        attempt.quiz?.topic || attempt.flashcardSet?.topic || 'Unknown';
 
       if (!topicStats.has(topic)) {
         topicStats.set(topic, {
@@ -218,7 +218,7 @@ export class StatisticsService {
     const activityMap: Map<string, number> = new Map();
 
     attempts.forEach((attempt) => {
-      const date = attempt.completedAt.toISOString().split("T")[0];
+      const date = attempt.completedAt.toISOString().split('T')[0];
       activityMap.set(date, (activityMap.get(date) || 0) + 1);
     });
 

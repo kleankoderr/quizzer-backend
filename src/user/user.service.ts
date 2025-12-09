@@ -3,18 +3,18 @@ import {
   NotFoundException,
   UnauthorizedException,
   Inject,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import * as bcrypt from "bcrypt";
-import { UpdateProfileDto } from "./dto/update-profile.dto";
-import { UpdateSettingsDto } from "./dto/update-settings.dto";
-import { ChangePasswordDto } from "./dto/change-password.dto";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import {
   IFileStorageService,
   FILE_STORAGE_SERVICE,
-} from "../file-storage/interfaces/file-storage.interface";
+} from '../file-storage/interfaces/file-storage.interface';
 
-import { SchoolService } from "../school/school.service";
+import { SchoolService } from '../school/school.service';
 
 @Injectable()
 export class UserService {
@@ -22,7 +22,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly fileStorageService: IFileStorageService,
-    private readonly schoolService: SchoolService,
+    private readonly schoolService: SchoolService
   ) {}
 
   async getProfile(userId: string) {
@@ -43,7 +43,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
 
     // Get user statistics
@@ -75,13 +75,13 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
 
     let schoolId = undefined;
     if (updateProfileDto.schoolName) {
       const school = await this.schoolService.findOrCreate(
-        updateProfileDto.schoolName,
+        updateProfileDto.schoolName
       );
       schoolId = school.id;
     }
@@ -116,7 +116,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -147,17 +147,17 @@ export class UserService {
     });
 
     if (!user || !user.password) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
 
     // Verify current password
     const isPasswordValid = await bcrypt.compare(
       changePasswordDto.currentPassword,
-      user.password,
+      user.password
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException("Current password is incorrect");
+      throw new UnauthorizedException('Current password is incorrect');
     }
 
     // Hash new password
@@ -169,7 +169,7 @@ export class UserService {
       data: { password: hashedPassword },
     });
 
-    return { message: "Password changed successfully" };
+    return { message: 'Password changed successfully' };
   }
 
   async uploadAvatar(userId: string, file: Express.Multer.File) {
@@ -178,22 +178,22 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
 
     // Upload new avatar to Cloudinary
     const uploadResult = await this.fileStorageService.uploadFile(file, {
-      folder: "quizzer/users/avatars",
-      resourceType: "image",
+      folder: 'quizzer/users/avatars',
+      resourceType: 'image',
     });
 
     // Delete old avatar if it exists and is from Cloudinary
-    if (user.avatar && user.avatar.includes("cloudinary")) {
+    if (user.avatar && user.avatar.includes('cloudinary')) {
       try {
         // Extract public_id from Cloudinary URL
-        const urlParts = user.avatar.split("/");
-        const filename = urlParts[urlParts.length - 1].split(".")[0];
-        const folder = urlParts.slice(-3, -1).join("/");
+        const urlParts = user.avatar.split('/');
+        const filename = urlParts[urlParts.length - 1].split('.')[0];
+        const folder = urlParts.slice(-3, -1).join('/');
         const publicId = `${folder}/${filename}`;
         await this.fileStorageService.deleteFile(publicId);
       } catch (_error) {
@@ -228,7 +228,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
 
     // Delete user (cascade will handle related records)
@@ -236,7 +236,7 @@ export class UserService {
       where: { id: userId },
     });
 
-    return { message: "Account deleted successfully" };
+    return { message: 'Account deleted successfully' };
   }
 
   async updateAssessmentPopupShown(userId: string) {

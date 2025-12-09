@@ -11,7 +11,7 @@ export interface IFileStorageService {
    */
   uploadFile(
     file: Express.Multer.File,
-    options?: UploadOptions,
+    options?: UploadOptions
   ): Promise<UploadResult>;
 
   /**
@@ -36,7 +36,7 @@ export interface UploadOptions {
   /** Folder path in storage */
   folder?: string;
   /** Resource type (image, video, raw, auto) */
-  resourceType?: "image" | "video" | "raw" | "auto";
+  resourceType?: 'image' | 'video' | 'raw' | 'auto';
   /** Public ID (filename) to use */
   publicId?: string;
   /** Whether to overwrite existing files */
@@ -76,16 +76,16 @@ export interface TransformOptions {
   /** Height in pixels */
   height?: number;
   /** Crop mode */
-  crop?: "scale" | "fit" | "fill" | "thumb" | "crop";
+  crop?: 'scale' | 'fit' | 'fill' | 'thumb' | 'crop';
   /** Quality (1-100) */
   quality?: number;
   /** Format to convert to */
   format?: string;
   /** Gravity for cropping */
-  gravity?: "auto" | "face" | "center" | "north" | "south" | "east" | "west";
+  gravity?: 'auto' | 'face' | 'center' | 'north' | 'south' | 'east' | 'west';
 }
 
 /**
  * Provider token for dependency injection
  */
-export const FILE_STORAGE_SERVICE = "FILE_STORAGE_SERVICE";
+export const FILE_STORAGE_SERVICE = 'FILE_STORAGE_SERVICE';

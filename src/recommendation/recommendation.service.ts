@@ -1,8 +1,8 @@
-import { Injectable, Logger, Inject } from "@nestjs/common";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class RecommendationService {
@@ -11,7 +11,7 @@ export class RecommendationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
   /**
@@ -31,35 +31,35 @@ export class RecommendationService {
 
     const stored = await this.prisma.recommendation.findMany({
       where: { userId },
-      orderBy: { priority: "asc" },
+      orderBy: { priority: 'asc' },
     });
 
     if (!stored || stored.length === 0) {
       this.logger.debug(
-        `No recommendations found for user ${userId}, returning defaults`,
+        `No recommendations found for user ${userId}, returning defaults`
       );
       // Return sensible defaults for new users (frontend should call generation after attempts)
       return [
         {
-          topic: "General Knowledge",
-          reason: "Great starting point for new learners",
-          priority: "high",
+          topic: 'General Knowledge',
+          reason: 'Great starting point for new learners',
+          priority: 'high',
         },
         {
-          topic: "Science Basics",
-          reason: "Build fundamental knowledge",
-          priority: "medium",
+          topic: 'Science Basics',
+          reason: 'Build fundamental knowledge',
+          priority: 'medium',
         },
         {
-          topic: "History",
-          reason: "Explore historical events",
-          priority: "low",
+          topic: 'History',
+          reason: 'Explore historical events',
+          priority: 'low',
         },
       ];
     }
 
     this.logger.log(
-      `Returning ${stored.length} recommendations for user ${userId}`,
+      `Returning ${stored.length} recommendations for user ${userId}`
     );
     const result = stored.map((s) => ({
       topic: s.topic,
@@ -83,7 +83,7 @@ export class RecommendationService {
     // Get user's recent attempts
     const attempts = await this.prisma.attempt.findMany({
       where: { userId },
-      orderBy: { completedAt: "desc" },
+      orderBy: { completedAt: 'desc' },
       take: 20,
       include: {
         quiz: {
@@ -94,7 +94,7 @@ export class RecommendationService {
 
     if (attempts.length === 0) {
       this.logger.debug(
-        `No attempts found for user ${userId}, skipping recommendation generation`,
+        `No attempts found for user ${userId}, skipping recommendation generation`
       );
       return [];
     }
@@ -130,7 +130,7 @@ export class RecommendationService {
 
     try {
       this.logger.debug(
-        `Found ${weakTopics.length} weak topics for user ${userId}: ${weakTopics.join(", ")}`,
+        `Found ${weakTopics.length} weak topics for user ${userId}: ${weakTopics.join(', ')}`
       );
       this.logger.debug(`Calling AI service to generate recommendations`);
       const recommendations = await this.aiService.generateRecommendations({
@@ -144,7 +144,7 @@ export class RecommendationService {
 
       // Save recommendations to database
       this.logger.debug(
-        `Saving ${recommendations.length} recommendations to database`,
+        `Saving ${recommendations.length} recommendations to database`
       );
       await Promise.all(
         recommendations.map((rec) =>
@@ -165,21 +165,21 @@ export class RecommendationService {
               reason: rec.reason,
               priority: rec.priority,
             },
-          }),
-        ),
+          })
+        )
       );
 
       // Invalidate cache after generating new recommendations
       await this.cacheManager.del(`recommendations:${userId}`);
 
       this.logger.log(
-        `Successfully generated and stored ${recommendations.length} recommendations for user ${userId}`,
+        `Successfully generated and stored ${recommendations.length} recommendations for user ${userId}`
       );
       return recommendations;
     } catch (error) {
       this.logger.error(
         `Error generating recommendations for user ${userId}:`,
-        error,
+        error
       );
       return [];
     }

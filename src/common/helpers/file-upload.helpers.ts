@@ -1,11 +1,11 @@
-import { Logger } from "@nestjs/common";
+import { Logger } from '@nestjs/common';
 import {
   DocumentHashService,
   ProviderUrls,
-} from "../../file-storage/services/document-hash.service";
-import { IFileStorageService } from "../../file-storage/interfaces/file-storage.interface";
+} from '../../file-storage/services/document-hash.service';
+import { IFileStorageService } from '../../file-storage/interfaces/file-storage.interface';
 
-const logger = new Logger("FileUploadHelpers");
+const logger = new Logger('FileUploadHelpers');
 
 export interface ProcessedDocument {
   originalName: string;
@@ -21,7 +21,7 @@ export async function processFileUploads(
   files: Express.Multer.File[],
   documentHashService: DocumentHashService,
   cloudinaryService: IFileStorageService,
-  googleService: IFileStorageService,
+  googleService: IFileStorageService
 ): Promise<ProcessedDocument[]> {
   const results: ProcessedDocument[] = [];
 
@@ -32,7 +32,7 @@ export async function processFileUploads(
 
       if (existingDoc) {
         logger.log(
-          `Duplicate file detected: ${file.originalname} (${hash.substring(0, 8)}...)`,
+          `Duplicate file detected: ${file.originalname} (${hash.substring(0, 8)}...)`
         );
         results.push({
           originalName: file.originalname,
@@ -47,7 +47,7 @@ export async function processFileUploads(
         const urls = await uploadToProviders(
           file,
           cloudinaryService,
-          googleService,
+          googleService
         );
         await documentHashService.storeDocumentMetadata(hash, urls, file);
 
@@ -63,7 +63,7 @@ export async function processFileUploads(
       }
     } catch (error) {
       logger.error(
-        `Failed to process file ${file.originalname}: ${error.message}`,
+        `Failed to process file ${file.originalname}: ${error.message}`
       );
       throw error;
     }
@@ -75,16 +75,16 @@ export async function processFileUploads(
 export async function uploadToProviders(
   file: Express.Multer.File,
   cloudinaryService: IFileStorageService,
-  googleService: IFileStorageService,
+  googleService: IFileStorageService
 ): Promise<ProviderUrls> {
   const [cloudinaryResult, googleResult] = await Promise.all([
     cloudinaryService.uploadFile(file, {
-      folder: "quizzer/content",
-      resourceType: "raw",
+      folder: 'quizzer/content',
+      resourceType: 'raw',
     }),
     googleService.uploadFile(file, {
-      folder: "quizzer/content",
-      resourceType: "raw",
+      folder: 'quizzer/content',
+      resourceType: 'raw',
     }),
   ]);
 
@@ -101,7 +101,7 @@ export async function uploadToProviders(
 export async function cleanupFailedUploads(
   documents: ProcessedDocument[],
   cloudinaryService: IFileStorageService,
-  googleService: IFileStorageService,
+  googleService: IFileStorageService
 ): Promise<void> {
   for (const doc of documents) {
     if (!doc.isDuplicate) {

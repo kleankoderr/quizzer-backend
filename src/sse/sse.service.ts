@@ -3,10 +3,10 @@ import {
   Logger,
   OnModuleDestroy,
   MessageEvent,
-} from "@nestjs/common";
-import { OnEvent } from "@nestjs/event-emitter";
-import { Subject, Observable, filter, map, tap, finalize } from "rxjs";
-import { AppEvent } from "../events/events.types";
+} from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { Subject, Observable, filter, map, tap, finalize } from 'rxjs';
+import { AppEvent } from '../events/events.types';
 
 export interface SseEventData {
   eventType: string;
@@ -15,7 +15,7 @@ export interface SseEventData {
 }
 
 const SSE_RETRY_MS = 3000;
-const SSE_MESSAGE_TYPE = "message";
+const SSE_MESSAGE_TYPE = 'message';
 
 @Injectable()
 export class SseService implements OnModuleDestroy {
@@ -24,12 +24,12 @@ export class SseService implements OnModuleDestroy {
   private readonly activeSubscriptions = new Set<string>();
 
   constructor() {
-    this.logger.log("SSE Service initialized");
+    this.logger.log('SSE Service initialized');
   }
 
   onModuleDestroy() {
     this.logger.log(
-      `SSE Service shutting down. Active subscriptions: ${this.activeSubscriptions.size}`,
+      `SSE Service shutting down. Active subscriptions: ${this.activeSubscriptions.size}`
     );
     this.eventSubject.complete();
     this.activeSubscriptions.clear();
@@ -42,7 +42,7 @@ export class SseService implements OnModuleDestroy {
   subscribe(userId: string): Observable<MessageEvent> {
     this.activeSubscriptions.add(userId);
     this.logger.log(
-      `User ${userId} subscribed (Total active: ${this.activeSubscriptions.size})`,
+      `User ${userId} subscribed (Total active: ${this.activeSubscriptions.size})`
     );
 
     return this.eventSubject.asObservable().pipe(
@@ -53,7 +53,7 @@ export class SseService implements OnModuleDestroy {
       // Log debug info
       tap((message) => this.logEventForwarding(userId, message)),
       // Clean up on unsubscribe/complete/error
-      finalize(() => this.handleUnsubscribe(userId)),
+      finalize(() => this.handleUnsubscribe(userId))
     );
   }
 
@@ -61,11 +61,11 @@ export class SseService implements OnModuleDestroy {
    * Listen to all application events and forward to appropriate streams
    * Using wildcard listener to catch all events
    */
-  @OnEvent("**")
+  @OnEvent('**')
   handleEvent(payload: AppEvent) {
     if (this.isValidAppEvent(payload)) {
       this.logger.debug(
-        `Broadcasting event: ${payload.eventType || "unknown"} for user ${payload.userId}`,
+        `Broadcasting event: ${payload.eventType || 'unknown'} for user ${payload.userId}`
       );
       this.eventSubject.next(payload);
     }
@@ -92,7 +92,7 @@ export class SseService implements OnModuleDestroy {
    */
   emitToUsers(userIds: string[], eventType: string, data: any): void {
     this.logger.debug(
-      `Broadcasting to ${userIds.length} user(s): ${eventType}`,
+      `Broadcasting to ${userIds.length} user(s): ${eventType}`
     );
 
     for (const userId of userIds) {
@@ -120,18 +120,19 @@ export class SseService implements OnModuleDestroy {
   private isValidAppEvent(payload: any): payload is AppEvent {
     return (
       payload &&
-      typeof payload === "object" &&
-      typeof payload.userId === "string" &&
+      typeof payload === 'object' &&
+      typeof payload.userId === 'string' &&
       payload.userId.length > 0
     );
   }
 
   /**
    * Format an AppEvent into SSE MessageEvent format
+   * Sends the event with all properties at root level for simpler frontend parsing
    */
   private formatSseMessage(event: AppEvent): MessageEvent {
     return {
-      data: this.buildEventData(event),
+      data: this.sanitizeEventPayload(event),
       id: this.generateEventId(),
       type: SSE_MESSAGE_TYPE,
       retry: SSE_RETRY_MS,
@@ -139,22 +140,13 @@ export class SseService implements OnModuleDestroy {
   }
 
   /**
-   * Build the event data payload
-   */
-  private buildEventData(event: AppEvent): SseEventData {
-    return {
-      eventType: event.eventType || "unknown",
-      payload: this.sanitizeEventPayload(event),
-      timestamp: event.timestamp || Date.now(),
-    };
-  }
-
-  /**
-   * Remove internal fields from event payload before sending
+   * Remove internal fields from event before sending
+   * Keeps all other properties at root level for easy access
    */
   private sanitizeEventPayload(event: AppEvent): any {
-    const { userId, eventType, timestamp, ...payload } = event;
-    return payload;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { userId, ...sanitizedEvent } = event;
+    return sanitizedEvent;
   }
 
   /**
@@ -170,7 +162,7 @@ export class SseService implements OnModuleDestroy {
   private logEventForwarding(userId: string, message: MessageEvent): void {
     const eventData = message.data as SseEventData;
     this.logger.debug(
-      `Forwarding to user ${userId}: ${eventData.eventType} [ID: ${message.id}]`,
+      `Forwarding to user ${userId}: ${eventData.eventType} [ID: ${message.id}]`
     );
   }
 
@@ -180,7 +172,7 @@ export class SseService implements OnModuleDestroy {
   private handleUnsubscribe(userId: string): void {
     this.activeSubscriptions.delete(userId);
     this.logger.log(
-      `User ${userId} unsubscribed (Remaining: ${this.activeSubscriptions.size})`,
+      `User ${userId} unsubscribed (Remaining: ${this.activeSubscriptions.size})`
     );
   }
 }

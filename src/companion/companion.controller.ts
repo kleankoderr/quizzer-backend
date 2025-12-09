@@ -7,32 +7,32 @@ import {
   Req,
   Logger,
   Query,
-} from "@nestjs/common";
-import { CompanionService } from "./companion.service";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+} from '@nestjs/common';
+import { CompanionService } from './companion.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller("companion")
+@Controller('companion')
 @UseGuards(JwtAuthGuard)
 export class CompanionController {
   private readonly logger = new Logger(CompanionController.name);
 
   constructor(private readonly companionService: CompanionService) {}
 
-  @Get("messages")
+  @Get('messages')
   async getMessages(@Req() req: any) {
     const userId = req.user.userId;
     this.logger.log(`GET /companion/messages - User: ${userId}`);
     return this.companionService.generateMessages(userId);
   }
 
-  @Get("study-recommendations")
+  @Get('study-recommendations')
   async getStudyRecommendations(@Req() req: any) {
     const userId = req.user.userId;
     this.logger.log(`GET /companion/study-recommendations - User: ${userId}`);
     return this.companionService.getStudySessionRecommendations(userId);
   }
 
-  @Get("motivation")
+  @Get('motivation')
   async getDailyMotivation(@Req() req: any) {
     const userId = req.user.userId;
     this.logger.log(`GET /companion/motivation - User: ${userId}`);
@@ -40,17 +40,17 @@ export class CompanionController {
     return { message: motivation };
   }
 
-  @Get("statistics")
-  async getStatistics(@Req() req: any, @Query("days") days?: string) {
+  @Get('statistics')
+  async getStatistics(@Req() req: any, @Query('days') days?: string) {
     const userId = req.user.userId;
     const daysNum = days ? parseInt(days, 10) : 7;
     this.logger.log(
-      `GET /companion/statistics?days=${daysNum} - User: ${userId}`,
+      `GET /companion/statistics?days=${daysNum} - User: ${userId}`
     );
     return this.companionService.getStudyStatistics(userId, daysNum);
   }
 
-  @Post("track-session")
+  @Post('track-session')
   async trackSession(
     @Req() req: any,
     @Body()
@@ -59,18 +59,18 @@ export class CompanionController {
       duration: number;
       itemsStudied: number;
       performance?: number;
-    },
+    }
   ) {
     const userId = req.user.userId;
     this.logger.log(
-      `POST /companion/track-session - User: ${userId}, Type: ${body.type}`,
+      `POST /companion/track-session - User: ${userId}, Type: ${body.type}`
     );
     return this.companionService.trackStudySession(
       userId,
       body.type,
       body.duration,
       body.itemsStudied,
-      body.performance,
+      body.performance
     );
   }
 }

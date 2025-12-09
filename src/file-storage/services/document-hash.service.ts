@@ -1,8 +1,8 @@
-import { createHash } from "crypto";
-import { Injectable, Logger, Inject } from "@nestjs/common";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { PrismaService } from "../../prisma/prisma.service";
+import { createHash } from 'node:crypto';
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { PrismaService } from '../../prisma/prisma.service';
 
 export interface DocumentMetadata {
   hash: string;
@@ -25,16 +25,16 @@ export interface ProviderUrls {
 @Injectable()
 export class DocumentHashService {
   private readonly logger = new Logger(DocumentHashService.name);
-  private readonly CACHE_PREFIX = "document:hash:";
+  private readonly CACHE_PREFIX = 'document:hash:';
   private readonly CACHE_TTL = 86400;
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
   async calculateFileHash(buffer: Buffer): Promise<string> {
-    return createHash("sha256").update(buffer).digest("hex");
+    return createHash('sha256').update(buffer).digest('hex');
   }
 
   async findDocumentByHash(hash: string): Promise<DocumentMetadata | null> {
@@ -43,7 +43,7 @@ export class DocumentHashService {
     const cached = await this.cacheManager.get<DocumentMetadata>(cacheKey);
     if (cached) {
       this.logger.debug(
-        `Cache hit for document hash: ${hash.substring(0, 8)}...`,
+        `Cache hit for document hash: ${hash.substring(0, 8)}...`
       );
       return cached;
     }
@@ -66,7 +66,7 @@ export class DocumentHashService {
 
       await this.cacheManager.set(cacheKey, metadata, this.CACHE_TTL);
       this.logger.debug(
-        `Document found and cached: ${hash.substring(0, 8)}...`,
+        `Document found and cached: ${hash.substring(0, 8)}...`
       );
       return metadata;
     }
@@ -77,7 +77,7 @@ export class DocumentHashService {
   async storeDocumentMetadata(
     hash: string,
     urls: ProviderUrls,
-    file: Express.Multer.File,
+    file: Express.Multer.File
   ): Promise<DocumentMetadata> {
     const document = await this.prisma.document.create({
       data: {
@@ -107,7 +107,7 @@ export class DocumentHashService {
     await this.cacheManager.set(cacheKey, metadata, this.CACHE_TTL);
 
     this.logger.log(
-      `Document metadata stored: ${file.originalname} (${hash.substring(0, 8)}...)`,
+      `Document metadata stored: ${file.originalname} (${hash.substring(0, 8)}...)`
     );
     return metadata;
   }
@@ -120,6 +120,28 @@ export class DocumentHashService {
       this.logger.log(`Document deleted: ${hash.substring(0, 8)}...`);
     } catch (error) {
       this.logger.warn(`Failed to delete document ${hash}: ${error.message}`);
+    }
+  }
+
+  async deleteDocumentByGoogleFileUrl(googleFileUrl: string): Promise<void> {
+    try {
+      const document = await this.prisma.document.findFirst({
+        where: { googleFileUrl },
+        select: { hash: true },
+      });
+
+      if (document) {
+        await this.prisma.document.delete({ where: { hash: document.hash } });
+        const cacheKey = `${this.CACHE_PREFIX}${document.hash}`;
+        await this.cacheManager.del(cacheKey);
+        this.logger.log(
+          `Document deleted by URL: ${document.hash.substring(0, 8)}...`
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to delete document by URL ${googleFileUrl}: ${error.message}`
+      );
     }
   }
 }

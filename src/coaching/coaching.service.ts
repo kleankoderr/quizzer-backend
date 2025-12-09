@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CoachingService {
@@ -11,12 +11,12 @@ export class CoachingService {
       this.prisma.weakArea.findMany({
         where: { userId, resolved: false },
         take: 3,
-        orderBy: { errorCount: "desc" },
+        orderBy: { errorCount: 'desc' },
       }),
       this.prisma.attempt.findMany({
         where: { userId },
         take: 5,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
 
@@ -26,15 +26,15 @@ export class CoachingService {
     if (streak) {
       if (streak.currentStreak > 5) {
         tips.push({
-          type: "motivation",
+          type: 'motivation',
           message: `You're on fire! ${streak.currentStreak} day streak. Keep it up!`,
-          icon: "fire",
+          icon: 'fire',
         });
       } else if (streak.currentStreak === 0) {
         tips.push({
-          type: "motivation",
-          message: "Start a new streak today! Consistency is key.",
-          icon: "calendar",
+          type: 'motivation',
+          message: 'Start a new streak today! Consistency is key.',
+          icon: 'calendar',
         });
       }
     }
@@ -43,11 +43,11 @@ export class CoachingService {
     if (weakAreas.length > 0) {
       const topic = weakAreas[0].topic;
       tips.push({
-        type: "improvement",
+        type: 'improvement',
         message: `You've been struggling with ${topic}. Try a focused quiz to improve.`,
-        action: "quiz",
+        action: 'quiz',
         topic: topic,
-        icon: "target",
+        icon: 'target',
       });
     }
 
@@ -58,11 +58,11 @@ export class CoachingService {
         recentAttempts.length;
       if (avgScore > 80) {
         tips.push({
-          type: "challenge",
+          type: 'challenge',
           message:
             "You're doing great! Try a harder difficulty to challenge yourself.",
-          action: "challenge",
-          icon: "trending-up",
+          action: 'challenge',
+          icon: 'trending-up',
         });
       }
     }
@@ -70,10 +70,10 @@ export class CoachingService {
     // Fallback tip
     if (tips.length === 0) {
       tips.push({
-        type: "general",
-        message: "Review your flashcards to boost your retention.",
-        action: "flashcards",
-        icon: "book",
+        type: 'general',
+        message: 'Review your flashcards to boost your retention.',
+        action: 'flashcards',
+        icon: 'book',
       });
     }
 

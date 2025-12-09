@@ -4,27 +4,27 @@ import {
   Inject,
   NotFoundException,
   BadRequestException,
-} from "@nestjs/common";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { LeaderboardService } from "../leaderboard/leaderboard.service";
-import { QuizType } from "@prisma/client";
-import { ConfigService } from "@nestjs/config";
+} from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { LeaderboardService } from '../leaderboard/leaderboard.service';
+import { QuizType } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 
 /**
  * Transform Prisma QuizType enum to frontend-compatible format
  */
 function transformQuizType(quizType: QuizType): string {
   const typeMap: Record<QuizType, string> = {
-    [QuizType.STANDARD]: "standard",
-    [QuizType.TIMED_TEST]: "timed",
-    [QuizType.SCENARIO_BASED]: "scenario",
-    [QuizType.QUICK_CHECK]: "standard",
-    [QuizType.CONFIDENCE_BASED]: "standard",
+    [QuizType.STANDARD]: 'standard',
+    [QuizType.TIMED_TEST]: 'timed',
+    [QuizType.SCENARIO_BASED]: 'scenario',
+    [QuizType.QUICK_CHECK]: 'standard',
+    [QuizType.CONFIDENCE_BASED]: 'standard',
   };
-  return typeMap[quizType] || "standard";
+  return typeMap[quizType] || 'standard';
 }
 
 // Constants
@@ -74,7 +74,7 @@ export interface PerformanceByDifficulty {
 export class ChallengeService {
   private readonly logger = new Logger(ChallengeService.name);
   private readonly systemUserEmail =
-    this.configService.get<string>("ADMIN_EMAIL");
+    this.configService.get<string>('ADMIN_EMAIL');
 
   constructor(
     private readonly prisma: PrismaService,
@@ -85,7 +85,7 @@ export class ChallengeService {
   ) {}
 
   async getAllChallenges(userId: string) {
-    const cacheKey = this.getCacheKey("all", userId);
+    const cacheKey = this.getCacheKey('all', userId);
     const cached = await this.cacheManager.get(cacheKey);
 
     if (cached) {
@@ -106,7 +106,7 @@ export class ChallengeService {
         },
         quizzes: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
 
     // Filter out challenges without quizzes
@@ -142,7 +142,7 @@ export class ChallengeService {
     this.logger.debug(`Fetching daily challenges for user ${userId}`);
 
     const { today, tomorrow } = this.getTodayDateRange();
-    const cacheKey = this.getCacheKey("daily", userId, today);
+    const cacheKey = this.getCacheKey('daily', userId, today);
     const cached = await this.cacheManager.get(cacheKey);
 
     if (cached) {
@@ -154,7 +154,7 @@ export class ChallengeService {
 
     if (challenges.length === 0) {
       this.logger.warn(
-        "No daily challenges found. Triggering fallback generation."
+        'No daily challenges found. Triggering fallback generation.'
       );
       // Logic for fallback generation might go here or be triggered elsewhere
       // For now, assuming current behavior is sufficient if we just return empty or catch it
@@ -191,7 +191,7 @@ export class ChallengeService {
   private async fetchDailyChallenges(start: Date, end: Date, userId: string) {
     return this.prisma.challenge.findMany({
       where: {
-        type: "daily",
+        type: 'daily',
         startDate: { gte: start },
         endDate: { lt: end },
       },
@@ -203,7 +203,7 @@ export class ChallengeService {
         },
         quizzes: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -225,7 +225,7 @@ export class ChallengeService {
               },
             },
           },
-          orderBy: { order: "asc" },
+          orderBy: { order: 'asc' },
         },
         quiz: {
           select: {
@@ -244,7 +244,7 @@ export class ChallengeService {
     });
 
     if (!challenge) {
-      throw new NotFoundException("Challenge not found");
+      throw new NotFoundException('Challenge not found');
     }
 
     const completion = challenge.completions[0];
@@ -308,20 +308,20 @@ export class ChallengeService {
   }
 
   async getHotChallenges(userId: string) {
-    return this.getChallengesByType(userId, "hot");
+    return this.getChallengesByType(userId, 'hot');
   }
 
   async getWeeklyChallenges(userId: string) {
-    return this.getChallengesByType(userId, "weekly");
+    return this.getChallengesByType(userId, 'weekly');
   }
 
   async getMonthlyChallenges(userId: string) {
-    return this.getChallengesByType(userId, "monthly");
+    return this.getChallengesByType(userId, 'monthly');
   }
 
   async getChallengeProgress(challengeId: string, userId: string) {
     const cacheKey = this.getCacheKey(
-      "progress",
+      'progress',
       userId,
       undefined,
       challengeId
@@ -338,12 +338,12 @@ export class ChallengeService {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
       include: {
-        quizzes: { orderBy: { order: "asc" } },
+        quizzes: { orderBy: { order: 'asc' } },
       },
     });
 
     if (!challenge) {
-      throw new NotFoundException("Challenge not found");
+      throw new NotFoundException('Challenge not found');
     }
 
     const completion = await this.prisma.challengeCompletion.findUnique({
@@ -392,7 +392,7 @@ export class ChallengeService {
           select: { id: true, title: true },
         },
       },
-      orderBy: [{ finalScore: "desc" }, { completedAt: "asc" }],
+      orderBy: [{ finalScore: 'desc' }, { completedAt: 'asc' }],
       take: 50,
     });
 
@@ -405,7 +405,7 @@ export class ChallengeService {
 
         return {
           userId: completion.userId,
-          userName: user?.name || "Unknown",
+          userName: user?.name || 'Unknown',
           avatar: user?.avatar,
           schoolName: user?.schoolName,
           score: completion.finalScore,
@@ -442,7 +442,7 @@ export class ChallengeService {
 
         currentUserEntry = {
           userId,
-          userName: user?.name || "Unknown",
+          userName: user?.name || 'Unknown',
           avatar: user?.avatar,
           schoolName: user?.schoolName,
           score: userCompletion.finalScore || 0,
@@ -464,7 +464,7 @@ export class ChallengeService {
     this.logger.log(`Generating daily challenges for ${start.toISOString()}`);
 
     const existingTitles = await this.getExistingChallengeTitles(
-      "daily",
+      'daily',
       start,
       end
     );
@@ -494,7 +494,7 @@ export class ChallengeService {
         `Successfully created ${challengesToCreate.length} daily challenges`
       );
     } else {
-      this.logger.warn("No challenges were created");
+      this.logger.warn('No challenges were created');
     }
   }
 
@@ -504,7 +504,7 @@ export class ChallengeService {
     this.logger.log(`Generating weekly challenges for ${start.toISOString()}`);
 
     const existingChallenges = await this.findExistingChallenges(
-      "weekly",
+      'weekly',
       start,
       end
     );
@@ -518,24 +518,24 @@ export class ChallengeService {
 
     const challengesToCreate: ChallengeData[] = [
       {
-        title: "Weekly Warrior",
-        description: "Complete 10 quizzes this week.",
-        type: "weekly",
+        title: 'Weekly Warrior',
+        description: 'Complete 10 quizzes this week.',
+        type: 'weekly',
         target: 10,
         reward: 500,
         startDate: start,
         endDate: end,
-        format: "STANDARD",
+        format: 'STANDARD',
       },
       {
-        title: "Consistency is Key",
-        description: "Maintain a 3-day streak this week.",
-        type: "weekly",
+        title: 'Consistency is Key',
+        description: 'Maintain a 3-day streak this week.',
+        type: 'weekly',
         target: 3,
         reward: 300,
         startDate: start,
         endDate: end,
-        format: "STANDARD",
+        format: 'STANDARD',
       },
     ];
 
@@ -548,7 +548,7 @@ export class ChallengeService {
     this.logger.log(`Generating monthly challenges for ${start.toISOString()}`);
 
     const existingChallenges = await this.findExistingChallenges(
-      "monthly",
+      'monthly',
       start,
       end
     );
@@ -562,24 +562,24 @@ export class ChallengeService {
 
     const challengesToCreate: ChallengeData[] = [
       {
-        title: "Monthly Master",
-        description: "Earn 2000 XP this month.",
-        type: "monthly",
+        title: 'Monthly Master',
+        description: 'Earn 2000 XP this month.',
+        type: 'monthly',
         target: 2000,
         reward: 2000,
         startDate: start,
         endDate: end,
-        format: "TIMED",
+        format: 'TIMED',
       },
       {
-        title: "Quiz Marathon",
-        description: "Complete 50 quizzes this month.",
-        type: "monthly",
+        title: 'Quiz Marathon',
+        description: 'Complete 50 quizzes this month.',
+        type: 'monthly',
         target: 50,
         reward: 1500,
         startDate: start,
         endDate: end,
-        format: "TIMED",
+        format: 'TIMED',
       },
     ];
 
@@ -595,28 +595,28 @@ export class ChallengeService {
 
     const existingChallenges = await this.prisma.challenge.findMany({
       where: {
-        type: "hot",
+        type: 'hot',
         endDate: { gte: new Date() },
       },
     });
 
     if (existingChallenges.length > 0) {
       this.logger.log(
-        "Hot challenges already exist and are still active. Skipping creation."
+        'Hot challenges already exist and are still active. Skipping creation.'
       );
       return;
     }
 
     const challengesToCreate: ChallengeData[] = [
       {
-        title: "Flash Challenge: Quick Fire",
-        description: "Complete 3 quizzes in the next 4 hours!",
-        type: "hot",
+        title: 'Flash Challenge: Quick Fire',
+        description: 'Complete 3 quizzes in the next 4 hours!',
+        type: 'hot',
         target: 3,
         reward: 300,
         startDate: start,
         endDate: end,
-        format: "SPEED",
+        format: 'SPEED',
       },
     ];
 
@@ -627,20 +627,20 @@ export class ChallengeService {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
       include: {
-        quizzes: { orderBy: { order: "asc" } },
+        quizzes: { orderBy: { order: 'asc' } },
       },
     });
 
     if (!challenge) {
-      throw new NotFoundException("Challenge not found");
+      throw new NotFoundException('Challenge not found');
     }
 
     if (new Date() > challenge.endDate) {
-      throw new BadRequestException("Challenge has expired");
+      throw new BadRequestException('Challenge has expired');
     }
 
     if (new Date() < challenge.startDate) {
-      throw new BadRequestException("Challenge has not started yet");
+      throw new BadRequestException('Challenge has not started yet');
     }
 
     let completion = await this.prisma.challengeCompletion.findUnique({
@@ -681,15 +681,15 @@ export class ChallengeService {
     });
 
     if (!challenge) {
-      throw new NotFoundException("Challenge not found");
+      throw new NotFoundException('Challenge not found');
     }
 
     if (new Date() > challenge.endDate) {
-      throw new BadRequestException("Challenge has expired");
+      throw new BadRequestException('Challenge has expired');
     }
 
     if (new Date() < challenge.startDate) {
-      throw new BadRequestException("Challenge has not started yet");
+      throw new BadRequestException('Challenge has not started yet');
     }
 
     const existingCompletion = await this.prisma.challengeCompletion.findUnique(
@@ -743,12 +743,12 @@ export class ChallengeService {
     });
 
     if (!completion) {
-      throw new NotFoundException("You have not joined this challenge");
+      throw new NotFoundException('You have not joined this challenge');
     }
 
     if (completion.progress > 0 || completion.completed) {
       throw new BadRequestException(
-        "Cannot leave a challenge you have already started or completed"
+        'Cannot leave a challenge you have already started or completed'
       );
     }
 
@@ -774,15 +774,15 @@ export class ChallengeService {
     });
 
     if (!completion) {
-      throw new NotFoundException("Challenge not found or not joined");
+      throw new NotFoundException('Challenge not found or not joined');
     }
 
     if (completion.completed) {
-      throw new BadRequestException("Challenge already completed");
+      throw new BadRequestException('Challenge already completed');
     }
 
     if (completion.progress < completion.challenge.target) {
-      throw new BadRequestException("Challenge requirements not met");
+      throw new BadRequestException('Challenge requirements not met');
     }
 
     return this.prisma.challengeCompletion.update({
@@ -805,12 +805,12 @@ export class ChallengeService {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
       include: {
-        quizzes: { orderBy: { order: "asc" } },
+        quizzes: { orderBy: { order: 'asc' } },
       },
     });
 
     if (!challenge) {
-      throw new NotFoundException("Challenge not found");
+      throw new NotFoundException('Challenge not found');
     }
 
     const completion = await this.prisma.challengeCompletion.findUnique({
@@ -820,7 +820,7 @@ export class ChallengeService {
     });
 
     if (!completion) {
-      throw new NotFoundException("Challenge not started");
+      throw new NotFoundException('Challenge not started');
     }
 
     const quizAttempts =
@@ -869,7 +869,7 @@ export class ChallengeService {
 
     await this.invalidateUserCache(userId);
     await this.cacheManager.del(
-      this.getCacheKey("progress", userId, undefined, challengeId)
+      this.getCacheKey('progress', userId, undefined, challengeId)
     );
 
     return {
@@ -884,7 +884,7 @@ export class ChallengeService {
 
   async updateChallengeProgress(
     userId: string,
-    type: "quiz" | "flashcard",
+    type: 'quiz' | 'flashcard',
     isPerfect = false
   ) {
     this.logger.debug(
@@ -895,7 +895,7 @@ export class ChallengeService {
 
     const challenges = await this.prisma.challenge.findMany({
       where: {
-        type: "daily",
+        type: 'daily',
         startDate: { gte: today, lt: tomorrow },
       },
       include: {
@@ -939,7 +939,7 @@ export class ChallengeService {
 
         // Invalidate specific challenge progress
         await this.cacheManager.del(
-          this.getCacheKey("progress", userId, undefined, challenge.id)
+          this.getCacheKey('progress', userId, undefined, challenge.id)
         );
       }
     }
@@ -953,15 +953,15 @@ export class ChallengeService {
   // ==================== Private Helper Methods ====================
 
   private getCacheKey(
-    type: "all" | "daily" | "progress",
+    type: 'all' | 'daily' | 'progress',
     userId: string,
     date?: Date,
     challengeId?: string
   ): string {
-    if (type === "all") {
+    if (type === 'all') {
       return `challenges:all:${userId}`;
     }
-    if (type === "progress") {
+    if (type === 'progress') {
       return `challenges:progress:${userId}:${challengeId}`;
     }
     return `challenges:daily:${userId}:${date?.toISOString()}`;
@@ -1041,7 +1041,7 @@ export class ChallengeService {
   }
 
   private async getSystemUser() {
-    this.logger.debug("Fetching system user...");
+    this.logger.debug('Fetching system user...');
     const systemUser = await this.prisma.user.findUnique({
       where: { email: this.systemUserEmail },
     });
@@ -1060,7 +1060,7 @@ export class ChallengeService {
     );
 
     this.logger.log(
-      `Found ${validQuizzes.length} valid quizzes from popular topics: ${validQuizzes.map((q) => q.topic).join(", ")}`
+      `Found ${validQuizzes.length} valid quizzes from popular topics: ${validQuizzes.map((q) => q.topic).join(', ')}`
     );
 
     return { validQuizzes, optimalDifficulty };
@@ -1068,14 +1068,14 @@ export class ChallengeService {
 
   private async getPopularQuizzes(lastWeek: Date) {
     const popularQuizzes = await this.prisma.attempt.groupBy({
-      by: ["quizId"],
+      by: ['quizId'],
       where: {
         createdAt: { gte: lastWeek },
         quizId: { not: null },
       },
       _count: { quizId: true },
       orderBy: {
-        _count: { quizId: "desc" },
+        _count: { quizId: 'desc' },
       },
       take: 20,
     });
@@ -1136,9 +1136,9 @@ export class ChallengeService {
       if (attempt.quiz && attempt.score && attempt.totalQuestions) {
         const percentage = (attempt.score / attempt.totalQuestions) * 100;
         const difficulty = attempt.quiz.difficulty as
-          | "easy"
-          | "medium"
-          | "hard";
+          | 'easy'
+          | 'medium'
+          | 'hard';
         if (performanceByDifficulty[difficulty]) {
           performanceByDifficulty[difficulty].push(percentage);
         }
@@ -1150,7 +1150,7 @@ export class ChallengeService {
 
   private determineOptimalDifficulty(
     performanceByDifficulty: PerformanceByDifficulty
-  ): "easy" | "medium" | "hard" {
+  ): 'easy' | 'medium' | 'hard' {
     const avgPerformance = {
       easy: this.calculateAverage(performanceByDifficulty.easy),
       medium: this.calculateAverage(performanceByDifficulty.medium),
@@ -1158,11 +1158,11 @@ export class ChallengeService {
     };
 
     if (avgPerformance.medium > DIFFICULTY_THRESHOLDS.HIGH_PERFORMANCE) {
-      return "hard";
+      return 'hard';
     } else if (avgPerformance.medium < DIFFICULTY_THRESHOLDS.LOW_PERFORMANCE) {
-      return "easy";
+      return 'easy';
     } else {
-      return "medium";
+      return 'medium';
     }
   }
 
@@ -1195,7 +1195,7 @@ export class ChallengeService {
         let quizType: QuizType;
         let timeLimit: number | null = null;
 
-        if (optimalDifficulty === "easy") {
+        if (optimalDifficulty === 'easy') {
           // Easy: Standard quiz
           quizType = QuizType.STANDARD;
         } else {
@@ -1209,7 +1209,7 @@ export class ChallengeService {
         // Medium/Hard: 60 seconds per question (or standard timed test rule)
         if (quizType === QuizType.TIMED_TEST) {
           timeLimit = numberOfQuestions * 60;
-        } else if (optimalDifficulty === "easy") {
+        } else if (optimalDifficulty === 'easy') {
           timeLimit = numberOfQuestions * 45;
         } else {
           timeLimit = numberOfQuestions * 60; // Default for others
@@ -1217,27 +1217,27 @@ export class ChallengeService {
 
         // Determine question types based on difficulty
         let questionTypes: string[] = [];
-        if (optimalDifficulty === "easy") {
+        if (optimalDifficulty === 'easy') {
           // Easy: Only single-select and true/false
-          questionTypes = ["single-select", "true-false"];
-        } else if (optimalDifficulty === "medium") {
+          questionTypes = ['single-select', 'true-false'];
+        } else if (optimalDifficulty === 'medium') {
           // Medium: Add multi-select
-          questionTypes = ["single-select", "true-false", "multi-select"];
+          questionTypes = ['single-select', 'true-false', 'multi-select'];
         } else {
           // Hard: All question types including fill-blank and matching
           questionTypes = [
-            "single-select",
-            "true-false",
-            "multi-select",
-            "fill-blank",
-            "matching",
+            'single-select',
+            'true-false',
+            'multi-select',
+            'fill-blank',
+            'matching',
           ];
         }
 
         // Generate a new quiz for this challenge using AI
         const generatedQuiz = await this.aiService.generateQuiz({
           topic: topicQuiz.topic,
-          difficulty: optimalDifficulty as "easy" | "medium" | "hard",
+          difficulty: optimalDifficulty as 'easy' | 'medium' | 'hard',
           numberOfQuestions,
           questionTypes, // Pass allowed question types based on difficulty
           quizType: quizType.toLowerCase(), // Pass lowercase for AI service
@@ -1260,41 +1260,41 @@ export class ChallengeService {
         challenges.push({
           title,
           description: `Master ${topicQuiz.topic} in today's daily challenge!`,
-          type: "daily",
+          type: 'daily',
           target: 100, // Score target
           reward: 100,
           startDate: start,
           endDate: end,
           quizId: quiz.id,
-          format: "STANDARD",
+          format: 'STANDARD',
         });
       }
     }
 
     // 2. Consistency Challenge
-    const streakTitle = "Daily Streak Builder";
+    const streakTitle = 'Daily Streak Builder';
     if (!existingTitles.has(streakTitle.toLowerCase())) {
       challenges.push({
         title: streakTitle,
         description:
-          "Complete at least one quiz today to keep your streak alive!",
-        type: "daily",
+          'Complete at least one quiz today to keep your streak alive!',
+        type: 'daily',
         target: 1,
         reward: 50,
         startDate: start,
         endDate: end,
-        format: "STANDARD",
+        format: 'STANDARD',
       });
     }
 
     // 3. Mixed Challenge (General Knowledge or Random)
-    const mixedTitle = "Daily Mix";
+    const mixedTitle = 'Daily Mix';
     if (!existingTitles.has(mixedTitle.toLowerCase())) {
       const generatedQuiz = await this.aiService.generateQuiz({
-        topic: "General Knowledge",
-        difficulty: "medium",
+        topic: 'General Knowledge',
+        difficulty: 'medium',
         numberOfQuestions: 5,
-        quizType: "standard",
+        quizType: 'standard',
       });
 
       // Save the quiz to the database
@@ -1302,7 +1302,7 @@ export class ChallengeService {
         data: {
           title: generatedQuiz.title,
           topic: generatedQuiz.topic,
-          difficulty: "medium",
+          difficulty: 'medium',
           quizType: QuizType.QUICK_CHECK,
           questions: generatedQuiz.questions as any,
           userId: systemUserId,
@@ -1311,14 +1311,14 @@ export class ChallengeService {
 
       challenges.push({
         title: mixedTitle,
-        description: "A quick mix of questions to test your general knowledge.",
-        type: "daily",
+        description: 'A quick mix of questions to test your general knowledge.',
+        type: 'daily',
         target: 80,
         reward: 75,
         startDate: start,
         endDate: end,
         quizId: quiz.id,
-        format: "STANDARD",
+        format: 'STANDARD',
       });
     }
 
@@ -1335,7 +1335,7 @@ export class ChallengeService {
         const maxParticipants = (Math.floor(Math.random() * 10) + 1) * 10;
 
         this.logger.debug(
-          `Challenge ${index + 1}: ${data.title}, quizId: ${quizId || "none"}, maxParticipants: ${maxParticipants}`
+          `Challenge ${index + 1}: ${data.title}, quizId: ${quizId || 'none'}, maxParticipants: ${maxParticipants}`
         );
 
         return this.prisma.challenge.create({
@@ -1403,7 +1403,7 @@ export class ChallengeService {
   private calculateProgressUpdate(
     challenge: any,
     completion: any,
-    type: "quiz" | "flashcard",
+    type: 'quiz' | 'flashcard',
     isPerfect: boolean
   ): { shouldUpdate: boolean; newProgress: number } {
     let shouldUpdate = false;
@@ -1412,18 +1412,18 @@ export class ChallengeService {
     // Logic depends on challenge type/description
     // This is a simplified version. In a real app, we'd parse the challenge rules.
 
-    if (challenge.type === "daily") {
-      if (challenge.title.includes("Master")) {
+    if (challenge.type === 'daily') {
+      if (challenge.title.includes('Master')) {
         // For "Master" challenges, we might require a perfect score or high score
-        if (type === "quiz" && isPerfect) {
+        if (type === 'quiz' && isPerfect) {
           shouldUpdate = true;
           newProgress += 100; // Complete immediately
         }
-      } else if (challenge.title.includes("Streak")) {
+      } else if (challenge.title.includes('Streak')) {
         // Just completing any quiz counts
         shouldUpdate = true;
         newProgress += 1;
-      } else if (challenge.title.includes("Mix")) {
+      } else if (challenge.title.includes('Mix')) {
         // Points based on score? Or just completion?
         // Let's say we add points based on score (which we don't have here, so just +10 for now)
         shouldUpdate = true;
@@ -1436,8 +1436,8 @@ export class ChallengeService {
 
   private async invalidateUserCache(userId: string) {
     const keys = [
-      this.getCacheKey("all", userId),
-      this.getCacheKey("daily", userId, new Date()),
+      this.getCacheKey('all', userId),
+      this.getCacheKey('daily', userId, new Date()),
     ];
 
     await Promise.all(keys.map((key) => this.cacheManager.del(key)));

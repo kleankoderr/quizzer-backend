@@ -1,9 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { QuizType, TaskStatus, TaskType } from "@prisma/client";
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { QuizType, TaskStatus, TaskType } from '@prisma/client';
 
-import { SchoolService } from "../school/school.service";
+import { SchoolService } from '../school/school.service';
 
 @Injectable()
 export class OnboardingService {
@@ -12,7 +12,7 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly schoolService: SchoolService,
+    private readonly schoolService: SchoolService
   ) {}
 
   async savePreferences(
@@ -22,7 +22,7 @@ export class OnboardingService {
       schoolName?: string;
       subjects?: string[];
       userType?: string;
-    },
+    }
   ) {
     const { grade, schoolName, subjects, userType } = data;
 
@@ -49,7 +49,7 @@ export class OnboardingService {
     // Trigger async assessment generation
     await this.triggerAssessmentGeneration(userId, subjects || []);
 
-    return { message: "Preferences saved and assessment generation started" };
+    return { message: 'Preferences saved and assessment generation started' };
   }
 
   async triggerAssessmentGeneration(userId: string, subjects: string[]) {
@@ -65,7 +65,7 @@ export class OnboardingService {
 
     if (existingTask) {
       this.logger.log(
-        `Assessment generation already triggered for user ${userId}`,
+        `Assessment generation already triggered for user ${userId}`
       );
       return existingTask;
     }
@@ -82,7 +82,7 @@ export class OnboardingService {
     // Run async generation (fire and forget from controller perspective, but tracked via Task)
     this.generateAssessment(userId, subjects, task.id).catch((err) => {
       this.logger.error(
-        `Error generating assessment for user ${userId}: ${err.message}`,
+        `Error generating assessment for user ${userId}: ${err.message}`
       );
       this.prisma.task
         .update({
@@ -90,7 +90,7 @@ export class OnboardingService {
           data: { status: TaskStatus.FAILED, error: err.message },
         })
         .catch((e) =>
-          this.logger.error(`Failed to update task status: ${e.message}`),
+          this.logger.error(`Failed to update task status: ${e.message}`)
         );
     });
 
@@ -100,34 +100,34 @@ export class OnboardingService {
   private async generateAssessment(
     userId: string,
     subjects: string[],
-    taskId: string,
+    taskId: string
   ) {
     try {
       // Determine topic based on subjects or default
       const topic =
         subjects.length > 0
-          ? `General Knowledge Assessment (${subjects.slice(0, 3).join(", ")})`
-          : "General Knowledge Assessment";
+          ? `General Knowledge Assessment (${subjects.slice(0, 3).join(', ')})`
+          : 'General Knowledge Assessment';
 
       // Generate quiz using AI
       const generatedQuiz = await this.aiService.generateQuiz({
         topic,
         numberOfQuestions: 5,
-        difficulty: "medium",
-        quizType: "standard",
-        questionTypes: ["single-select", "true-false"],
+        difficulty: 'medium',
+        quizType: 'standard',
+        questionTypes: ['single-select', 'true-false'],
       });
 
       // Save quiz to DB
       const quiz = await this.prisma.quiz.create({
         data: {
-          title: "Personalized Assessment",
-          topic: "Assessment",
-          difficulty: "medium",
+          title: 'Personalized Assessment',
+          topic: 'Assessment',
+          difficulty: 'medium',
           quizType: QuizType.STANDARD, // Using STANDARD as it's a normal quiz for now
           questions: generatedQuiz.questions as any,
           userId,
-          tags: ["Onboarding", "New"],
+          tags: ['Onboarding', 'New'],
           timeLimit: 300, // 5 minutes
         },
       });
@@ -158,16 +158,16 @@ export class OnboardingService {
     const task = await this.prisma.task.findFirst({
       where: {
         userId,
-        type: "ONBOARDING_ASSESSMENT",
+        type: 'ONBOARDING_ASSESSMENT',
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!task) {
       if (user?.onboardingCompleted) {
         return { status: TaskStatus.COMPLETED, quizId: null };
       }
-      return { status: "NOT_STARTED" };
+      return { status: 'NOT_STARTED' };
     }
 
     return {

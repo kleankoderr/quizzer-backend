@@ -5,8 +5,8 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-} from "@nestjs/common";
-import { HttpAdapterHost } from "@nestjs/core";
+} from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -30,7 +30,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message:
         exception instanceof HttpException
           ? exception.message
-          : "Internal server error",
+          : 'Internal server error',
     };
 
     if (httpStatus >= 500) {

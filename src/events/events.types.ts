@@ -1,4 +1,6 @@
-import { EVENTS } from "./events.constants";
+import { EVENTS } from './events.constants';
+
+export { EVENTS };
 
 // ==================== BASE EVENT INTERFACES ====================
 
@@ -50,7 +52,7 @@ export interface FlashcardProgressEvent extends ProgressEvent {
 
 export interface FlashcardCompletedEvent extends CompletionEvent {
   eventType: typeof EVENTS.FLASHCARD.COMPLETED;
-  resourceType: "flashcard-set";
+  resourceType: 'flashcard-set';
   flashcardSetId: string;
   cardCount: number;
 }
@@ -68,13 +70,31 @@ export interface QuizProgressEvent extends ProgressEvent {
 
 export interface QuizCompletedEvent extends CompletionEvent {
   eventType: typeof EVENTS.QUIZ.COMPLETED;
-  resourceType: "quiz";
+  resourceType: 'quiz';
   quizId: string;
   questionCount: number;
 }
 
 export interface QuizFailedEvent extends ErrorEvent {
   eventType: typeof EVENTS.QUIZ.FAILED;
+  jobId: string;
+}
+
+// ==================== CONTENT EVENTS ====================
+
+export interface ContentProgressEvent extends ProgressEvent {
+  eventType: typeof EVENTS.CONTENT.PROGRESS;
+}
+
+export interface ContentCompletedEvent extends CompletionEvent {
+  eventType: typeof EVENTS.CONTENT.COMPLETED;
+  resourceType: 'content';
+  contentId: string;
+  topic: string;
+}
+
+export interface ContentFailedEvent extends ErrorEvent {
+  eventType: typeof EVENTS.CONTENT.FAILED;
   jobId: string;
 }
 
@@ -85,7 +105,7 @@ export interface NotificationNewEvent extends BaseEvent {
   notificationId: string;
   title: string;
   message: string;
-  priority: "low" | "normal" | "high" | "urgent";
+  priority: 'low' | 'normal' | 'high' | 'urgent';
   category?: string;
 }
 
@@ -105,7 +125,7 @@ export interface StudySessionStartedEvent extends BaseEvent {
   eventType: typeof EVENTS.STUDY.SESSION_STARTED;
   sessionId: string;
   topic: string;
-  resourceType: "flashcard" | "quiz";
+  resourceType: 'flashcard' | 'quiz';
   resourceId: string;
 }
 
@@ -123,7 +143,7 @@ export interface StudyProgressUpdatedEvent extends BaseEvent {
   eventType: typeof EVENTS.STUDY.PROGRESS_UPDATED;
   topic: string;
   progressPercentage: number;
-  masteryLevel: "beginner" | "intermediate" | "advanced" | "expert";
+  masteryLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
 }
 
 // ==================== USER EVENTS ====================
@@ -167,6 +187,10 @@ export type AppEvent =
   | QuizProgressEvent
   | QuizCompletedEvent
   | QuizFailedEvent
+  // Content events
+  | ContentProgressEvent
+  | ContentCompletedEvent
+  | ContentFailedEvent
   // Notification events
   | NotificationNewEvent
   | NotificationReadEvent
@@ -191,7 +215,7 @@ export const EventFactory = {
     jobId: string,
     step: string,
     percentage: number,
-    message?: string,
+    message?: string
   ): FlashcardProgressEvent => ({
     eventType: EVENTS.FLASHCARD.PROGRESS,
     userId,
@@ -206,12 +230,12 @@ export const EventFactory = {
     userId: string,
     flashcardSetId: string,
     cardCount: number,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): FlashcardCompletedEvent => ({
     eventType: EVENTS.FLASHCARD.COMPLETED,
     userId,
     resourceId: flashcardSetId,
-    resourceType: "flashcard-set",
+    resourceType: 'flashcard-set',
     flashcardSetId,
     cardCount,
     metadata,
@@ -222,7 +246,7 @@ export const EventFactory = {
     userId: string,
     jobId: string,
     error: string,
-    details?: string,
+    details?: string
   ): FlashcardFailedEvent => ({
     eventType: EVENTS.FLASHCARD.FAILED,
     userId,
@@ -237,7 +261,7 @@ export const EventFactory = {
     jobId: string,
     step: string,
     percentage: number,
-    message?: string,
+    message?: string
   ): QuizProgressEvent => ({
     eventType: EVENTS.QUIZ.PROGRESS,
     userId,
@@ -252,12 +276,12 @@ export const EventFactory = {
     userId: string,
     quizId: string,
     questionCount: number,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): QuizCompletedEvent => ({
     eventType: EVENTS.QUIZ.COMPLETED,
     userId,
     resourceId: quizId,
-    resourceType: "quiz",
+    resourceType: 'quiz',
     quizId,
     questionCount,
     metadata,
@@ -268,9 +292,54 @@ export const EventFactory = {
     userId: string,
     jobId: string,
     error: string,
-    details?: string,
+    details?: string
   ): QuizFailedEvent => ({
     eventType: EVENTS.QUIZ.FAILED,
+    userId,
+    jobId,
+    error,
+    details,
+    timestamp: Date.now(),
+  }),
+
+  contentProgress: (
+    userId: string,
+    jobId: string,
+    step: string,
+    percentage: number,
+    message?: string
+  ): ContentProgressEvent => ({
+    eventType: EVENTS.CONTENT.PROGRESS,
+    userId,
+    jobId,
+    step,
+    percentage,
+    message,
+    timestamp: Date.now(),
+  }),
+
+  contentCompleted: (
+    userId: string,
+    contentId: string,
+    metadata?: Record<string, any>
+  ): ContentCompletedEvent => ({
+    eventType: EVENTS.CONTENT.COMPLETED,
+    userId,
+    resourceId: contentId,
+    resourceType: 'content',
+    contentId,
+    topic: metadata?.topic || '',
+    metadata,
+    timestamp: Date.now(),
+  }),
+
+  contentFailed: (
+    userId: string,
+    jobId: string,
+    error: string,
+    details?: string
+  ): ContentFailedEvent => ({
+    eventType: EVENTS.CONTENT.FAILED,
     userId,
     jobId,
     error,
@@ -283,8 +352,8 @@ export const EventFactory = {
     notificationId: string,
     title: string,
     message: string,
-    priority: "low" | "normal" | "high" | "urgent" = "normal",
-    category?: string,
+    priority: 'low' | 'normal' | 'high' | 'urgent' = 'normal',
+    category?: string
   ): NotificationNewEvent => ({
     eventType: EVENTS.NOTIFICATION.NEW,
     userId,
@@ -300,7 +369,7 @@ export const EventFactory = {
     userId: string,
     currentStreak: number,
     longestStreak: number,
-    xpEarned: number,
+    xpEarned: number
   ): UserStreakUpdatedEvent => ({
     eventType: EVENTS.USER.STREAK_UPDATED,
     userId,
@@ -316,7 +385,7 @@ export const EventFactory = {
     achievementName: string,
     achievementDescription: string,
     xpReward: number,
-    iconUrl?: string,
+    iconUrl?: string
   ): UserAchievementUnlockedEvent => ({
     eventType: EVENTS.USER.ACHIEVEMENT_UNLOCKED,
     userId,
@@ -333,7 +402,7 @@ export const EventFactory = {
     newLevel: number,
     totalXp: number,
     xpToNextLevel: number,
-    rewardsUnlocked?: string[],
+    rewardsUnlocked?: string[]
   ): UserLevelUpEvent => ({
     eventType: EVENTS.USER.LEVEL_UP,
     userId,

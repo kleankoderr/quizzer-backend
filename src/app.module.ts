@@ -1,40 +1,40 @@
-import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
-import { BullModule } from "@nestjs/bullmq";
-import { ScheduleModule } from "@nestjs/schedule";
-import { AppController } from "./app.controller";
-import { AppService } from "./app.service";
-import { PrismaModule } from "./prisma/prisma.module";
-import { CacheModule } from "./cache/cache.module";
-import { OnboardingModule } from "./onboarding/onboarding.module";
-import { AiModule } from "./ai/ai.module";
-import { AuthModule } from "./auth/auth.module";
-import { QuizModule } from "./quiz/quiz.module";
-import { FlashcardModule } from "./flashcard/flashcard.module";
-import { StreakModule } from "./streak/streak.module";
-import { LeaderboardModule } from "./leaderboard/leaderboard.module";
-import { ChallengeModule } from "./challenge/challenge.module";
-import { RecommendationModule } from "./recommendation/recommendation.module";
-import { AttemptModule } from "./attempt/attempt.module";
-import { ContentModule } from "./content/content.module";
-import { StatisticsModule } from "./statistics/statistics.module";
-import { UserModule } from "./user/user.module";
-import { TaskModule } from "./task/task.module";
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { PrismaModule } from './prisma/prisma.module';
+import { CacheModule } from './cache/cache.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
+import { AiModule } from './ai/ai.module';
+import { AuthModule } from './auth/auth.module';
+import { QuizModule } from './quiz/quiz.module';
+import { FlashcardModule } from './flashcard/flashcard.module';
+import { StreakModule } from './streak/streak.module';
+import { LeaderboardModule } from './leaderboard/leaderboard.module';
+import { ChallengeModule } from './challenge/challenge.module';
+import { RecommendationModule } from './recommendation/recommendation.module';
+import { AttemptModule } from './attempt/attempt.module';
+import { ContentModule } from './content/content.module';
+import { StatisticsModule } from './statistics/statistics.module';
+import { UserModule } from './user/user.module';
+import { TaskModule } from './task/task.module';
 
-import { SeedModule } from "./seed/seed.module";
-import { AdminModule } from "./admin/admin.module";
-import { FileStorageModule } from "./file-storage/file-storage.module";
-import { StudyModule } from "./study/study.module";
-import { AssessmentModule } from "./assessment/assessment.module";
-import { InsightsModule } from "./insights/insights.module";
-import { CompanionModule } from "./companion/companion.module";
-import { QuoteModule } from "./quote/quote.module";
-import { SchoolModule } from "./school/school.module";
-import { CoachingModule } from "./coaching/coaching.module";
-import { SettingsModule } from "./settings/settings.module";
-import { SseModule } from "./sse/sse.module";
-import { EventsModule } from "./events/events.module";
+import { SeedModule } from './seed/seed.module';
+import { AdminModule } from './admin/admin.module';
+import { FileStorageModule } from './file-storage/file-storage.module';
+import { StudyModule } from './study/study.module';
+import { AssessmentModule } from './assessment/assessment.module';
+import { InsightsModule } from './insights/insights.module';
+import { CompanionModule } from './companion/companion.module';
+import { QuoteModule } from './quote/quote.module';
+import { SchoolModule } from './school/school.module';
+import { CoachingModule } from './coaching/coaching.module';
+import { SettingsModule } from './settings/settings.module';
+import { SseModule } from './sse/sse.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -48,8 +48,8 @@ import { EventsModule } from "./events/events.module";
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
         const redisUrl = configService.get<string>(
-          "REDIS_URL",
-          "redis://localhost:6379"
+          'REDIS_URL',
+          'redis://localhost:6379'
         );
         const url = new URL(redisUrl);
         return {
@@ -114,7 +114,7 @@ import { EventsModule } from "./events/events.module";
   providers: [
     AppService,
     {
-      provide: "APP_GUARD",
+      provide: 'APP_GUARD',
       useClass: ThrottlerGuard,
     },
   ],

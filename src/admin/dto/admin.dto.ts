@@ -6,9 +6,9 @@ import {
   IsNumber,
   IsArray,
   IsDateString,
-} from "class-validator";
-import { UserRole } from "@prisma/client";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+} from 'class-validator';
+import { UserRole } from '@prisma/client';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UserFilterDto {
   @ApiPropertyOptional()
@@ -100,9 +100,9 @@ export class PlatformSettingsDto {
 }
 
 export class ModerationActionDto {
-  @ApiProperty({ enum: ["DELETE", "HIDE", "IGNORE"] })
-  @IsEnum(["DELETE", "HIDE", "IGNORE"])
-  action: "DELETE" | "HIDE" | "IGNORE";
+  @ApiProperty({ enum: ['DELETE', 'HIDE', 'IGNORE'] })
+  @IsEnum(['DELETE', 'HIDE', 'IGNORE'])
+  action: 'DELETE' | 'HIDE' | 'IGNORE';
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -119,8 +119,8 @@ export class CreateChallengeDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ enum: ["daily", "weekly", "monthly", "hot"] })
-  @IsEnum(["daily", "weekly", "monthly", "hot"])
+  @ApiProperty({ enum: ['daily', 'weekly', 'monthly', 'hot'] })
+  @IsEnum(['daily', 'weekly', 'monthly', 'hot'])
   type: string;
 
   @ApiPropertyOptional()
@@ -155,10 +155,10 @@ export class CreateChallengeDto {
   timeLimit?: number;
 
   @ApiProperty({
-    enum: ["STANDARD", "TIMED", "SCENARIO", "SPEED", "ACCURACY", "MIXED"],
-    default: "STANDARD",
+    enum: ['STANDARD', 'TIMED', 'SCENARIO', 'SPEED', 'ACCURACY', 'MIXED'],
+    default: 'STANDARD',
   })
-  @IsEnum(["STANDARD", "TIMED", "SCENARIO", "SPEED", "ACCURACY", "MIXED"])
+  @IsEnum(['STANDARD', 'TIMED', 'SCENARIO', 'SPEED', 'ACCURACY', 'MIXED'])
   format: string;
 
   @ApiPropertyOptional()

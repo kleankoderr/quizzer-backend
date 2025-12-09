@@ -1,8 +1,8 @@
-import { Controller, Get, UseGuards, Req, Logger } from "@nestjs/common";
-import { InsightsService } from "./insights.service";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { Controller, Get, UseGuards, Req, Logger } from '@nestjs/common';
+import { InsightsService } from './insights.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller("insights")
+@Controller('insights')
 @UseGuards(JwtAuthGuard)
 export class InsightsController {
   private readonly logger = new Logger(InsightsController.name);

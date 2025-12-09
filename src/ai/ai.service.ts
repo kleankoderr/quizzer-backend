@@ -1,17 +1,17 @@
-import { Injectable, Inject, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
-import { AiPrompts } from "./ai.prompts";
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { AiPrompts } from './ai.prompts';
 
 export interface QuizQuestion {
   questionType:
-    | "true-false"
-    | "single-select"
-    | "multi-select"
-    | "matching"
-    | "fill-blank";
+    | 'true-false'
+    | 'single-select'
+    | 'multi-select'
+    | 'matching'
+    | 'fill-blank';
   question: string;
   options?: string[];
   correctAnswer: number | number[] | string | { [key: string]: string };
@@ -39,14 +39,14 @@ export interface QuizGenerationParams {
   content?: string;
   fileReferences?: FileReference[];
   numberOfQuestions: number;
-  difficulty: "easy" | "medium" | "hard";
-  quizType?: "standard" | "timed" | "scenario";
+  difficulty: 'easy' | 'medium' | 'hard';
+  quizType?: 'standard' | 'timed' | 'scenario';
   questionTypes?: (
-    | "true-false"
-    | "single-select"
-    | "multi-select"
-    | "matching"
-    | "fill-blank"
+    | 'true-false'
+    | 'single-select'
+    | 'multi-select'
+    | 'matching'
+    | 'fill-blank'
   )[];
 }
 
@@ -78,7 +78,7 @@ export interface ExplanationParams {
 }
 
 const CACHE_TTL_MS = 3600000; // 1 hour
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const DEFAULT_TEMPERATURE = 0.7;
 
 @Injectable()
@@ -89,11 +89,11 @@ export class AiService {
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {
-    const apiKey = this.configService.get<string>("GOOGLE_API_KEY");
+    const apiKey = this.configService.get<string>('GOOGLE_API_KEY');
     if (!apiKey) {
-      throw new Error("GOOGLE_API_KEY is not configured");
+      throw new Error('GOOGLE_API_KEY is not configured');
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
@@ -111,7 +111,7 @@ export class AiService {
    * Generate quiz questions from topic, content, or file references
    */
   async generateQuiz(
-    params: QuizGenerationParams,
+    params: QuizGenerationParams
   ): Promise<{ questions: QuizQuestion[]; title: string; topic: string }> {
     const {
       topic,
@@ -119,12 +119,12 @@ export class AiService {
       fileReferences,
       numberOfQuestions,
       difficulty,
-      quizType = "standard",
-      questionTypes = ["single-select", "true-false"],
+      quizType = 'standard',
+      questionTypes = ['single-select', 'true-false'],
     } = params;
 
     // Validate input
-    this.validateGenerationInput(topic, content, fileReferences, "quiz");
+    this.validateGenerationInput(topic, content, fileReferences, 'quiz');
 
     // Check cache (only for non-file generations)
     const shouldCache = !fileReferences || fileReferences.length === 0;
@@ -134,7 +134,7 @@ export class AiService {
         numberOfQuestions,
         difficulty,
         quizType,
-        questionTypes,
+        questionTypes
       );
       const cached = await this.getFromCache<any>(cacheKey);
       if (cached) {
@@ -148,22 +148,22 @@ export class AiService {
       this.buildQuestionTypeInstructions(questionTypes);
     const quizTypeContext = this.buildQuizTypeContext(quizType);
     const prompt = AiPrompts.generateQuiz(
-      topic || "",
+      topic || '',
       numberOfQuestions,
       difficulty,
       `${quizType} ${quizTypeContext}`,
       questionTypeInstructions,
-      content || "",
+      content || ''
     );
 
     // Generate with Gemini
     const result = await this.generateWithGemini(prompt, fileReferences);
 
     // Parse and validate
-    const parsed = this.parseJsonResponse<any>(result, "quiz");
+    const parsed = this.parseJsonResponse<any>(result, 'quiz');
     const finalResult = {
-      title: parsed.title || `${topic || "Quiz"} - ${difficulty}`,
-      topic: parsed.topic || topic || "General Knowledge",
+      title: parsed.title || `${topic || 'Quiz'} - ${difficulty}`,
+      topic: parsed.topic || topic || 'General Knowledge',
       questions: this.validateQuizQuestions(parsed.questions),
     };
 
@@ -174,7 +174,7 @@ export class AiService {
         numberOfQuestions,
         difficulty,
         quizType,
-        questionTypes,
+        questionTypes
       );
       await this.setCache(cacheKey, finalResult);
     }
@@ -186,12 +186,12 @@ export class AiService {
    * Generate flashcards from topic, content, or file references
    */
   async generateFlashcards(
-    params: FlashcardGenerationParams,
+    params: FlashcardGenerationParams
   ): Promise<{ cards: Flashcard[]; title: string; topic: string }> {
     const { topic, content, fileReferences, numberOfCards } = params;
 
     // Validate input
-    this.validateGenerationInput(topic, content, fileReferences, "flashcards");
+    this.validateGenerationInput(topic, content, fileReferences, 'flashcards');
 
     // Check cache (only for non-file generations)
     const shouldCache = !fileReferences || fileReferences.length === 0;
@@ -206,19 +206,19 @@ export class AiService {
 
     // Build prompt
     const prompt = AiPrompts.generateFlashcards(
-      topic || "",
+      topic || '',
       numberOfCards,
-      content || "",
+      content || ''
     );
 
     // Generate with Gemini
     const result = await this.generateWithGemini(prompt, fileReferences);
 
     // Parse and validate
-    const parsed = this.parseJsonResponse<any>(result, "flashcards");
+    const parsed = this.parseJsonResponse<any>(result, 'flashcards');
     const finalResult = {
-      title: parsed.title || `${topic || "Flashcards"}`,
-      topic: parsed.topic || topic || "Study Cards",
+      title: parsed.title || `${topic || 'Flashcards'}`,
+      topic: parsed.topic || topic || 'Study Cards',
       cards: this.validateFlashcards(parsed.cards),
     };
 
@@ -235,12 +235,12 @@ export class AiService {
    * Generate personalized recommendations based on user performance
    */
   async generateRecommendations(
-    params: RecommendationParams,
+    params: RecommendationParams
   ): Promise<Array<{ topic: string; reason: string; priority: string }>> {
     const { weakTopics, recentAttempts } = params;
 
     // Check cache
-    const cacheKey = `recommendations:${weakTopics.join(",")}`;
+    const cacheKey = `recommendations:${weakTopics.join(',')}`;
     const cached = await this.getFromCache<any[]>(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit for recommendations: ${cacheKey}`);
@@ -250,7 +250,7 @@ export class AiService {
     // Build prompt
     const prompt = AiPrompts.generateRecommendations(
       weakTopics,
-      recentAttempts,
+      recentAttempts
     );
 
     // Generate with Gemini
@@ -258,11 +258,11 @@ export class AiService {
 
     // Parse response
     try {
-      const parsed = this.parseJsonResponse<any[]>(result, "recommendations");
+      const parsed = this.parseJsonResponse<any[]>(result, 'recommendations');
       await this.setCache(cacheKey, parsed);
       return parsed;
     } catch (error) {
-      this.logger.error("Failed to parse recommendations:", error.stack);
+      this.logger.error('Failed to parse recommendations:', error.stack);
       return []; // Return empty array on failure
     }
   }
@@ -275,8 +275,8 @@ export class AiService {
 
     // Build cache key
     const contentHash = content
-      ? Buffer.from(content).toString("base64").substring(0, 20)
-      : "no-content";
+      ? Buffer.from(content).toString('base64').substring(0, 20)
+      : 'no-content';
     const cacheKey = `learning-guide:${topic}:${contentHash}`;
 
     // Check cache
@@ -287,13 +287,13 @@ export class AiService {
     }
 
     // Build prompt
-    const prompt = AiPrompts.generateLearningGuide(topic || "", content || "");
+    const prompt = AiPrompts.generateLearningGuide(topic || '', content || '');
 
     // Generate with Gemini
     const result = await this.generateWithGemini(prompt);
 
     // Parse and cache
-    const parsed = this.parseJsonResponse<any>(result, "learning guide");
+    const parsed = this.parseJsonResponse<any>(result, 'learning guide');
     await this.setCache(cacheKey, parsed);
 
     return parsed;
@@ -324,7 +324,7 @@ export class AiService {
     const { prompt, maxTokens } = params;
 
     // Build cache key
-    const promptHash = Buffer.from(prompt).toString("base64").substring(0, 50);
+    const promptHash = Buffer.from(prompt).toString('base64').substring(0, 50);
     const cacheKey = `content:${promptHash}`;
 
     // Check cache
@@ -338,7 +338,7 @@ export class AiService {
     let result: { response: any };
     if (maxTokens) {
       result = await this.model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           maxOutputTokens: maxTokens,
         },
@@ -361,7 +361,7 @@ export class AiService {
    */
   private async generateWithGemini(
     prompt: string,
-    fileReferences?: FileReference[],
+    fileReferences?: FileReference[]
   ): Promise<string> {
     try {
       const parts = this.buildGeminiRequestParts(fileReferences, prompt);
@@ -369,9 +369,9 @@ export class AiService {
       const response = await result.response;
       return response.text();
     } catch (error) {
-      this.logger.error("Gemini API call failed:", error.stack);
+      this.logger.error('Gemini API call failed:', error.stack);
       throw new Error(
-        `AI generation failed: ${error.message || "Unknown error"}`,
+        `AI generation failed: ${error.message || 'Unknown error'}`
       );
     }
   }
@@ -382,7 +382,7 @@ export class AiService {
    */
   private buildGeminiRequestParts(
     fileReferences: FileReference[] | undefined,
-    prompt: string,
+    prompt: string
   ): any[] {
     const parts: any[] = [];
 
@@ -400,7 +400,7 @@ export class AiService {
           });
         } else {
           this.logger.warn(
-            `Skipping file ${fileRef.originalname}: no valid Google File URI`,
+            `Skipping file ${fileRef.originalname}: no valid Google File URI`
           );
         }
       }
@@ -420,15 +420,15 @@ export class AiService {
       // If it's already a full URI, return as-is
       if (
         fileRef.googleFileUrl.startsWith(
-          "https://generativelanguage.googleapis.com/v1beta/files/",
+          'https://generativelanguage.googleapis.com/v1beta/files/'
         )
       ) {
         return fileRef.googleFileUrl;
       }
 
       // If it contains "files/", extract the ID
-      if (fileRef.googleFileUrl.includes("files/")) {
-        const fileId = fileRef.googleFileUrl.split("files/")[1].split("?")[0];
+      if (fileRef.googleFileUrl.includes('files/')) {
+        const fileId = fileRef.googleFileUrl.split('files/')[1].split('?')[0];
         return `https://generativelanguage.googleapis.com/v1beta/files/${fileId}`;
       }
 
@@ -447,19 +447,19 @@ export class AiService {
    * Infer MIME type from filename
    */
   private inferMimeType(filename: string): string {
-    const ext = filename.split(".").pop()?.toLowerCase();
+    const ext = filename.split('.').pop()?.toLowerCase();
     const mimeTypes: Record<string, string> = {
-      pdf: "application/pdf",
-      doc: "application/msword",
-      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      txt: "text/plain",
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      gif: "image/gif",
-      webp: "image/webp",
+      pdf: 'application/pdf',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      txt: 'text/plain',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
     };
-    return mimeTypes[ext || ""] || "application/octet-stream";
+    return mimeTypes[ext || ''] || 'application/octet-stream';
   }
 
   /**
@@ -469,16 +469,16 @@ export class AiService {
     try {
       // Remove Markdown code blocks if present
       const cleanedResponse = responseText
-        .replaceAll(/```json\s*/g, "")
-        .replaceAll(/```\s*/g, "")
+        .replaceAll(/```json\s*/g, '')
+        .replaceAll(/```\s*/g, '')
         .trim();
 
       return JSON.parse(cleanedResponse);
     } catch (error) {
       this.logger.error(`Failed to parse ${context} response:`, error.stack);
-      this.logger.debug("Raw response:", responseText);
+      this.logger.debug('Raw response:', responseText);
       throw new Error(
-        `Failed to parse ${context} response: ${error.message || "Invalid JSON"}`,
+        `Failed to parse ${context} response: ${error.message || 'Invalid JSON'}`
       );
     }
   }
@@ -490,7 +490,7 @@ export class AiService {
     topic: string | undefined,
     content: string | undefined,
     fileReferences: FileReference[] | undefined,
-    generationType: string,
+    generationType: string
   ): void {
     if (
       !topic &&
@@ -498,7 +498,7 @@ export class AiService {
       (!fileReferences || fileReferences.length === 0)
     ) {
       throw new Error(
-        `At least one of topic, content, or fileReferences must be provided for ${generationType} generation`,
+        `At least one of topic, content, or fileReferences must be provided for ${generationType} generation`
       );
     }
   }
@@ -508,20 +508,20 @@ export class AiService {
    */
   private validateQuizQuestions(questions: any[]): QuizQuestion[] {
     if (!Array.isArray(questions)) {
-      throw new TypeError("Invalid questions format: expected array");
+      throw new TypeError('Invalid questions format: expected array');
     }
 
     const validQuestions = questions.filter(
-      (q) => q.question && q.questionType,
+      (q) => q.question && q.questionType
     );
 
     if (validQuestions.length === 0) {
-      throw new Error("No valid questions found in response");
+      throw new Error('No valid questions found in response');
     }
 
     if (validQuestions.length < questions.length) {
       this.logger.warn(
-        `Filtered out ${questions.length - validQuestions.length} invalid question(s)`,
+        `Filtered out ${questions.length - validQuestions.length} invalid question(s)`
       );
     }
 
@@ -533,18 +533,18 @@ export class AiService {
    */
   private validateFlashcards(cards: any[]): Flashcard[] {
     if (!Array.isArray(cards)) {
-      throw new TypeError("Invalid cards format: expected array");
+      throw new TypeError('Invalid cards format: expected array');
     }
 
     const validCards = cards.filter((card) => card.front && card.back);
 
     if (validCards.length === 0) {
-      throw new Error("No valid flashcards found in response");
+      throw new Error('No valid flashcards found in response');
     }
 
     if (validCards.length < cards.length) {
       this.logger.warn(
-        `Filtered out ${cards.length - validCards.length} invalid card(s)`,
+        `Filtered out ${cards.length - validCards.length} invalid card(s)`
       );
     }
 
@@ -559,9 +559,9 @@ export class AiService {
     numberOfQuestions: number,
     difficulty: string,
     quizType: string,
-    questionTypes: string[],
+    questionTypes: string[]
   ): string {
-    return `quiz:${topic}:${numberOfQuestions}:${difficulty}:${quizType}:${questionTypes.join(",")}`;
+    return `quiz:${topic}:${numberOfQuestions}:${difficulty}:${quizType}:${questionTypes.join(',')}`;
   }
 
   /**
@@ -570,33 +570,33 @@ export class AiService {
   private buildQuestionTypeInstructions(questionTypes: string[]): string {
     const instructions: string[] = [];
 
-    if (questionTypes.includes("true-false")) {
+    if (questionTypes.includes('true-false')) {
       instructions.push(
-        "- True/False: Statement questions with True or False options",
+        '- True/False: Statement questions with True or False options'
       );
     }
-    if (questionTypes.includes("single-select")) {
+    if (questionTypes.includes('single-select')) {
       instructions.push(
-        "- Single-select: Multiple choice with one correct answer (4 options)",
+        '- Single-select: Multiple choice with one correct answer (4 options)'
       );
     }
-    if (questionTypes.includes("multi-select")) {
+    if (questionTypes.includes('multi-select')) {
       instructions.push(
-        "- Multi-select: Multiple choice with multiple correct answers (4-6 options)",
+        '- Multi-select: Multiple choice with multiple correct answers (4-6 options)'
       );
     }
-    if (questionTypes.includes("matching")) {
+    if (questionTypes.includes('matching')) {
       instructions.push(
-        "- Matching: Match items from left column to right column (3-5 pairs)",
+        '- Matching: Match items from left column to right column (3-5 pairs)'
       );
     }
-    if (questionTypes.includes("fill-blank")) {
+    if (questionTypes.includes('fill-blank')) {
       instructions.push(
-        "- Fill-in-the-blank: Complete the sentence or phrase with the correct answer",
+        '- Fill-in-the-blank: Complete the sentence or phrase with the correct answer'
       );
     }
 
-    return instructions.join("\n");
+    return instructions.join('\n');
   }
 
   /**
@@ -604,12 +604,12 @@ export class AiService {
    */
   private buildQuizTypeContext(quizType: string): string {
     switch (quizType) {
-      case "timed":
-        return "(This quiz will be timed, so questions should be clear and focused)";
-      case "scenario":
-        return "(Questions should be scenario-based with real-world context and applications)";
+      case 'timed':
+        return '(This quiz will be timed, so questions should be clear and focused)';
+      case 'scenario':
+        return '(Questions should be scenario-based with real-world context and applications)';
       default:
-        return "(Standard quiz format)";
+        return '(Standard quiz format)';
     }
   }
 

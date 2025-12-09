@@ -1,7 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { AiService } from "../ai/ai.service";
-import { RetentionLevel } from "@prisma/client";
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { RetentionLevel } from '@prisma/client';
 
 @Injectable()
 export class StudyService {
@@ -9,7 +9,7 @@ export class StudyService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly aiService: AiService
   ) {}
 
   /**
@@ -20,10 +20,10 @@ export class StudyService {
     userId: string,
     topic: string,
     scorePercentage: number,
-    contentId?: string,
+    contentId?: string
   ) {
     this.logger.log(
-      `Updating progress for user ${userId}, topic ${topic}, score ${scorePercentage}%`,
+      `Updating progress for user ${userId}, topic ${topic}, score ${scorePercentage}%`
     );
 
     let progress = await this.prisma.topicProgress.findUnique({
@@ -108,25 +108,25 @@ export class StudyService {
     const progress = await this.prisma.topicProgress.findMany({
       where: { userId },
       include: { content: true },
-      orderBy: { nextReviewAt: "asc" },
+      orderBy: { nextReviewAt: 'asc' },
     });
 
     const dueForReview = progress.filter(
-      (p) => new Date(p.nextReviewAt) <= new Date(),
+      (p) => new Date(p.nextReviewAt) <= new Date()
     );
     const masteryCount = progress.filter(
-      (p) => p.retentionLevel === RetentionLevel.MASTERY,
+      (p) => p.retentionLevel === RetentionLevel.MASTERY
     ).length;
     const learningCount = progress.filter(
-      (p) => p.retentionLevel === RetentionLevel.LEARNING,
+      (p) => p.retentionLevel === RetentionLevel.LEARNING
     ).length;
 
     // Generate suggestions
     const suggestions = dueForReview.slice(0, 3).map((p) => ({
-      type: "review",
+      type: 'review',
       topic: p.topic,
-      reason: "Due for spaced repetition review",
-      priority: "high",
+      reason: 'Due for spaced repetition review',
+      priority: 'high',
       contentId: p.contentId,
       quizId: p.content?.quizId,
       flashcardSetId: p.content?.flashcardSetId,
@@ -141,10 +141,10 @@ export class StudyService {
 
       weakTopics.forEach((p) => {
         suggestions.push({
-          type: "practice",
+          type: 'practice',
           topic: p.topic,
-          reason: "Low retention strength - needs reinforcement",
-          priority: "medium",
+          reason: 'Low retention strength - needs reinforcement',
+          priority: 'medium',
           contentId: p.contentId,
           quizId: p.content?.quizId,
           flashcardSetId: p.content?.flashcardSetId,
@@ -162,10 +162,10 @@ export class StudyService {
       retentionDistribution: {
         [RetentionLevel.LEARNING]: learningCount,
         [RetentionLevel.REINFORCEMENT]: progress.filter(
-          (p) => p.retentionLevel === RetentionLevel.REINFORCEMENT,
+          (p) => p.retentionLevel === RetentionLevel.REINFORCEMENT
         ).length,
         [RetentionLevel.RECALL]: progress.filter(
-          (p) => p.retentionLevel === RetentionLevel.RECALL,
+          (p) => p.retentionLevel === RetentionLevel.RECALL
         ).length,
         [RetentionLevel.MASTERY]: masteryCount,
       },

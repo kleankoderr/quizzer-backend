@@ -1,5 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class StreakService {
@@ -9,7 +9,7 @@ export class StreakService {
 
   async getCurrentStreak(userId: string) {
     if (!userId) {
-      this.logger.warn("getCurrentStreak called without userId");
+      this.logger.warn('getCurrentStreak called without userId');
       return null;
     }
 
@@ -35,7 +35,7 @@ export class StreakService {
 
   async updateStreak(userId: string, score?: number, totalQuestions?: number) {
     if (!userId) {
-      this.logger.warn("updateStreak called without userId");
+      this.logger.warn('updateStreak called without userId');
       return null;
     }
 
@@ -65,14 +65,14 @@ export class StreakService {
     lastActivity.setHours(0, 0, 0, 0);
 
     const daysSinceLastActivity = Math.floor(
-      (today.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24),
+      (today.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)
     );
 
     // Calculate XP from this activity
     const earnedXP = this.calculateXP(
       score,
       totalQuestions,
-      streak.currentStreak,
+      streak.currentStreak
     );
     const newTotalXP = (streak.totalXP || 0) + earnedXP;
     const newLevel = this.calculateLevel(newTotalXP);
@@ -105,7 +105,7 @@ export class StreakService {
       });
 
       this.logger.log(
-        `Streak increased to ${newStreak} for user ${userId}, bonus XP: ${streakBonus}`,
+        `Streak increased to ${newStreak} for user ${userId}, bonus XP: ${streakBonus}`
       );
     } else {
       // Streak broken - reset but keep XP and level
@@ -132,7 +132,7 @@ export class StreakService {
   private calculateXP(
     score?: number,
     totalQuestions?: number,
-    currentStreak = 0,
+    currentStreak = 0
   ): number {
     if (!score || !totalQuestions) return 10; // Base XP for any activity
 
@@ -200,61 +200,61 @@ export class StreakService {
     // Streak achievements
     if (currentStreak >= 30)
       achievements.push({
-        icon: "🔥",
-        name: "Fire Month",
-        description: "30 day streak!",
+        icon: '🔥',
+        name: 'Fire Month',
+        description: '30 day streak!',
       });
     else if (currentStreak >= 14)
       achievements.push({
-        icon: "⚡",
-        name: "Two Weeks Strong",
-        description: "14 day streak!",
+        icon: '⚡',
+        name: 'Two Weeks Strong',
+        description: '14 day streak!',
       });
     else if (currentStreak >= 7)
       achievements.push({
-        icon: "✨",
-        name: "Week Warrior",
-        description: "7 day streak!",
+        icon: '✨',
+        name: 'Week Warrior',
+        description: '7 day streak!',
       });
     else if (currentStreak >= 3)
       achievements.push({
-        icon: "🌟",
-        name: "Getting Started",
-        description: "3 day streak!",
+        icon: '🌟',
+        name: 'Getting Started',
+        description: '3 day streak!',
       });
 
     // Level achievements
     if (level >= 20)
       achievements.push({
-        icon: "👑",
-        name: "Master",
-        description: "Reached level 20!",
+        icon: '👑',
+        name: 'Master',
+        description: 'Reached level 20!',
       });
     else if (level >= 10)
       achievements.push({
-        icon: "🏆",
-        name: "Expert",
-        description: "Reached level 10!",
+        icon: '🏆',
+        name: 'Expert',
+        description: 'Reached level 10!',
       });
     else if (level >= 5)
       achievements.push({
-        icon: "🎓",
-        name: "Scholar",
-        description: "Reached level 5!",
+        icon: '🎓',
+        name: 'Scholar',
+        description: 'Reached level 5!',
       });
 
     // Longest streak achievements
     if (longestStreak >= 100)
       achievements.push({
-        icon: "💯",
-        name: "Century",
-        description: "100 day streak achieved!",
+        icon: '💯',
+        name: 'Century',
+        description: '100 day streak achieved!',
       });
     else if (longestStreak >= 50)
       achievements.push({
-        icon: "🌈",
-        name: "Half Century",
-        description: "50 day streak achieved!",
+        icon: '🌈',
+        name: 'Half Century',
+        description: '50 day streak achieved!',
       });
 
     return achievements;
@@ -265,33 +265,33 @@ export class StreakService {
     const milestones = [
       {
         days: 3,
-        icon: "🌟",
-        name: "First Steps",
+        icon: '🌟',
+        name: 'First Steps',
         unlocked: currentStreak >= 3,
       },
-      { days: 7, icon: "✨", name: "One Week", unlocked: currentStreak >= 7 },
+      { days: 7, icon: '✨', name: 'One Week', unlocked: currentStreak >= 7 },
       {
         days: 14,
-        icon: "⚡",
-        name: "Two Weeks",
+        icon: '⚡',
+        name: 'Two Weeks',
         unlocked: currentStreak >= 14,
       },
       {
         days: 30,
-        icon: "🔥",
-        name: "One Month",
+        icon: '🔥',
+        name: 'One Month',
         unlocked: currentStreak >= 30,
       },
       {
         days: 60,
-        icon: "💎",
-        name: "Diamond Streak",
+        icon: '💎',
+        name: 'Diamond Streak',
         unlocked: currentStreak >= 60,
       },
       {
         days: 100,
-        icon: "💯",
-        name: "Century",
+        icon: '💯',
+        name: 'Century',
         unlocked: currentStreak >= 100,
       },
     ];

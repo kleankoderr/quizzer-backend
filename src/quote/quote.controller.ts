@@ -1,11 +1,11 @@
-import { Controller, Get } from "@nestjs/common";
-import { QuoteService } from "./quote.service";
+import { Controller, Get } from '@nestjs/common';
+import { QuoteService } from './quote.service';
 
-@Controller("quotes")
+@Controller('quotes')
 export class QuoteController {
   constructor(private readonly quoteService: QuoteService) {}
 
-  @Get("daily")
+  @Get('daily')
   async getDailyQuote() {
     return this.quoteService.getDailyQuote();
   }
