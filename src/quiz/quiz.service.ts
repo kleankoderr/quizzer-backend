@@ -753,9 +753,35 @@ export class QuizService {
       return false;
     }
 
-    return (
-      userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
-    );
+    const userNormalized = userAnswer.toLowerCase().trim();
+    const correctNormalized = correctAnswer.toLowerCase().trim();
+
+    if (userNormalized === correctNormalized) {
+      return true;
+    }
+
+    if (
+      correctNormalized.includes(userNormalized) &&
+      userNormalized.length >= correctNormalized.length * 0.6
+    ) {
+      return true;
+    }
+
+    const correctWords = correctNormalized.split(/\s+/);
+    const userWords = userNormalized.split(/\s+/);
+
+    if (correctWords.length > 1 && userWords.length > 0) {
+      const matchedWords = userWords.filter((word) =>
+        correctWords.some(
+          (cWord) => cWord.includes(word) || word.includes(cWord)
+        )
+      );
+      if (matchedWords.length >= Math.ceil(correctWords.length * 0.7)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private checkMatchingAnswer(userAnswer: any, correctAnswer: any): boolean {

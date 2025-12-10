@@ -88,32 +88,43 @@ export class ContentProcessor extends WorkerHost {
       let topic: string;
       let title: string;
 
-      if (dto.topic) {
+      if (fileReferences.length > 0) {
+        generatedText =
+          await this.aiService.generateContentFromFiles(fileReferences);
+
+        this.logger.debug(
+          `Job ${jobId}: Generated ${generatedText.length} chars from ${fileReferences.length} file(s)`
+        );
+
+        [title, topic] = await Promise.all([
+          this.aiService.extractTitle(generatedText),
+          this.aiService.extractTopic(generatedText),
+        ]);
+
+        this.logger.debug(
+          `Job ${jobId}: Extracted title: "${title}", topic: "${topic}"`
+        );
+      } else if (dto.topic) {
         topic = dto.topic;
-        generatedText = await this.aiService.generateContent({
-          prompt: `Generate comprehensive educational content about: ${topic}, tailored for a Nigerian student. Include key concepts, explanations, and examples relevant to the Nigerian context.`,
-          maxTokens: 2000,
-        });
+        generatedText = await this.aiService.generateContentFromTopic(
+          topic,
+          dto.content
+        );
         title = `${topic} - Study Material`;
       } else if (dto.content) {
-        generatedText = await this.aiService.generateContent({
-          prompt: `Enhance and structure the following study notes into a comprehensive study guide tailored for a Nigerian student. Keep the original meaning but improve clarity, structure, and add missing key details if obvious.\n\nOriginal Notes:\n${dto.content}`,
-          maxTokens: 2000,
-        });
+        generatedText = await this.aiService.generateContentFromTopic(
+          'Study Material',
+          dto.content
+        );
 
-        topic = await this.aiService.generateContent({
-          prompt: `Based on the following text, identify the main academic topic (max 3 words). Return ONLY the topic name.\n\nText:\n${dto.content.substring(0, 1000)}`,
-          maxTokens: 50,
-        });
-
-        title = await this.aiService.generateContent({
-          prompt: `Based on the following text, generate a concise, descriptive, and professional title (max 10 words). Return ONLY the title.\n\nText:\n${dto.content.substring(0, 1000)}`,
-          maxTokens: 100,
-        });
+        [title, topic] = await Promise.all([
+          this.aiService.extractTitle(generatedText),
+          this.aiService.extractTopic(generatedText),
+        ]);
       } else {
-        topic = 'Study Material';
-        title = 'Generated Study Material';
-        generatedText = 'Content will be generated from uploaded files.';
+        throw new Error(
+          'At least one of topic, content, or files must be provided'
+        );
       }
 
       this.emitProgress(userId, jobId, 'Finalizing and saving...', 70);

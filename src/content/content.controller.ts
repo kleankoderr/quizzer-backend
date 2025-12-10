@@ -9,9 +9,9 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -48,19 +48,20 @@ export class ContentController {
 
   @Post('upload')
   @UseInterceptors(
-    PdfOnly({ maxFiles: 1, maxSizePerFile: 5 * 1024 * 1024 }),
-    FileInterceptor('file')
+    PdfOnly({ maxFiles: 5, maxSizePerFile: 5 * 1024 * 1024 }),
+    FilesInterceptor('files', 5)
   )
-  @ApiOperation({ summary: 'Upload and process file to create content' })
+  @ApiOperation({ summary: 'Upload and process files to create content' })
   @ApiResponse({
     status: 201,
     description: 'File upload job started',
   })
   async uploadFile(
     @CurrentUser('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File
+    @UploadedFiles() files: Express.Multer.File[]
   ) {
-    return this.contentService.generate(userId, {}, [file]);
+    const fileArray = Array.isArray(files) ? files : [files];
+    return this.contentService.generate(userId, {}, fileArray);
   }
 
   @Post()

@@ -123,10 +123,10 @@ export class AiService {
       questionTypes = ['single-select', 'true-false'],
     } = params;
 
-    // OPTIMIZATION: Validate input first (fast, synchronous)
+    // Validate input first (fast, synchronous)
     this.validateGenerationInput(topic, content, fileReferences, 'quiz');
 
-    // OPTIMIZATION: Check cache and build prompt parts in parallel
+    // Check cache and build prompt parts in parallel
     const shouldCache = !fileReferences || fileReferences.length === 0;
 
     const [cached, questionTypeInstructions, quizTypeContext] =
@@ -287,7 +287,7 @@ export class AiService {
       : 'no-content';
     const cacheKey = `learning-guide:${topic}:${contentHash}`;
 
-    // OPTIMIZATION: Check cache in parallel with prompt building
+    // Check cache in parallel with prompt building
     const [cached, prompt] = await Promise.all([
       this.getFromCache<any>(cacheKey),
       Promise.resolve(
@@ -329,6 +329,52 @@ export class AiService {
   }
 
   /**
+   * Generate content from file references
+   */
+  async generateContentFromFiles(
+    fileReferences: FileReference[]
+  ): Promise<string> {
+    if (!fileReferences || fileReferences.length === 0) {
+      throw new Error('At least one file reference is required');
+    }
+
+    const prompt = AiPrompts.generateContentFromFiles(
+      'Analyze the uploaded file(s) and generate comprehensive study material.'
+    );
+
+    return this.generateWithGemini(prompt, fileReferences);
+  }
+
+  /**
+   * Generate content from topic with optional source content
+   */
+  async generateContentFromTopic(
+    topic: string,
+    sourceContent?: string
+  ): Promise<string> {
+    const prompt = AiPrompts.generateContent(topic, sourceContent);
+    return this.generateContent({ prompt, maxTokens: 2000 });
+  }
+
+  /**
+   * Extract title from generated content
+   */
+  async extractTitle(content: string): Promise<string> {
+    const prompt = AiPrompts.extractTitle(content);
+    const title = await this.generateContent({ prompt, maxTokens: 50 });
+    return title.trim();
+  }
+
+  /**
+   * Extract topic from text
+   */
+  async extractTopic(text: string): Promise<string> {
+    const prompt = AiPrompts.extractTopic(text);
+    const topic = await this.generateContent({ prompt, maxTokens: 20 });
+    return topic.trim();
+  }
+
+  /**
    * Generate generic content using AI
    */
   async generateContent(params: ContentGenerationParams): Promise<string> {
@@ -338,7 +384,7 @@ export class AiService {
     const promptHash = Buffer.from(prompt).toString('base64').substring(0, 50);
     const cacheKey = `content:${promptHash}`;
 
-    // OPTIMIZATION: Check cache in parallel with preparing generation config
+    // Check cache in parallel with preparing generation config
     const cached = await this.getFromCache<string>(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit for content: ${cacheKey}`);
@@ -522,9 +568,34 @@ export class AiService {
       throw new TypeError('Invalid questions format: expected array');
     }
 
-    const validQuestions = questions.filter(
-      (q) => q.question && q.questionType
-    );
+    const validQuestions = questions.filter((q) => {
+      if (!q.question || !q.questionType) {
+        return false;
+      }
+
+      if (q.questionType === 'matching') {
+        if (
+          !q.leftColumn ||
+          !q.rightColumn ||
+          !Array.isArray(q.leftColumn) ||
+          !Array.isArray(q.rightColumn)
+        ) {
+          this.logger.warn(
+            `Invalid matching question: missing or invalid columns`
+          );
+          return false;
+        }
+
+        if (q.leftColumn.length !== q.rightColumn.length) {
+          this.logger.warn(
+            `Invalid matching question: column length mismatch (${q.leftColumn.length} vs ${q.rightColumn.length})`
+          );
+          return false;
+        }
+      }
+
+      return true;
+    });
 
     if (validQuestions.length === 0) {
       throw new Error('No valid questions found in response');

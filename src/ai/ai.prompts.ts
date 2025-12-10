@@ -142,12 +142,58 @@ Return ONLY a valid JSON array in this exact format (no markdown, no code blocks
 `;
   }
 
-  static generateContent(topic: string) {
-    return `Generate comprehensive educational content about: ${topic}, tailored for a Nigerian student audience. Include key concepts, explanations, and examples relevant to the region (e.g. using local context).`;
+  static generateContent(topic: string, sourceContent: string = '') {
+    return `
+You are an expert educational content creator. Generate comprehensive study material based on the following, tailored for a Nigerian student audience:
+
+${topic ? `Topic: ${topic}` : ''}
+${sourceContent ? `Source Content:\n${sourceContent}` : ''}
+
+Requirements:
+1. Create well-structured, educational content
+2. Include key concepts, explanations, and examples
+3. Use examples relevant to Nigerian context (e.g., Naira, Lagos/Abuja, local scenarios)
+4. Break content into clear sections with headers
+5. Use markdown formatting for better readability
+6. Keep language clear and encouraging
+7. If source content is provided, enhance and structure it while preserving key information
+
+Return the generated content as plain text with markdown formatting.
+`;
+  }
+
+  static generateContentFromFiles(fileContent: string) {
+    return `
+You are an expert educational content creator. Analyze and transform the following document content into comprehensive study material for a Nigerian student:
+
+Document Content:
+${fileContent}
+
+Requirements:
+1. Extract and organize the key information
+2. Create a well-structured study guide with clear sections
+3. Add explanations and context where helpful
+4. Use examples relevant to Nigerian students
+5. Use markdown formatting (headers, bold, lists)
+6. Preserve important facts and details from the source
+7. Make it engaging and easy to understand
+
+Return the generated content as plain text with markdown formatting.
+`;
+  }
+
+  static extractTitle(content: string) {
+    return `Based on the following content, generate a concise, descriptive, and professional title (max 10 words). Return ONLY the title, nothing else.
+
+Content:
+${content.substring(0, 1500)}`;
   }
 
   static extractTopic(text: string) {
-    return `Based on this text, provide a single concise topic name (max 3 words): ${text}`;
+    return `Based on this text, provide a single concise topic name (max 3 words). Return ONLY the topic name, nothing else.
+
+Text:
+${text.substring(0, 1000)}`;
   }
   static generateLearningGuide(topic: string, sourceContent: string = '') {
     return `

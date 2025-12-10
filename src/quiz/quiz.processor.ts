@@ -1,12 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger, Inject } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { GenerateQuizDto } from './dto/quiz.dto';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { QuizType } from '@prisma/client';
 import { EventFactory } from '../events/events.types';
 import { EVENTS } from '../events/events.constants';
@@ -44,8 +42,7 @@ export class QuizProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly eventEmitter: EventEmitter2,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly eventEmitter: EventEmitter2
   ) {
     super();
   }
@@ -88,11 +85,12 @@ export class QuizProcessor extends WorkerHost {
         fileReferences
       );
 
+      const shuffledQuestions = this.shuffleQuestions(questions);
+
       this.logger.log(
-        `Job ${jobId}: Generated ${questions.length} question(s)`
+        `Job ${jobId}: Generated ${shuffledQuestions.length} question(s)`
       );
 
-      // Step 3: Save quiz to database
       await this.emitProgress(userId, jobId, 'Finalizing and saving...', 70);
 
       const quiz = await this.saveQuiz(
@@ -101,7 +99,7 @@ export class QuizProcessor extends WorkerHost {
         contentId,
         title,
         topic,
-        questions,
+        shuffledQuestions,
         files
       );
 
@@ -147,6 +145,7 @@ export class QuizProcessor extends WorkerHost {
   /**
    * Prepare file references for AI service
    */
+
   private prepareFileReferences(files?: FileReference[]): FileReference[] {
     if (!files || files.length === 0) {
       return [];
@@ -161,6 +160,28 @@ export class QuizProcessor extends WorkerHost {
 
     this.logger.debug(`Using ${fileRefs.length} pre-uploaded file(s)`);
     return fileRefs;
+  }
+
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  private shuffleQuestions(questions: any[]): any[] {
+    return this.shuffleArray(questions).map((q) => {
+      if (q.questionType === 'matching' && q.leftColumn && q.rightColumn) {
+        return {
+          ...q,
+          leftColumn: this.shuffleArray(q.leftColumn),
+          rightColumn: this.shuffleArray(q.rightColumn),
+        };
+      }
+      return q;
+    });
   }
 
   /**
