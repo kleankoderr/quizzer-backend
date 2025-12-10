@@ -34,12 +34,48 @@ export async function processFileUploads(
         logger.log(
           `Duplicate file detected: ${file.originalname} (${hash.substring(0, 8)}...)`
         );
+
+        // Verify Google file is still accessible (48-hour retention)
+        let googleFileUrl = existingDoc.googleFileUrl;
+        let googleFileId = existingDoc.googleFileId;
+
+        if (googleFileId) {
+          const isAccessible =
+            await googleService.verifyFileAccess(googleFileId);
+
+          if (!isAccessible) {
+            logger.log(
+              `Google file expired for ${file.originalname}, re-uploading to Google...`
+            );
+
+            // Re-upload only to Google (Cloudinary is permanent)
+            const googleResult = await googleService.uploadFile(file, {
+              folder: 'quizzer/content',
+              resourceType: 'raw',
+            });
+
+            googleFileUrl = googleResult.secureUrl;
+            googleFileId = googleResult.publicId;
+
+            // Update document with new Google file reference
+            await documentHashService.updateGoogleFileReference(
+              hash,
+              googleFileUrl,
+              googleFileId
+            );
+
+            logger.log(
+              `Updated Google file reference for ${file.originalname}`
+            );
+          }
+        }
+
         results.push({
           originalName: file.originalname,
           cloudinaryUrl: existingDoc.cloudinaryUrl,
           cloudinaryId: existingDoc.cloudinaryId,
-          googleFileUrl: existingDoc.googleFileUrl,
-          googleFileId: existingDoc.googleFileId,
+          googleFileUrl,
+          googleFileId,
           hash,
           isDuplicate: true,
         });

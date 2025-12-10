@@ -144,4 +144,44 @@ export class DocumentHashService {
       );
     }
   }
+
+  /**
+   * Update Google file reference for an existing document
+   * Used when Google files expire (48-hour retention) and need re-upload
+   */
+  async updateGoogleFileReference(
+    hash: string,
+    googleFileUrl: string,
+    googleFileId: string
+  ): Promise<void> {
+    try {
+      // Update database
+      await this.prisma.document.update({
+        where: { hash },
+        data: {
+          googleFileUrl,
+          googleFileId,
+        },
+      });
+
+      // Update cache
+      const cacheKey = `${this.CACHE_PREFIX}${hash}`;
+      const cached = await this.cacheManager.get<DocumentMetadata>(cacheKey);
+
+      if (cached) {
+        cached.googleFileUrl = googleFileUrl;
+        cached.googleFileId = googleFileId;
+        await this.cacheManager.set(cacheKey, cached, this.CACHE_TTL);
+      }
+
+      this.logger.log(
+        `Updated Google file reference for document ${hash.substring(0, 8)}...`
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to update Google file reference for ${hash}: ${error.message}`
+      );
+      throw error;
+    }
+  }
 }

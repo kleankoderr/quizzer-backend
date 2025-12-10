@@ -151,6 +151,37 @@ export class GoogleFileStorageService implements IFileStorageService {
   }
 
   /**
+   * Verify if a file is still accessible in Google File API
+   * Files are automatically deleted after 48 hours
+   * @param publicId - The file name (e.g., "files/abc123")
+   * @returns true if file exists and is accessible, false otherwise
+   */
+  async verifyFileAccess(publicId: string): Promise<boolean> {
+    try {
+      this.logger.debug(`Verifying file access: ${publicId}`);
+
+      const fileStatus = await this.genAI.files.get({ name: publicId });
+
+      // Check if file is in a usable state
+      const isAccessible = fileStatus.state === 'ACTIVE';
+
+      if (!isAccessible) {
+        this.logger.warn(
+          `File ${publicId} is not accessible (state: ${fileStatus.state})`
+        );
+      }
+
+      return isAccessible;
+    } catch (error) {
+      // 403/404 errors mean file doesn't exist or is inaccessible
+      this.logger.warn(
+        `File ${publicId} verification failed: ${error.message}`
+      );
+      return false;
+    }
+  }
+
+  /**
    * Get the URL of a file
    * For Google File API, this returns the URI that can be used in AI prompts
    * Note: Transform options are not supported by Google File API

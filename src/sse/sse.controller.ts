@@ -14,7 +14,6 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
-  ApiQuery,
 } from '@nestjs/swagger';
 
 @ApiTags('Server-Sent Events')
@@ -29,21 +28,25 @@ export class SseController {
   /**
    * Subscribe to real-time event stream for the authenticated user
    *
+   * Authentication: Use Authorization header with Bearer token
+   * Example: Authorization: Bearer <your-jwt-token>
+   *
    * @returns Observable stream of MessageEvent objects
    */
   @Sse('stream')
   @ApiOperation({
     summary: 'Subscribe to real-time event stream',
     description:
-      'Establishes a Server-Sent Events (SSE) connection to receive real-time updates.',
-  })
-  @ApiQuery({
-    name: 'token',
-    required: true,
-    description: 'JWT authentication token',
+      'Establishes a Server-Sent Events (SSE) connection to receive real-time updates. ' +
+      'Requires Authorization header with Bearer token.',
   })
   @ApiResponse({
+    status: 200,
     description: 'SSE stream established successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
   })
   stream(@CurrentUser('sub') userId: string): Observable<MessageEvent> {
     this.logger.log(`Establishing SSE stream for user: ${userId}`);

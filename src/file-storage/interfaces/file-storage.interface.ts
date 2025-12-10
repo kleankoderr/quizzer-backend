@@ -27,6 +27,14 @@ export interface IFileStorageService {
    * @returns The file URL
    */
   getFileUrl(publicId: string, options?: TransformOptions): string;
+
+  /**
+   * Verify if a file is still accessible (optional)
+   * Useful for providers with time-limited storage (e.g., Google File API)
+   * @param publicId - The unique identifier of the file
+   * @returns true if file exists and is accessible, false otherwise
+   */
+  verifyFileAccess?(publicId: string): Promise<boolean>;
 }
 
 /**

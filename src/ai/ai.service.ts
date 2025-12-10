@@ -123,30 +123,35 @@ export class AiService {
       questionTypes = ['single-select', 'true-false'],
     } = params;
 
-    // Validate input
+    // OPTIMIZATION: Validate input first (fast, synchronous)
     this.validateGenerationInput(topic, content, fileReferences, 'quiz');
 
-    // Check cache (only for non-file generations)
+    // OPTIMIZATION: Check cache and build prompt parts in parallel
     const shouldCache = !fileReferences || fileReferences.length === 0;
-    if (shouldCache) {
-      const cacheKey = this.buildQuizCacheKey(
-        topic,
-        numberOfQuestions,
-        difficulty,
-        quizType,
-        questionTypes
-      );
-      const cached = await this.getFromCache<any>(cacheKey);
-      if (cached) {
-        this.logger.debug(`Cache hit for quiz: ${cacheKey}`);
-        return cached;
-      }
+
+    const [cached, questionTypeInstructions, quizTypeContext] =
+      await Promise.all([
+        shouldCache
+          ? this.getFromCache<any>(
+              this.buildQuizCacheKey(
+                topic,
+                numberOfQuestions,
+                difficulty,
+                quizType,
+                questionTypes
+              )
+            )
+          : Promise.resolve(null),
+        Promise.resolve(this.buildQuestionTypeInstructions(questionTypes)),
+        Promise.resolve(this.buildQuizTypeContext(quizType)),
+      ]);
+
+    if (cached) {
+      this.logger.debug(`Cache hit for quiz generation`);
+      return cached;
     }
 
     // Build prompt
-    const questionTypeInstructions =
-      this.buildQuestionTypeInstructions(questionTypes);
-    const quizTypeContext = this.buildQuizTypeContext(quizType);
     const prompt = AiPrompts.generateQuiz(
       topic || '',
       numberOfQuestions,
@@ -167,7 +172,7 @@ export class AiService {
       questions: this.validateQuizQuestions(parsed.questions),
     };
 
-    // Cache if applicable
+    // Cache if applicable (fire and forget)
     if (shouldCache) {
       const cacheKey = this.buildQuizCacheKey(
         topic,
@@ -176,7 +181,9 @@ export class AiService {
         quizType,
         questionTypes
       );
-      await this.setCache(cacheKey, finalResult);
+      this.setCache(cacheKey, finalResult).catch((err) =>
+        this.logger.warn(`Cache write failed: ${err.message}`)
+      );
     }
 
     return finalResult;
@@ -193,23 +200,21 @@ export class AiService {
     // Validate input
     this.validateGenerationInput(topic, content, fileReferences, 'flashcards');
 
-    // Check cache (only for non-file generations)
+    // OPTIMIZATION: Check cache in parallel with prompt building
     const shouldCache = !fileReferences || fileReferences.length === 0;
-    if (shouldCache) {
-      const cacheKey = `flashcards:${topic}:${numberOfCards}`;
-      const cached = await this.getFromCache<any>(cacheKey);
-      if (cached) {
-        this.logger.debug(`Cache hit for flashcards: ${cacheKey}`);
-        return cached;
-      }
-    }
+    const cacheKey = `flashcards:${topic}:${numberOfCards}`;
 
-    // Build prompt
-    const prompt = AiPrompts.generateFlashcards(
-      topic || '',
-      numberOfCards,
-      content || ''
-    );
+    const [cached, prompt] = await Promise.all([
+      shouldCache ? this.getFromCache<any>(cacheKey) : Promise.resolve(null),
+      Promise.resolve(
+        AiPrompts.generateFlashcards(topic || '', numberOfCards, content || '')
+      ),
+    ]);
+
+    if (cached) {
+      this.logger.debug(`Cache hit for flashcards: ${cacheKey}`);
+      return cached;
+    }
 
     // Generate with Gemini
     const result = await this.generateWithGemini(prompt, fileReferences);
@@ -222,10 +227,11 @@ export class AiService {
       cards: this.validateFlashcards(parsed.cards),
     };
 
-    // Cache if applicable
+    // Cache if applicable (fire and forget)
     if (shouldCache) {
-      const cacheKey = `flashcards:${topic}:${numberOfCards}`;
-      await this.setCache(cacheKey, finalResult);
+      this.setCache(cacheKey, finalResult).catch((err) =>
+        this.logger.warn(`Cache write failed: ${err.message}`)
+      );
     }
 
     return finalResult;
@@ -239,19 +245,20 @@ export class AiService {
   ): Promise<Array<{ topic: string; reason: string; priority: string }>> {
     const { weakTopics, recentAttempts } = params;
 
-    // Check cache
+    // OPTIMIZATION: Build cache key and prompt in parallel with cache check
     const cacheKey = `recommendations:${weakTopics.join(',')}`;
-    const cached = await this.getFromCache<any[]>(cacheKey);
+
+    const [cached, prompt] = await Promise.all([
+      this.getFromCache<any[]>(cacheKey),
+      Promise.resolve(
+        AiPrompts.generateRecommendations(weakTopics, recentAttempts)
+      ),
+    ]);
+
     if (cached) {
       this.logger.debug(`Cache hit for recommendations: ${cacheKey}`);
       return cached;
     }
-
-    // Build prompt
-    const prompt = AiPrompts.generateRecommendations(
-      weakTopics,
-      recentAttempts
-    );
 
     // Generate with Gemini
     const result = await this.generateWithGemini(prompt);
@@ -259,7 +266,8 @@ export class AiService {
     // Parse response
     try {
       const parsed = this.parseJsonResponse<any[]>(result, 'recommendations');
-      await this.setCache(cacheKey, parsed);
+      // Fire and forget cache write
+      this.setCache(cacheKey, parsed).catch(() => {});
       return parsed;
     } catch (error) {
       this.logger.error('Failed to parse recommendations:', error.stack);
@@ -279,22 +287,25 @@ export class AiService {
       : 'no-content';
     const cacheKey = `learning-guide:${topic}:${contentHash}`;
 
-    // Check cache
-    const cached = await this.getFromCache<any>(cacheKey);
+    // OPTIMIZATION: Check cache in parallel with prompt building
+    const [cached, prompt] = await Promise.all([
+      this.getFromCache<any>(cacheKey),
+      Promise.resolve(
+        AiPrompts.generateLearningGuide(topic || '', content || '')
+      ),
+    ]);
+
     if (cached) {
       this.logger.debug(`Cache hit for learning guide: ${cacheKey}`);
       return cached;
     }
 
-    // Build prompt
-    const prompt = AiPrompts.generateLearningGuide(topic || '', content || '');
-
     // Generate with Gemini
     const result = await this.generateWithGemini(prompt);
 
-    // Parse and cache
+    // Parse and cache (fire and forget)
     const parsed = this.parseJsonResponse<any>(result, 'learning guide');
-    await this.setCache(cacheKey, parsed);
+    this.setCache(cacheKey, parsed).catch(() => {});
 
     return parsed;
   }
@@ -327,7 +338,7 @@ export class AiService {
     const promptHash = Buffer.from(prompt).toString('base64').substring(0, 50);
     const cacheKey = `content:${promptHash}`;
 
-    // Check cache
+    // OPTIMIZATION: Check cache in parallel with preparing generation config
     const cached = await this.getFromCache<string>(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit for content: ${cacheKey}`);
@@ -350,8 +361,8 @@ export class AiService {
     const response = await result.response;
     const text = response.text();
 
-    // Cache result
-    await this.setCache(cacheKey, text);
+    // Cache result (fire and forget)
+    this.setCache(cacheKey, text).catch(() => {});
 
     return text;
   }
