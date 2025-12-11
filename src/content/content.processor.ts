@@ -119,7 +119,9 @@ export class ContentProcessor extends WorkerHost {
           `Job ${jobId}: Generated ${sections.length} chars from ${fileReferences.length} file(s)`
         );
 
-        this.logger.debug(`Job ${jobId}: Title: "${title}", Topic: "${topic || ''}"`);
+        this.logger.debug(
+          `Job ${jobId}: Title: "${title}", Topic: "${topic || ''}"`
+        );
       } else if (dto.topic || dto.content) {
         // Generate from topic or content
         this.emitProgress(userId, jobId, `Generating study material ...`, 60);

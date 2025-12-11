@@ -832,10 +832,7 @@ export class ChallengeService {
 
     if (isCompleted) {
       finalScore = this.calculateFinalScore(quizAttempts);
-      percentile = await this.calculatePercentile(
-        challengeId,
-        finalScore
-      );
+      percentile = await this.calculatePercentile(challengeId, finalScore);
       const xpAmount =
         finalScore >= 75
           ? challenge.reward
