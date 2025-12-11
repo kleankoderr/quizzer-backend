@@ -192,13 +192,11 @@ export class ContentService {
     ]);
 
     const mappedData = data.map((item) => {
-      // Create a simplified version of normalized content relations without the full item
-      // because we only selected specific fields
       return {
         id: item.id,
         title: item.title,
         topic: item.topic,
-        description: item.description, // Use the DB description field directly
+        description: item.description,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         quizId: item.quiz ? item.quiz.id : undefined,
