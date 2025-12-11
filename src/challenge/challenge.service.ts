@@ -231,14 +231,13 @@ export class ChallengeService {
         completions: { where: { userId } },
         _count: { select: { completions: true } },
       },
-     });
+    });
 
     if (!challenge) {
       throw new NotFoundException('Challenge not found');
     }
 
     const completion = challenge?.completions?.[0];
-
     // Transform quiz types for frontend compatibility
     const transformedChallenge = {
       ...challenge,
