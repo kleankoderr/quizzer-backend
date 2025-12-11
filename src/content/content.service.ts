@@ -29,8 +29,6 @@ import {
 } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
 
-const MAX_LEARNING_GUIDE_LENGTH = 10000;
-const AI_ENHANCEMENT_MAX_TOKENS = 2000;
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
 
@@ -518,7 +516,6 @@ export class ContentService {
     }
   }
 
- 
   /**
    * Normalize content relations (remove nested objects)
    */
