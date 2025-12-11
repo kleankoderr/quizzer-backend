@@ -834,7 +834,6 @@ export class ChallengeService {
       finalScore = this.calculateFinalScore(quizAttempts);
       percentile = await this.calculatePercentile(
         challengeId,
-        userId,
         finalScore
       );
       const xpAmount =
