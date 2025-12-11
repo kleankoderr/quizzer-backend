@@ -231,7 +231,7 @@ export class ChallengeService {
         completions: { where: { userId } },
         _count: { select: { completions: true } },
       },
-    });
+     });
 
     if (!challenge) {
       throw new NotFoundException('Challenge not found');

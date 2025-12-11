@@ -640,7 +640,7 @@ export class AiService {
     }
 
     // Try to find JSON object/array by looking for { or [
-    const jsonMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    const jsonMatch = text.match(/(\{[\s\S]*}|\[[\s\S]*])/);
     if (jsonMatch) {
       return jsonMatch[1].trim();
     }
