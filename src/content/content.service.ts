@@ -242,6 +242,40 @@ export class ContentService {
     return this.normalizeContentRelations(content);
   }
 
+  async searchContent(userId: string, query: string) {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const contents = await this.prisma.content.findMany({
+      where: {
+        userId,
+        OR: [
+          { title: { contains: query, mode: 'insensitive' } },
+          { topic: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        topic: true,
+        createdAt: true,
+        quiz: { select: { id: true } },
+        flashcardSet: { select: { id: true } },
+      },
+      take: 5,
+    });
+
+    return contents.map((content) => ({
+      id: content.id,
+      title: content.title,
+      type: 'content',
+      metadata: content.topic,
+      url: `/content/${content.id}`,
+    }));
+  }
+
   /**
    * Update content
    */

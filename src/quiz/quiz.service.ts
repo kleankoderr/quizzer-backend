@@ -205,6 +205,39 @@ export class QuizService {
     return sanitized;
   }
 
+  async searchQuizzes(userId: string, query: string) {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const quizzes = await this.prisma.quiz.findMany({
+      where: {
+        userId,
+        OR: [
+          { title: { contains: query, mode: 'insensitive' } },
+          { topic: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        topic: true,
+        quizType: true,
+        createdAt: true,
+        questions: true,
+      },
+      take: 5,
+    });
+
+    return quizzes.map((quiz) => ({
+      id: quiz.id,
+      title: quiz.title,
+      type: 'quiz',
+      metadata: `${(quiz.questions as any[]).length} Questions • ${this.transformQuizType(quiz.quizType)}`,
+      url: `/quiz/${quiz.id}`,
+    }));
+  }
+
   // ==================== QUIZ SUBMISSION ====================
 
   async submitQuiz(
@@ -358,6 +391,60 @@ export class QuizService {
     }
 
     return attempt;
+  }
+
+  async getAttemptReview(attemptId: string, userId: string) {
+    const attempt = await this.prisma.attempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        quiz: {
+          select: {
+            id: true,
+            title: true,
+            topic: true,
+            difficulty: true,
+            questions: true,
+            quizType: true,
+            timeLimit: true,
+          },
+        },
+      },
+    });
+
+    if (!attempt || attempt.userId !== userId) {
+      throw new NotFoundException('Attempt not found');
+    }
+
+    const questions = (attempt.quiz.questions as any[]) || [];
+    const questionResults = questions.map((q, idx) => {
+      const userAnswer = (attempt.answers as any[])?.[idx];
+      const isCorrect = this.checkAnswer(q, userAnswer);
+      return {
+        questionId: q.id,
+        question: q.question,
+        options: q.options,
+        questionType: q.questionType,
+        explanation: q.explanation,
+        isCorrect,
+        userAnswer,
+        correctAnswer: q.correctAnswer,
+      };
+    });
+
+    return {
+      attemptId: attempt.id,
+      score: attempt.score,
+      totalQuestions: attempt.totalQuestions,
+      percentage: Math.round((attempt.score / attempt.totalQuestions) * 100),
+      completedAt: attempt.completedAt,
+      timeSpent: attempt.timeSpent,
+      questions: questionResults,
+      quiz: {
+        id: attempt.quiz.id,
+        title: attempt.quiz.title,
+        topic: attempt.quiz.topic,
+      },
+    };
   }
 
   async getAttempts(userId: string, quizId?: string) {
@@ -673,9 +760,6 @@ export class QuizService {
       const challenge = await this.prisma.challenge.findFirst({
         where: {
           OR: [{ quizId: quizId }, { quizzes: { some: { quizId: quizId } } }],
-          completions: {
-            some: { userId },
-          },
         },
       });
 
@@ -684,6 +768,13 @@ export class QuizService {
           where: { id: quizId },
         });
       }
+    }
+
+    if (quiz && Array.isArray(quiz.questions)) {
+      quiz.questions = (quiz.questions as any[]).map((q) => {
+        const { _correctAnswer, _explanation, ...rest } = q;
+        return rest;
+      }) as any;
     }
 
     return quiz;

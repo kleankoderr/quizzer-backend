@@ -121,10 +121,8 @@ export class CompanionService {
 
     // Reflective question
     if (performance.attemptCount > 10 && messages.length < 3) {
-      const reflectiveQuestion = await this.generateReflectiveQuestion(
-        userId,
-        performance
-      );
+      const reflectiveQuestion =
+        await this.generateReflectiveQuestion(performance);
       messages.push({
         type: 'reflection',
         title: '🤔 Reflection Time',
@@ -169,10 +167,7 @@ export class CompanionService {
   /**
    * Generate a reflective question using AI
    */
-  private async generateReflectiveQuestion(
-    userId: string,
-    performance: any
-  ): Promise<string> {
+  private async generateReflectiveQuestion(performance: any): Promise<string> {
     try {
       const prompt = `Generate a brief, thoughtful reflection question for a learner with these stats:
 - Average score: ${performance.averageScore.toFixed(0)}%
@@ -180,7 +175,7 @@ export class CompanionService {
 - Weak topics: ${performance.weakTopics.join(', ') || 'None yet'}
 - Total attempts: ${performance.attemptCount}
 
-The question should be encouraging, help them think about their learning process, and be 1-2 sentences max. Tailor the tone to be relatable to a Nigerian student.`;
+The question should be encouraging, help them think about their learning process, and be 1-2 sentences max. Tailor the tone to be universally relatable and encouraging.`;
 
       const question = await this.aiService.generateContent({
         prompt,
@@ -271,13 +266,16 @@ The question should be encouraging, help them think about their learning process
 
     const totalDuration = sessions.reduce((sum, s) => sum + s.duration, 0);
     const totalItems = sessions.reduce((sum, s) => sum + s.itemsStudied, 0);
-    const avgPerformance =
-      sessions.filter((s) => s.performance != null).length > 0
-        ? sessions
-            .filter((s) => s.performance != null)
-            .reduce((sum, s) => sum + s.performance!, 0) /
-          sessions.filter((s) => s.performance != null).length
-        : 0;
+    let avgPerformance: number;
+    if (sessions.filter((s) => s.performance != null).length > 0) {
+      avgPerformance =
+        sessions
+          .filter((s) => s.performance != null)
+          .reduce((sum, s) => sum + s.performance, 0) /
+        sessions.filter((s) => s.performance != null).length;
+    } else {
+      avgPerformance = 0;
+    }
 
     return {
       totalSessions: sessions.length,
@@ -303,7 +301,7 @@ The question should be encouraging, help them think about their learning process
 - Average score: ${performance.averageScore.toFixed(0)}%
 - Total attempts: ${performance.attemptCount}
 
-Keep it to 1-2 sentences, friendly and encouraging. Tailor the tone to be relatable to a Nigerian student.`;
+Keep it to 1-2 sentences, friendly and encouraging. Tailor the tone to be universally relatable and encouraging.`;
 
       const motivation = await this.aiService.generateContent({
         prompt,

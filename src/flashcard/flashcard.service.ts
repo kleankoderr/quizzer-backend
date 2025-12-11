@@ -172,6 +172,38 @@ export class FlashcardService {
     return flashcardSet;
   }
 
+  async searchFlashcardSets(userId: string, query: string) {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const sets = await this.prisma.flashcardSet.findMany({
+      where: {
+        userId,
+        OR: [
+          { title: { contains: query, mode: 'insensitive' } },
+          { topic: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        topic: true,
+        createdAt: true,
+        cards: true, // Needed for count
+      },
+      take: 5,
+    });
+
+    return sets.map((set) => ({
+      id: set.id,
+      title: set.title,
+      type: 'flashcard',
+      metadata: `${(set.cards as any[]).length} Cards`,
+      url: `/flashcards/${set.id}`,
+    }));
+  }
+
   /**
    * Record a user's flashcard study session
    */

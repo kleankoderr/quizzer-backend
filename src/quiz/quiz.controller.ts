@@ -86,6 +86,17 @@ export class QuizController {
     return this.quizService.getAttemptById(id, userId);
   }
 
+  @Get('attempt/:id/review')
+  @ApiOperation({ summary: 'Get detailed review of a specific attempt' })
+  @ApiResponse({ status: 200, description: 'Attempt review details' })
+  @ApiResponse({ status: 404, description: 'Attempt not found' })
+  async getAttemptReview(
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string
+  ) {
+    return this.quizService.getAttemptReview(id, userId);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all quizzes for current user' })
   @ApiResponse({ status: 200, description: 'List of user quizzes' })

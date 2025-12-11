@@ -132,7 +132,6 @@ export class InsightsService {
 
     // Generate AI-powered summary
     const understandingSummary = await this.generateUnderstandingSummary(
-      userId,
       masteredTopics,
       learningTopics,
       progressPercentage
@@ -250,7 +249,6 @@ export class InsightsService {
    * Generate AI-powered understanding summary
    */
   private async generateUnderstandingSummary(
-    userId: string,
     masteredTopics: string[],
     learningTopics: string[],
     progressPercentage: number
@@ -261,7 +259,7 @@ export class InsightsService {
 - Currently learning: ${learningTopics.join(', ') || 'None yet'}
 - Overall progress: ${progressPercentage.toFixed(0)}%
 
-Write a 2-3 sentence summary that is warm, encouraging, and specific. Focus on achievements and next steps. Tailor the tone to be relatable to a Nigerian student.`;
+Write a 2-3 sentence summary that is warm, encouraging, and specific. Focus on achievements and next steps. Tailor the tone to be motivating and inclusive.`;
 
       const summary = await this.aiService.generateContent({
         prompt,

@@ -30,6 +30,7 @@ import { AssessmentModule } from './assessment/assessment.module';
 import { InsightsModule } from './insights/insights.module';
 import { CompanionModule } from './companion/companion.module';
 import { QuoteModule } from './quote/quote.module';
+import { SearchModule } from './search/search.module';
 import { SchoolModule } from './school/school.module';
 import { CoachingModule } from './coaching/coaching.module';
 import { SettingsModule } from './settings/settings.module';
@@ -108,6 +109,7 @@ import { UserDocumentModule } from './user-document/user-document.module';
     CoachingModule,
     SettingsModule,
     OnboardingModule,
+    SearchModule,
     SseModule,
     EventsModule,
     UserDocumentModule,
