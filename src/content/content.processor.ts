@@ -93,83 +93,37 @@ export class ContentProcessor extends WorkerHost {
       );
       await job.updateProgress(30);
 
-      let sections: string;
-      let topic: string;
-      let title: string;
+      // Use the unified single-call generation strategy
+      this.emitProgress(
+        userId,
+        jobId,
+        'Generating comprehensive learning guide...',
+        60
+      );
+      await job.updateProgress(60);
 
-      if (fileReferences.length > 0) {
-        // Generate from files (uploaded or selected)
-        this.emitProgress(
-          userId,
-          jobId,
-          `Generating study material from files...`,
-          60
-        );
-        await job.updateProgress(60);
+      const result = await this.aiService.generateLearningGuideFromInputs(
+        dto.topic,
+        dto.content,
+        fileReferences
+      );
 
-        const contentResponse =
-          await this.aiService.generateContentFromFiles(fileReferences);
-
-        // Convert sections to markdown text
-        sections = this.convertSectionsToMarkdown(contentResponse.sections);
-
-        title = contentResponse.title;
-
-        this.logger.debug(
-          `Job ${jobId}: Generated ${sections.length} chars from ${fileReferences.length} file(s)`
-        );
-
-        this.logger.debug(
-          `Job ${jobId}: Title: "${title}", Topic: "${topic || ''}"`
-        );
-      } else if (dto.topic || dto.content) {
-        // Generate from topic or content
-        this.emitProgress(userId, jobId, `Generating study material ...`, 60);
-        await job.updateProgress(60);
-
-        const contentResponse = await this.aiService.generateContentFromTopic(
-          topic || '',
-          dto.content
-        );
-
-        // Convert sections to markdown text
-        sections = this.convertSectionsToMarkdown(contentResponse.sections);
-
-        // Use provided generated title or dto title
-        title = contentResponse.title || dto.title;
-        topic = dto.topic;
-      }
+      // Extract generated data from the unified response
+      const { title, topic, description, learningGuide } = result;
 
       this.emitProgress(userId, jobId, 'Finalizing and saving...', 80);
       await job.updateProgress(80);
 
       const content = await this.prisma.content.create({
         data: {
-          title: title?.trim() || '',
-          content: sections,
-          topic: topic?.trim() || '',
+          title: title?.trim() || dto.title || 'Untitled Study Guide',
+          topic: topic?.trim() || dto.topic || 'General',
+          description: description?.trim(),
+          learningGuide,
           userId,
+          content: '',
         },
       });
-
-      this.emitProgress(userId, jobId, 'Generating learning guide...', 85);
-      await job.updateProgress(85);
-
-      try {
-        const learningGuide = await this.aiService.generateLearningGuide({
-          topic,
-          content: content.content.substring(0, 10000),
-        });
-
-        await this.prisma.content.update({
-          where: { id: content.id },
-          data: { learningGuide },
-        });
-      } catch (_error) {
-        this.logger.warn(
-          `Failed to generate learning guide: ${_error.message}`
-        );
-      }
 
       await job.updateProgress(100);
       this.logger.log(
@@ -245,18 +199,5 @@ export class ContentProcessor extends WorkerHost {
         `Job ${jobId}: Failed to create UserDocument references: ${error.message}`
       );
     }
-  }
-
-  /**
-   * Convert content sections to markdown text
-   */
-  private convertSectionsToMarkdown(
-    sections: Array<{ title: string; content: string }>
-  ): string {
-    return sections
-      .map((section) => {
-        return `## ${section.title}\n\n${section.content}`;
-      })
-      .join('\n\n');
   }
 }

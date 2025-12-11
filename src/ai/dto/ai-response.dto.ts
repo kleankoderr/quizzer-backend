@@ -46,33 +46,25 @@ export interface FlashcardDto {
 }
 
 /**
- * Content Generation Response
- */
-export interface ContentGenerationResponse {
-  title: string;
-  sections: ContentSectionDto[];
-}
-
-export interface ContentSectionDto {
-  title: string;
-  content: string;
-}
-
-/**
  * Learning Guide Response
  */
 export interface LearningGuideResponse {
-  overview: string;
-  keyConcepts: string[];
+  title: string;
+  topic: string;
+  description: string;
+  learningGuide: LearningGuideData;
+}
+
+export interface LearningGuideData {
   sections: LearningGuideSectionDto[];
-  nextSteps: string[];
-  [key: string]: any; // Index signature for Prisma JSON compatibility
+  [key: string]: any;
 }
 
 export interface LearningGuideSectionDto {
   title: string;
   content: string;
   example?: string;
+  assessment?: string;
 }
 
 /**

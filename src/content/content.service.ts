@@ -73,7 +73,7 @@ export class ContentService {
     dto: CreateContentDto,
     files?: Express.Multer.File[]
   ) {
-    await this.validateContentRequest(dto, files);
+    this.validateContentRequest(dto, files);
 
     this.logger.log(`User ${userId} requesting content generation`);
 
@@ -167,7 +167,13 @@ export class ContentService {
           userId,
           ...(topic ? { topic } : {}),
         },
-        include: {
+        select: {
+          id: true,
+          title: true,
+          topic: true,
+          description: true,
+          createdAt: true,
+          updatedAt: true,
           quiz: { select: { id: true } },
           flashcardSet: { select: { id: true } },
         },
@@ -186,23 +192,17 @@ export class ContentService {
     ]);
 
     const mappedData = data.map((item) => {
-      const normalized = this.normalizeContentRelations(item);
-
-      // Extract description from learningGuide or content
-      let description = '';
-      if (item.learningGuide && typeof item.learningGuide === 'object') {
-        const guide = item.learningGuide as any;
-        description = guide.overview || '';
-      }
-
-      // Fallback to first 200 chars of content if no overview
-      if (!description && item.content) {
-        description = item.content.substring(0, 200).trim() + '...';
-      }
-
+      // Create a simplified version of normalized content relations without the full item
+      // because we only selected specific fields
       return {
-        ...normalized,
-        description,
+        id: item.id,
+        title: item.title,
+        topic: item.topic,
+        description: item.description, // Use the DB description field directly
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        quizId: item.quiz ? item.quiz.id : undefined,
+        flashcardSetId: item.flashcardSet ? item.flashcardSet.id : undefined,
       };
     });
 
@@ -378,6 +378,11 @@ export class ContentService {
   async getPopularTopics() {
     const topics = await this.prisma.content.groupBy({
       by: ['topic'],
+      where: {
+        topic: {
+          not: '',
+        },
+      },
       _count: {
         topic: true,
       },
@@ -386,7 +391,7 @@ export class ContentService {
           topic: 'desc',
         },
       },
-      take: 10,
+      take: 5,
     });
 
     return topics.map((t) => t.topic);

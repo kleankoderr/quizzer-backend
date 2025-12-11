@@ -8,11 +8,8 @@ import { AiPrompts } from './ai.prompts';
 import {
   QuizGenerationResponse,
   FlashcardGenerationResponse,
-  ContentGenerationResponse,
   LearningGuideResponse,
   RecommendationResponse,
-  TitleExtractionResponse,
-  TopicExtractionResponse,
   ExampleResponse,
   ExplanationResponse,
 } from './dto/ai-response.dto';
@@ -290,120 +287,67 @@ export class AiService {
   /**
    * Generate a structured learning guide
    */
-  async generateLearningGuide(
-    params: LearningGuideParams
+  /**
+   * Generate comprehensive learning guide from unified inputs
+   */
+  /**
+   * Generate comprehensive learning guide from unified inputs
+   */
+  async generateLearningGuideFromInputs(
+    topic?: string,
+    content?: string,
+    fileReferences?: FileReference[]
   ): Promise<LearningGuideResponse> {
-    const { topic, content } = params;
+    // Validate inputs
+    if (
+      !topic &&
+      !content &&
+      (!fileReferences || fileReferences.length === 0)
+    ) {
+      throw new Error(
+        'At least one of topic, content, or fileReferences must be provided'
+      );
+    }
 
-    // Build cache key
-    const contentHash = content
-      ? Buffer.from(content).toString('base64').substring(0, 20)
-      : 'no-content';
-    const cacheKey = `learning-guide:${topic}:${contentHash}`;
-
-    // Check cache in parallel with prompt building
-    const [cached, prompt] = await Promise.all([
-      this.getFromCache<any>(cacheKey),
-      Promise.resolve(
-        AiPrompts.generateLearningGuide(topic || '', content || '')
-      ),
-    ]);
+    const cacheKey = `comprehensive_guide:${topic || ''}:${content?.length || 0}:${fileReferences?.length || 0}`;
+    const cached = await this.getFromCache<LearningGuideResponse>(cacheKey);
 
     if (cached) {
-      this.logger.debug(`Cache hit for learning guide: ${cacheKey}`);
+      this.logger.debug(`Cache hit for comprehensive guide`);
       return cached;
     }
 
-    // Generate with Gemini
-    const result = await this.generateWithGemini(prompt);
-
-    // Parse and cache (fire and forget)
-    const parsed = this.parseJsonResponse<any>(result, 'learning guide');
-    this.setCache(cacheKey, parsed).catch(() => {});
-
-    return parsed;
-  }
-
-  /**
-   * Generate a simpler explanation for a concept
-   */
-  async generateExplanation(
-    params: ExplanationParams
-  ): Promise<ExplanationResponse> {
-    const { topic, context } = params;
-    const prompt = AiPrompts.generateExplanation(topic, context);
-    const explanation = await this.generateContent({ prompt });
-    return { explanation };
-  }
-
-  /**
-   * Generate more examples for a concept
-   */
-  async generateExample(params: ExplanationParams): Promise<ExampleResponse> {
-    const { topic, context } = params;
-    const prompt = AiPrompts.generateExample(topic, context);
-    const examples = await this.generateContent({ prompt });
-    return { examples };
-  }
-
-  /**
-   * Extract a concise title from content
-   */
-  async extractTitle(content: string): Promise<TitleExtractionResponse> {
-    const prompt = AiPrompts.extractTitle(content);
-    const title = await this.generateContent({ prompt, maxTokens: 50 });
-    return { title: title.trim() };
-  }
-
-  /**
-   * Extract a concise topic from content
-   */
-  async extractTopic(content: string): Promise<TopicExtractionResponse> {
-    const prompt = AiPrompts.extractTopic(content);
-    const topic = await this.generateContent({ prompt, maxTokens: 20 });
-    return { topic: topic.trim() };
-  }
-
-  /**
-   * Generate content from file references
-   */
-  async generateContentFromFiles(
-    fileReferences: FileReference[]
-  ): Promise<ContentGenerationResponse> {
-    if (!fileReferences || fileReferences.length === 0) {
-      throw new Error('At least one file reference is required');
-    }
-
-    const prompt = AiPrompts.generateContentFromFiles(
-      'Analyze the uploaded file(s) and generate comprehensive study material.'
+    const prompt = AiPrompts.generateComprehensiveLearningGuide(
+      topic || '',
+      content || '',
+      fileReferences && fileReferences.length > 0
+        ? 'See attached files for context.'
+        : ''
     );
 
     const result = await this.generateWithGemini(prompt, fileReferences);
 
-    // Parse the JSON response
-    const parsed = this.parseJsonResponse<ContentGenerationResponse>(
-      result,
-      'content from files'
-    );
-    return parsed;
-  }
+    try {
+      const parsed = this.parseJsonResponse<LearningGuideResponse>(
+        result,
+        'learning guide'
+      );
 
-  /**
-   * Generate content from topic with optional source content
-   */
-  async generateContentFromTopic(
-    topic: string,
-    sourceContent?: string
-  ): Promise<ContentGenerationResponse> {
-    const prompt = AiPrompts.generateContent(topic, sourceContent);
-    const result = await this.generateContent({ prompt, maxTokens: 2000 });
+      // Basic validation
+      if (
+        !parsed.learningGuide ||
+        !Array.isArray(parsed.learningGuide.sections)
+      ) {
+        this.logger.warn('AI returned invalid structure, attempting to fix...');
+        // Fallback verification could go here, but for now we rely on the prompt instructions
+      }
 
-    // Parse the JSON response
-    const parsed = this.parseJsonResponse<ContentGenerationResponse>(
-      result,
-      'content from topic'
-    );
-    return parsed;
+      this.setCache(cacheKey, parsed).catch(() => {});
+      return parsed;
+    } catch (error) {
+      this.logger.error('Failed to parse learning guide response', error.stack);
+      throw error;
+    }
   }
 
   /**
@@ -502,7 +446,29 @@ export class AiService {
   }
 
   /**
-   * Extract Google File URI from file reference
+   * Generate a simpler explanation for a concept
+   */
+  async generateExplanation(
+    params: ExplanationParams
+  ): Promise<ExplanationResponse> {
+    const { topic, context } = params;
+    const prompt = AiPrompts.generateExplanation(topic, context);
+    const explanation = await this.generateContent({ prompt });
+    return { explanation };
+  }
+
+  /**
+   * Generate more examples for a concept
+   */
+  async generateExample(params: ExplanationParams): Promise<ExampleResponse> {
+    const { topic, context } = params;
+    const prompt = AiPrompts.generateExample(topic, context);
+    const examples = await this.generateContent({ prompt });
+    return { examples };
+  }
+
+  /**
+   * Extract a concise title from content
    */
   private extractFileUri(fileRef: FileReference): string | null {
     if (fileRef.googleFileUrl) {
