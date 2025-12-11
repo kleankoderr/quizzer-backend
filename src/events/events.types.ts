@@ -86,6 +86,15 @@ export interface ContentProgressEvent extends ProgressEvent {
   eventType: typeof EVENTS.CONTENT.PROGRESS;
 }
 
+export interface ContentSectionEvent extends BaseEvent {
+  eventType: typeof EVENTS.CONTENT.SECTION;
+  jobId: string;
+  sectionIndex: number;
+  sectionTitle: string;
+  sectionContent: string;
+  totalSections?: number;
+}
+
 export interface ContentCompletedEvent extends CompletionEvent {
   eventType: typeof EVENTS.CONTENT.COMPLETED;
   resourceType: 'content';
@@ -189,6 +198,7 @@ export type AppEvent =
   | QuizFailedEvent
   // Content events
   | ContentProgressEvent
+  | ContentSectionEvent
   | ContentCompletedEvent
   | ContentFailedEvent
   // Notification events
@@ -315,6 +325,24 @@ export const EventFactory = {
     step,
     percentage,
     message,
+    timestamp: Date.now(),
+  }),
+
+  contentSection: (
+    userId: string,
+    jobId: string,
+    sectionIndex: number,
+    sectionTitle: string,
+    sectionContent: string,
+    totalSections?: number
+  ): ContentSectionEvent => ({
+    eventType: EVENTS.CONTENT.SECTION,
+    userId,
+    jobId,
+    sectionIndex,
+    sectionTitle,
+    sectionContent,
+    totalSections,
     timestamp: Date.now(),
   }),
 

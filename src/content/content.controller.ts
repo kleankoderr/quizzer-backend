@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -18,6 +19,8 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ContentService } from './content.service';
 import {
@@ -27,7 +30,6 @@ import {
 } from './dto/content.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { PdfOnly } from '../common/decorators/pdf-only.decorator';
 
 @ApiTags('Content')
 @Controller('content')
@@ -37,41 +39,58 @@ export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 
   @Post('generate')
-  @ApiOperation({ summary: 'Generate content from topic' })
-  @ApiResponse({ status: 201, description: 'Content generation job started' })
-  async generateFromTopic(
-    @CurrentUser('sub') userId: string,
-    @Body() body: { topic: string }
-  ) {
-    return this.contentService.generate(userId, { topic: body.topic });
-  }
-
-  @Post('upload')
-  @UseInterceptors(
-    PdfOnly({ maxFiles: 5, maxSizePerFile: 5 * 1024 * 1024 }),
-    FilesInterceptor('files', 5)
-  )
-  @ApiOperation({ summary: 'Upload and process files to create content' })
-  @ApiResponse({
-    status: 201,
-    description: 'File upload job started',
+  @ApiOperation({ summary: 'Generate a new content' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Content successfully generated' })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiBody({
+    description: 'Upload up to 5 PDF files',
+    required: false,
+    schema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+        },
+      },
+    },
   })
-  async uploadFile(
+  @UseInterceptors(
+    FilesInterceptor('files', 5, {
+      fileFilter: (req, file, cb) => {
+        // Accept only PDFs
+        if (file.mimetype === 'application/pdf') {
+          cb(null, true);
+        } else {
+          cb(new Error('Only PDF files are allowed'), false);
+        }
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // optional: 5 MB per file
+      },
+    })
+  )
+  async generateContent(
     @CurrentUser('sub') userId: string,
-    @UploadedFiles() files: Express.Multer.File[]
+    @Body() dto: CreateContentDto,
+    @UploadedFiles() files?: Express.Multer.File[]
   ) {
-    const fileArray = Array.isArray(files) ? files : [files];
-    return this.contentService.generate(userId, {}, fileArray);
-  }
+    if (
+      !dto.topic &&
+      !dto.content &&
+      (!files || files.length === 0) &&
+      (!dto.selectedFileIds || dto.selectedFileIds.length === 0)
+    ) {
+      throw new BadRequestException(
+        'Please provide either a topic, content, or upload files'
+      );
+    }
 
-  @Post()
-  @ApiOperation({ summary: 'Create new content' })
-  @ApiResponse({ status: 201, description: 'Content created successfully' })
-  async createContent(
-    @CurrentUser('sub') userId: string,
-    @Body() createContentDto: CreateContentDto
-  ) {
-    return this.contentService.createContent(userId, createContentDto);
+    return this.contentService.generate(userId, dto, files);
   }
 
   @Get()

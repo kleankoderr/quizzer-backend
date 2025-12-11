@@ -28,7 +28,7 @@ const PRISMA_TO_QUIZ_TYPE: Record<QuizType, string> = {
   [QuizType.CONFIDENCE_BASED]: 'standard',
 };
 
-interface QuizSubmissionResult {
+export interface QuizSubmissionResult {
   attemptId: string;
   score: number;
   totalQuestions: number;
@@ -94,6 +94,7 @@ export class QuizService {
           cloudinaryId: doc.cloudinaryId,
           googleFileUrl: doc.googleFileUrl,
           googleFileId: doc.googleFileId,
+          documentId: doc.documentId,
         })),
       });
 
@@ -181,7 +182,7 @@ export class QuizService {
   }
 
   async getQuizById(id: string, userId: string) {
-    // OPTIMIZATION: Check cache first
+    //Check cache first
     const cacheKey = `quiz:${id}:${userId}`;
     const cached = await this.getFromCache<any>(cacheKey);
 
@@ -205,7 +206,6 @@ export class QuizService {
   }
 
   // ==================== QUIZ SUBMISSION ====================
-  // MAJOR OPTIMIZATION: Reduced from ~7 DB queries to 3-4 queries
 
   async submitQuiz(
     userId: string,
@@ -214,7 +214,7 @@ export class QuizService {
   ): Promise<QuizSubmissionResult> {
     this.logger.log(`User ${userId} submitting quiz ${quizId}`);
 
-    // OPTIMIZATION 1: Check duplicate & fetch quiz in parallel
+    // Check duplicate & fetch quiz in parallel
     const cutoff = new Date(Date.now() - DUPLICATE_SUBMISSION_WINDOW_MS);
 
     const [duplicateAttempt, quiz] = await Promise.all([
@@ -251,7 +251,7 @@ export class QuizService {
 
     const percentage = Math.round((correctCount / questions.length) * 100);
 
-    // OPTIMIZATION 2: Parallel execution of attempt save + feedback calculation
+    //Parallel execution of attempt save + feedback calculation
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -299,7 +299,7 @@ export class QuizService {
         }),
     ]);
 
-    // OPTIMIZATION 3: Fire all post-submission tasks asynchronously (non-blocking)
+    // Fire all post-submission tasks asynchronously (non-blocking)
     // These don't affect the response, so run them in background
     this.handlePostSubmissionAsync({
       userId,
@@ -399,7 +399,7 @@ export class QuizService {
       throw new NotFoundException('Quiz not found');
     }
 
-    // OPTIMIZATION: Run deletions in parallel where safe
+    //Run deletions in parallel where safe
     await Promise.all([
       // Delete attempts
       this.prisma.attempt.deleteMany({
@@ -434,7 +434,7 @@ export class QuizService {
   // ==================== OPTIMIZED HELPER METHODS ====================
 
   /**
-   * OPTIMIZED: Fetch quiz with minimal fields and single query
+   * Fetch quiz with minimal fields and single query
    */
   private async findAccessibleQuizOptimized(quizId: string, userId: string) {
     // Try to fetch quiz directly with challenge access check in one query
@@ -484,7 +484,7 @@ export class QuizService {
   }
 
   /**
-   * OPTIMIZED: Handle duplicate with pre-fetched quiz data
+   * Handle duplicate with pre-fetched quiz data
    */
   private handleDuplicateSubmissionOptimized(
     attempt: any,
@@ -511,7 +511,7 @@ export class QuizService {
   }
 
   /**
-   * OPTIMIZED: Get feedback from pre-calculated data
+   * Get feedback from pre-calculated data
    */
   private getFeedbackFromData(
     totalAttemptsToday: number,
@@ -537,7 +537,7 @@ export class QuizService {
   }
 
   /**
-   * OPTIMIZED: All post-submission tasks run async (non-blocking)
+   * All post-submission tasks run async (non-blocking)
    */
   private handlePostSubmissionAsync(context: PostSubmissionContext): void {
     const {
@@ -610,7 +610,7 @@ export class QuizService {
   }
 
   /**
-   * OPTIMIZED: Cleanup files asynchronously
+   * Cleanup files asynchronously
    */
   private cleanupQuizFilesAsync(sourceFiles: string[] | null): void {
     if (!sourceFiles || sourceFiles.length === 0) {

@@ -147,18 +147,28 @@ Return ONLY a valid JSON array in this exact format (no markdown, no code blocks
 You are an expert educational content creator. Generate comprehensive study material based on the following, tailored for a Nigerian student audience:
 
 ${topic ? `Topic: ${topic}` : ''}
-${sourceContent ? `Source Content:\n${sourceContent}` : ''}
+${sourceContent ? `Source Content:\\n${sourceContent}` : ''}
 
 Requirements:
-1. Create well-structured, educational content
-2. Include key concepts, explanations, and examples
-3. Use examples relevant to Nigerian context (e.g., Naira, Lagos/Abuja, local scenarios)
-4. Break content into clear sections with headers
-5. Use markdown formatting for better readability
-6. Keep language clear and encouraging
-7. If source content is provided, enhance and structure it while preserving key information
+1. **GO STRAIGHT TO THE CONTENT** - Do NOT start with phrases like "Here is a comprehensive study guide on..." or "This document covers...". Start directly with the first section header or content.
+2. Create well-structured, educational content organized into clear sections
+3. Include key concepts, explanations, and examples
+4. Use examples relevant to Nigerian context (e.g., Naira, Lagos/Abuja, local scenarios)
+5. Use markdown formatting for better readability within each section
+6. **SUPPORT CODE BLOCKS** - For programming or technical concepts, use proper markdown code blocks with language syntax (e.g., \`\`\`python, \`\`\`javascript)
+7. Keep language clear and encouraging
+8. If source content is provided, enhance and structure it while preserving key information
 
-Return the generated content as plain text with markdown formatting.
+Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
+{
+  "title": "Generated content title",
+  "sections": [
+    {
+      "title": "Section Title",
+      "content": "Section content with markdown formatting..."
+    }
+  ]
+}
 `;
   }
 
@@ -170,15 +180,27 @@ Document Content:
 ${fileContent}
 
 Requirements:
-1. Extract and organize the key information
-2. Create a well-structured study guide with clear sections
-3. Add explanations and context where helpful
-4. Use examples relevant to Nigerian students
-5. Use markdown formatting (headers, bold, lists)
-6. Preserve important facts and details from the source
-7. Make it engaging and easy to understand
+1. **GO STRAIGHT TO THE CONTENT** - Do NOT start with phrases like "Here is a comprehensive study guide on..." or "This document covers...". Start directly with the first section header or content.
+2. **EXCLUDE METADATA HEADERS** - Do NOT include course information, department names, lecturer names, or any institutional metadata from the source document. Focus only on the educational content.
+3. Extract and organize the key information into clear sections
+4. Create a well-structured study guide with logical section flow
+5. Add explanations and context where helpful
+6. Use examples relevant to Nigerian students
+7. Use markdown formatting (headers, bold, lists) within each section
+8. **SUPPORT CODE BLOCKS** - For programming or technical concepts, use proper markdown code blocks with language syntax (e.g., \`\`\`python, \`\`\`javascript)
+9. Preserve important facts and details from the source
+10. Make it engaging and easy to understand
 
-Return the generated content as plain text with markdown formatting.
+Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
+{
+  "title": "Generated content title",
+  "sections": [
+    {
+      "title": "Section Title",
+      "content": "Section content with markdown formatting..."
+    }
+  ]
+}
 `;
   }
 
@@ -214,6 +236,7 @@ Requirements:
    - Use lists (bullet points) where appropriate to make reading easier.
    - Do NOT write long, dense blocks of text.
    - Use simple, direct language.
+7. **GO STRAIGHT TO THE CONTENT** - Do NOT include introductory phrases. Start directly with the overview.
 
 Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
 {

@@ -9,6 +9,7 @@ import { AiService } from '../ai/ai.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { UserDocumentService } from '../user-document/user-document.service';
 
 export interface ProcessedFileData {
   originalname: string;
@@ -17,6 +18,7 @@ export interface ProcessedFileData {
   googleFileUrl?: string;
   googleFileId?: string;
   mimetype?: string;
+  documentId?: string;
 }
 
 export interface FlashcardJobData {
@@ -33,7 +35,8 @@ export class FlashcardProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly userDocumentService: UserDocumentService
   ) {
     super();
   }
@@ -70,6 +73,11 @@ export class FlashcardProcessor extends WorkerHost {
         20
       );
       await job.updateProgress(20);
+
+      // Create UserDocument references for uploaded files
+      if (files && files.length > 0) {
+        await this.createUserDocumentReferences(userId, files, jobId);
+      }
 
       // Generate flashcards using AI with Google File API references
       this.logger.log(
@@ -179,5 +187,34 @@ export class FlashcardProcessor extends WorkerHost {
     if (files && files.length > 0) return 'file';
     if (dto.content) return 'text';
     return 'topic';
+  }
+
+  /**
+   * Create UserDocument references for uploaded files
+   */
+  private async createUserDocumentReferences(
+    userId: string,
+    files: ProcessedFileData[],
+    jobId: string
+  ): Promise<void> {
+    try {
+      for (const file of files) {
+        if (file.documentId) {
+          await this.userDocumentService.createUserDocument(
+            userId,
+            file.documentId,
+            file.originalname
+          );
+          this.logger.debug(
+            `Job ${jobId}: Created UserDocument reference for ${file.originalname}`
+          );
+        }
+      }
+    } catch (error) {
+      // Log warning but don't fail the job
+      this.logger.warn(
+        `Job ${jobId}: Failed to create UserDocument references: ${error.message}`
+      );
+    }
   }
 }

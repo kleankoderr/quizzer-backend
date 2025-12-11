@@ -22,7 +22,6 @@ import { QuizService } from './quiz.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { GenerateQuizDto, SubmitQuizDto } from './dto/quiz.dto';
-import { PdfOnly } from '../common/decorators/pdf-only.decorator';
 
 @ApiTags('Quizzes')
 @ApiBearerAuth()
@@ -37,8 +36,19 @@ export class QuizController {
   @ApiResponse({ status: 201, description: 'Quiz successfully generated' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @UseInterceptors(
-    PdfOnly({ maxFiles: 5, maxSizePerFile: 5 * 1024 * 1024 }),
-    FilesInterceptor('files', 5)
+    FilesInterceptor('files', 5, {
+      fileFilter: (req, file, cb) => {
+        // Accept only PDFs
+        if (file.mimetype === 'application/pdf') {
+          cb(null, true);
+        } else {
+          cb(new Error('Only PDF files are allowed'), false);
+        }
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // optional: 5 MB per file
+      },
+    })
   )
   async generateQuiz(
     @CurrentUser('sub') userId: string,

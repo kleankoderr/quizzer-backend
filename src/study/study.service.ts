@@ -1,16 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
 import { RetentionLevel } from '@prisma/client';
 
 @Injectable()
 export class StudyService {
   private readonly logger = new Logger(StudyService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly aiService: AiService
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Update topic progress based on quiz performance

@@ -78,7 +78,7 @@ export class DocumentHashService {
     hash: string,
     urls: ProviderUrls,
     file: Express.Multer.File
-  ): Promise<DocumentMetadata> {
+  ): Promise<string> {
     const document = await this.prisma.document.create({
       data: {
         hash,
@@ -109,7 +109,7 @@ export class DocumentHashService {
     this.logger.log(
       `Document metadata stored: ${file.originalname} (${hash.substring(0, 8)}...)`
     );
-    return metadata;
+    return document.id;
   }
 
   async deleteDocumentByHash(hash: string): Promise<void> {
@@ -183,5 +183,23 @@ export class DocumentHashService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Get document ID by hash
+   */
+  async getDocumentIdByHash(hash: string): Promise<string> {
+    const document = await this.prisma.document.findUnique({
+      where: { hash },
+      select: { id: true },
+    });
+
+    if (!document) {
+      throw new Error(
+        `Document not found for hash: ${hash.substring(0, 8)}...`
+      );
+    }
+
+    return document.id;
   }
 }

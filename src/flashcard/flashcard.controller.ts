@@ -22,7 +22,6 @@ import { FlashcardService } from './flashcard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
-import { PdfOnly } from '../common/decorators/pdf-only.decorator';
 
 @ApiTags('Flashcards')
 @ApiBearerAuth()
@@ -40,8 +39,19 @@ export class FlashcardController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @UseInterceptors(
-    PdfOnly({ maxFiles: 5, maxSizePerFile: 5 * 1024 * 1024 }),
-    FilesInterceptor('files', 5)
+    FilesInterceptor('files', 5, {
+      fileFilter: (_req, file, cb) => {
+        // Accept only PDFs
+        if (file.mimetype === 'application/pdf') {
+          cb(null, true);
+        } else {
+          cb(new Error('Only PDF files are allowed'), false);
+        }
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // optional: 5 MB per file
+      },
+    })
   )
   async generateFlashcards(
     @CurrentUser('sub') userId: string,

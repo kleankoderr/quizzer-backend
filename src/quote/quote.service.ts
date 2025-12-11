@@ -1,6 +1,5 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
 import { Cache } from 'cache-manager';
 import { Inject } from '@nestjs/common';
@@ -13,49 +12,69 @@ export interface Quote {
 }
 
 @Injectable()
-export class QuoteService implements OnModuleInit {
+export class QuoteService {
   private readonly logger = new Logger(QuoteService.name);
-  private readonly CACHE_KEY = 'daily_quote';
+  private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
   constructor(
     private readonly httpService: HttpService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
-  async onModuleInit() {
-    await this.getDailyQuote();
-  }
+  /**
+   * Get daily quote for a specific user
+   * Generates a new quote once per day per user
+   */
+  async getDailyQuote(
+    userId: string
+  ): Promise<{ text: string; author: string }> {
+    // Create a cache key with userId and current date (YYYY-MM-DD)
+    const today = new Date().toISOString().split('T')[0];
+    const cacheKey = `daily_quote:${userId}:${today}`;
 
-  async getDailyQuote(): Promise<{ text: string; author: string }> {
-    const cachedQuote = await this.cacheManager.get<{
-      text: string;
-      author: string;
-    }>(this.CACHE_KEY);
+    // Check if quote exists in cache
+    const cachedQuote = await this.getCachedQuote(cacheKey);
     if (cachedQuote) {
+      this.logger.debug(`Cache hit for user ${userId}'s daily quote`);
       return cachedQuote;
     }
 
-    return this.fetchAndCacheQuote();
+    // Generate and cache new quote
+    this.logger.log(`Generating new daily quote for user ${userId}`);
+    return this.fetchAndCacheQuote(cacheKey, userId);
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_7AM)
-  async handleDailyQuoteRefresh() {
-    this.logger.log('Refreshing daily quote...');
-    await this.fetchAndCacheQuote();
-  }
-
-  private async fetchAndCacheQuote(): Promise<{
-    text: string;
-    author: string;
-  }> {
+  /**
+   * Get quote from cache
+   */
+  private async getCachedQuote(
+    cacheKey: string
+  ): Promise<{ text: string; author: string } | null> {
     try {
-      // Fetch a batch of 50 quotes to filter from
+      return await this.cacheManager.get<{ text: string; author: string }>(
+        cacheKey
+      );
+    } catch (error) {
+      this.logger.warn(`Cache retrieval failed: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch a new quote from API and cache it
+   */
+  private async fetchAndCacheQuote(
+    cacheKey: string,
+    userId: string
+  ): Promise<{ text: string; author: string }> {
+    try {
+      // Fetch a batch of quotes to filter from
       const response = await firstValueFrom(
         this.httpService.get<Quote[]>('https://zenquotes.io/api/quotes')
       );
 
       if (response.data && response.data.length > 0) {
-        // Filter for keywords
+        // Filter for motivational/educational keywords
         const keywords = [
           'success',
           'learn',
@@ -65,41 +84,86 @@ export class QuoteService implements OnModuleInit {
           'mind',
           'future',
           'goal',
+          'knowledge',
+          'study',
+          'growth',
         ];
+
         const relevantQuotes = response.data.filter((q) =>
           keywords.some((k) => q.q.toLowerCase().includes(k))
         );
 
-        // Use a relevant quote if found, otherwise just the first one (or random from batch)
+        // Select a random relevant quote, or fallback to random from all
+        const quotesToChooseFrom =
+          relevantQuotes.length > 0 ? relevantQuotes : response.data;
         const selectedQuote =
-          relevantQuotes.length > 0
-            ? relevantQuotes[Math.floor(Math.random() * relevantQuotes.length)]
-            : response.data[0];
+          quotesToChooseFrom[
+            Math.floor(Math.random() * quotesToChooseFrom.length)
+          ];
 
         const formattedQuote = {
           text: selectedQuote.q,
           author: selectedQuote.a,
         };
 
-        await this.cacheManager.set(
-          this.CACHE_KEY,
-          formattedQuote,
-          25 * 60 * 60 * 1000
+        // Cache the quote for 24 hours
+        await this.cacheQuote(cacheKey, formattedQuote);
+
+        this.logger.log(
+          `Daily quote cached for user ${userId}: "${formattedQuote.text}"`
         );
-        this.logger.log(`Daily quote updated: "${formattedQuote.text}"`);
         return formattedQuote;
       }
     } catch (error) {
       this.logger.warn(
-        'Failed to fetch daily quote from API, using fallback',
-        error
+        `Failed to fetch quote from API for user ${userId}, using fallback`,
+        error.message
       );
     }
 
     // Fallback quote if API fails
-    return {
-      text: 'The expert in anything was once a beginner.',
-      author: 'Helen Hayes',
-    };
+    const fallbackQuote = this.getFallbackQuote();
+    await this.cacheQuote(cacheKey, fallbackQuote);
+    return fallbackQuote;
+  }
+
+  /**
+   * Cache a quote
+   */
+  private async cacheQuote(
+    cacheKey: string,
+    quote: { text: string; author: string }
+  ): Promise<void> {
+    try {
+      await this.cacheManager.set(cacheKey, quote, this.CACHE_TTL);
+    } catch (error) {
+      this.logger.warn(`Failed to cache quote: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get a fallback quote when API fails
+   */
+  private getFallbackQuote(): { text: string; author: string } {
+    const fallbackQuotes = [
+      {
+        text: 'The expert in anything was once a beginner.',
+        author: 'Helen Hayes',
+      },
+      {
+        text: 'Education is the most powerful weapon which you can use to change the world.',
+        author: 'Nelson Mandela',
+      },
+      {
+        text: 'The beautiful thing about learning is that no one can take it away from you.',
+        author: 'B.B. King',
+      },
+      {
+        text: 'Success is the sum of small efforts repeated day in and day out.',
+        author: 'Robert Collier',
+      },
+    ];
+
+    return fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
   }
 }

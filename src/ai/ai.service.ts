@@ -3,7 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import JSON5 from 'json5';
 import { AiPrompts } from './ai.prompts';
+import {
+  QuizGenerationResponse,
+  FlashcardGenerationResponse,
+  ContentGenerationResponse,
+  LearningGuideResponse,
+  RecommendationResponse,
+  TitleExtractionResponse,
+  TopicExtractionResponse,
+  ExampleResponse,
+  ExplanationResponse,
+} from './dto/ai-response.dto';
 
 export interface QuizQuestion {
   questionType:
@@ -112,7 +124,7 @@ export class AiService {
    */
   async generateQuiz(
     params: QuizGenerationParams
-  ): Promise<{ questions: QuizQuestion[]; title: string; topic: string }> {
+  ): Promise<QuizGenerationResponse> {
     const {
       topic,
       content,
@@ -194,13 +206,13 @@ export class AiService {
    */
   async generateFlashcards(
     params: FlashcardGenerationParams
-  ): Promise<{ cards: Flashcard[]; title: string; topic: string }> {
+  ): Promise<FlashcardGenerationResponse> {
     const { topic, content, fileReferences, numberOfCards } = params;
 
     // Validate input
     this.validateGenerationInput(topic, content, fileReferences, 'flashcards');
 
-    // OPTIMIZATION: Check cache in parallel with prompt building
+    // Check cache in parallel with prompt building
     const shouldCache = !fileReferences || fileReferences.length === 0;
     const cacheKey = `flashcards:${topic}:${numberOfCards}`;
 
@@ -242,10 +254,10 @@ export class AiService {
    */
   async generateRecommendations(
     params: RecommendationParams
-  ): Promise<Array<{ topic: string; reason: string; priority: string }>> {
+  ): Promise<RecommendationResponse[]> {
     const { weakTopics, recentAttempts } = params;
 
-    // OPTIMIZATION: Build cache key and prompt in parallel with cache check
+    // Build cache key and prompt in parallel with cache check
     const cacheKey = `recommendations:${weakTopics.join(',')}`;
 
     const [cached, prompt] = await Promise.all([
@@ -278,7 +290,9 @@ export class AiService {
   /**
    * Generate a structured learning guide
    */
-  async generateLearningGuide(params: LearningGuideParams): Promise<any> {
+  async generateLearningGuide(
+    params: LearningGuideParams
+  ): Promise<LearningGuideResponse> {
     const { topic, content } = params;
 
     // Build cache key
@@ -313,19 +327,41 @@ export class AiService {
   /**
    * Generate a simpler explanation for a concept
    */
-  async generateExplanation(params: ExplanationParams): Promise<string> {
+  async generateExplanation(
+    params: ExplanationParams
+  ): Promise<ExplanationResponse> {
     const { topic, context } = params;
     const prompt = AiPrompts.generateExplanation(topic, context);
-    return this.generateContent({ prompt });
+    const explanation = await this.generateContent({ prompt });
+    return { explanation };
   }
 
   /**
    * Generate more examples for a concept
    */
-  async generateExample(params: ExplanationParams): Promise<string> {
+  async generateExample(params: ExplanationParams): Promise<ExampleResponse> {
     const { topic, context } = params;
     const prompt = AiPrompts.generateExample(topic, context);
-    return this.generateContent({ prompt });
+    const examples = await this.generateContent({ prompt });
+    return { examples };
+  }
+
+  /**
+   * Extract a concise title from content
+   */
+  async extractTitle(content: string): Promise<TitleExtractionResponse> {
+    const prompt = AiPrompts.extractTitle(content);
+    const title = await this.generateContent({ prompt, maxTokens: 50 });
+    return { title: title.trim() };
+  }
+
+  /**
+   * Extract a concise topic from content
+   */
+  async extractTopic(content: string): Promise<TopicExtractionResponse> {
+    const prompt = AiPrompts.extractTopic(content);
+    const topic = await this.generateContent({ prompt, maxTokens: 20 });
+    return { topic: topic.trim() };
   }
 
   /**
@@ -333,7 +369,7 @@ export class AiService {
    */
   async generateContentFromFiles(
     fileReferences: FileReference[]
-  ): Promise<string> {
+  ): Promise<ContentGenerationResponse> {
     if (!fileReferences || fileReferences.length === 0) {
       throw new Error('At least one file reference is required');
     }
@@ -342,7 +378,14 @@ export class AiService {
       'Analyze the uploaded file(s) and generate comprehensive study material.'
     );
 
-    return this.generateWithGemini(prompt, fileReferences);
+    const result = await this.generateWithGemini(prompt, fileReferences);
+
+    // Parse the JSON response
+    const parsed = this.parseJsonResponse<ContentGenerationResponse>(
+      result,
+      'content from files'
+    );
+    return parsed;
   }
 
   /**
@@ -351,27 +394,16 @@ export class AiService {
   async generateContentFromTopic(
     topic: string,
     sourceContent?: string
-  ): Promise<string> {
+  ): Promise<ContentGenerationResponse> {
     const prompt = AiPrompts.generateContent(topic, sourceContent);
-    return this.generateContent({ prompt, maxTokens: 2000 });
-  }
+    const result = await this.generateContent({ prompt, maxTokens: 2000 });
 
-  /**
-   * Extract title from generated content
-   */
-  async extractTitle(content: string): Promise<string> {
-    const prompt = AiPrompts.extractTitle(content);
-    const title = await this.generateContent({ prompt, maxTokens: 50 });
-    return title.trim();
-  }
-
-  /**
-   * Extract topic from text
-   */
-  async extractTopic(text: string): Promise<string> {
-    const prompt = AiPrompts.extractTopic(text);
-    const topic = await this.generateContent({ prompt, maxTokens: 20 });
-    return topic.trim();
+    // Parse the JSON response
+    const parsed = this.parseJsonResponse<ContentGenerationResponse>(
+      result,
+      'content from topic'
+    );
+    return parsed;
   }
 
   /**
@@ -520,24 +552,100 @@ export class AiService {
   }
 
   /**
-   * Parse JSON response from Gemini
+   * Parse JSON response from Gemini with robust error handling
+   * Uses multiple strategies to handle malformed JSON from AI responses
    */
   private parseJsonResponse<T>(responseText: string, context: string): T {
+    // Strategy 1: Clean and parse with JSON5 (handles relaxed JSON syntax)
     try {
-      // Remove Markdown code blocks if present
-      const cleanedResponse = responseText
-        .replaceAll(/```json\s*/g, '')
-        .replaceAll(/```\s*/g, '')
-        .trim();
-
-      return JSON.parse(cleanedResponse);
-    } catch (error) {
-      this.logger.error(`Failed to parse ${context} response:`, error.stack);
-      this.logger.debug('Raw response:', responseText);
-      throw new Error(
-        `Failed to parse ${context} response: ${error.message || 'Invalid JSON'}`
+      const cleaned = this.cleanJsonResponse(responseText);
+      return JSON5.parse(cleaned);
+    } catch (_error) {
+      this.logger.debug(
+        `JSON5 parsing failed for ${context}, trying fallback strategies`
       );
     }
+
+    // Strategy 2: Sanitize control characters and try again
+    try {
+      const sanitized = this.sanitizeJsonString(responseText);
+      const cleaned = this.cleanJsonResponse(sanitized);
+      return JSON5.parse(cleaned);
+    } catch (_error) {
+      this.logger.debug(
+        `Sanitized JSON5 parsing failed for ${context}, trying next strategy`
+      );
+    }
+
+    // Strategy 3: Try to extract JSON from markdown code blocks more aggressively
+    try {
+      const extracted = this.extractJsonFromMarkdown(responseText);
+      return JSON5.parse(extracted);
+    } catch (_error) {
+      this.logger.debug(
+        `Markdown extraction failed for ${context}, trying standard JSON`
+      );
+    }
+
+    // Strategy 4: Last resort - try standard JSON.parse on cleaned response
+    try {
+      const cleaned = this.cleanJsonResponse(responseText);
+      return JSON.parse(cleaned) as T;
+    } catch (error) {
+      // All strategies failed - log detailed error information
+      this.logger.error(`Failed to parse ${context} response:`, error.stack);
+      this.logger.debug(`Response length: ${responseText.length} characters`);
+      this.logger.debug(`First 500 chars: ${responseText.substring(0, 500)}`);
+      this.logger.debug(
+        `Last 500 chars: ${responseText.substring(Math.max(0, responseText.length - 500))}`
+      );
+
+      throw new Error(
+        `Failed to parse ${context} response after trying multiple strategies: ${error.message || 'Invalid JSON'}`
+      );
+    }
+  }
+
+  /**
+   * Clean JSON response by removing markdown code blocks
+   */
+  private cleanJsonResponse(text: string): string {
+    return text
+      .replaceAll(/```json\s*/gi, '')
+      .replaceAll(/```\s*/g, '')
+      .trim();
+  }
+
+  /**
+   * Sanitize control characters that break JSON parsing
+   */
+  private sanitizeJsonString(text: string): string {
+    // Replace problematic control characters
+    return text
+      .replaceAll(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars except \n, \r, \t
+      .replaceAll(/\r\n/g, '\\n') // Normalize line endings
+      .replaceAll(/\n/g, '\\n') // Escape newlines
+      .replaceAll(/\r/g, '\\n') // Escape carriage returns
+      .replaceAll(/\t/g, '\\t'); // Escape tabs
+  }
+
+  /**
+   * Extract JSON from markdown code blocks more aggressively
+   */
+  private extractJsonFromMarkdown(text: string): string {
+    // Try to find JSON within code blocks
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (codeBlockMatch) {
+      return codeBlockMatch[1].trim();
+    }
+
+    // Try to find JSON object/array by looking for { or [
+    const jsonMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    if (jsonMatch) {
+      return jsonMatch[1].trim();
+    }
+
+    return text.trim();
   }
 
   /**

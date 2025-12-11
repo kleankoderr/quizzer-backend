@@ -35,6 +35,7 @@ import { CoachingModule } from './coaching/coaching.module';
 import { SettingsModule } from './settings/settings.module';
 import { SseModule } from './sse/sse.module';
 import { EventsModule } from './events/events.module';
+import { UserDocumentModule } from './user-document/user-document.module';
 
 @Module({
   imports: [
@@ -109,6 +110,7 @@ import { EventsModule } from './events/events.module';
     OnboardingModule,
     SseModule,
     EventsModule,
+    UserDocumentModule,
   ],
   controllers: [AppController],
   providers: [

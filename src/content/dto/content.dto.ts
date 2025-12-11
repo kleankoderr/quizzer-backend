@@ -5,23 +5,41 @@ export class CreateContentDto {
   @ApiProperty({
     example: 'Introduction to Biology',
     description: 'Title of the content',
+    required: false,
   })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  @IsOptional()
+  title?: string;
 
   @ApiProperty({
     example: 'Biology is the study of life...',
     description: 'The actual text content',
+    required: false,
   })
   @IsString()
   @IsNotEmpty()
-  content: string;
+  @IsOptional()
+  content?: string;
 
-  @ApiProperty({ example: 'Biology', description: 'Topic of the content' })
+  @ApiProperty({
+    example: 'Biology',
+    description: 'Topic of the content',
+    required: false,
+  })
   @IsString()
   @IsNotEmpty()
-  topic: string;
+  @IsOptional()
+  topic?: string;
+
+  @ApiProperty({
+    description: 'IDs of selected files to include in content generation',
+    required: false,
+    example: ['fileId1', 'fileId2'],
+  })
+  @IsString({ each: true })
+  @IsOptional()
+  selectedFileIds?: string[];
 }
 
 export class CreateHighlightDto {

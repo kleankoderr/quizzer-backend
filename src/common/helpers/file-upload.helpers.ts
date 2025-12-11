@@ -15,6 +15,7 @@ export interface ProcessedDocument {
   googleFileId?: string;
   hash: string;
   isDuplicate: boolean;
+  documentId: string; // Database document ID for creating UserDocument references
 }
 
 export async function processFileUploads(
@@ -70,6 +71,9 @@ export async function processFileUploads(
           }
         }
 
+        // Get document ID from database
+        const documentId = await documentHashService.getDocumentIdByHash(hash);
+
         results.push({
           originalName: file.originalname,
           cloudinaryUrl: existingDoc.cloudinaryUrl,
@@ -78,6 +82,7 @@ export async function processFileUploads(
           googleFileId,
           hash,
           isDuplicate: true,
+          documentId,
         });
       } else {
         const urls = await uploadToProviders(
@@ -85,7 +90,11 @@ export async function processFileUploads(
           cloudinaryService,
           googleService
         );
-        await documentHashService.storeDocumentMetadata(hash, urls, file);
+        const documentId = await documentHashService.storeDocumentMetadata(
+          hash,
+          urls,
+          file
+        );
 
         results.push({
           originalName: file.originalname,
@@ -95,6 +104,7 @@ export async function processFileUploads(
           googleFileId: urls.googleFileId,
           hash,
           isDuplicate: false,
+          documentId,
         });
       }
     } catch (error) {

@@ -8,6 +8,7 @@ import { AiModule } from '../ai/ai.module';
 import { QuizModule } from '../quiz/quiz.module';
 import { FlashcardModule } from '../flashcard/flashcard.module';
 import { FileStorageModule } from '../file-storage/file-storage.module';
+import { UserDocumentModule } from '../user-document/user-document.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { FileStorageModule } from '../file-storage/file-storage.module';
     QuizModule,
     FlashcardModule,
     FileStorageModule,
+    UserDocumentModule,
   ],
   controllers: [ContentController],
   providers: [ContentService, ContentProcessor],

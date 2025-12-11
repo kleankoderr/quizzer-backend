@@ -72,6 +72,7 @@ export class FlashcardService {
           cloudinaryId: doc.cloudinaryId,
           googleFileUrl: doc.googleFileUrl,
           googleFileId: doc.googleFileId,
+          documentId: doc.documentId,
         })),
       });
 

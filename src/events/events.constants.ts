@@ -15,6 +15,7 @@ export const EVENTS = {
   },
   CONTENT: {
     PROGRESS: 'content.progress',
+    SECTION: 'content.section',
     COMPLETED: 'content.completed',
     FAILED: 'content.failed',
   },

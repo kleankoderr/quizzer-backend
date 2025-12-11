@@ -23,7 +23,11 @@ import {
   FILE_STORAGE_SERVICE,
 } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
-import { processFileUploads } from '../common/helpers/file-upload.helpers';
+import {
+  processFileUploads,
+  ProcessedDocument,
+} from '../common/helpers/file-upload.helpers';
+import { UserDocumentService } from '../user-document/user-document.service';
 
 const MAX_LEARNING_GUIDE_LENGTH = 10000;
 const AI_ENHANCEMENT_MAX_TOKENS = 2000;
@@ -54,33 +58,51 @@ export class ContentService {
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
-    private readonly documentHashService: DocumentHashService
+    private readonly documentHashService: DocumentHashService,
+    private readonly userDocumentService: UserDocumentService
   ) {}
 
   /**
    * Queue content generation job
+   *
+   * Supports three generation modes:
+   * 1. Topic alone - generate content from topic
+   * 2. Content (with/without title) - generate from provided content, auto-generate title if missing
+   * 3. Files - from uploaded files or selected files (or both)
    */
   async generate(
     userId: string,
-    dto: { topic?: string; content?: string },
+    dto: CreateContentDto,
     files?: Express.Multer.File[]
   ) {
-    this.validateContentRequest(dto, files);
+    await this.validateContentRequest(dto, files);
 
     this.logger.log(`User ${userId} requesting content generation`);
 
-    const processedFiles = await this.processUploadedFiles(userId, files);
+    // Process uploaded files and fetch selected files in parallel
+    const [processedFiles, selectedFiles] = await Promise.all([
+      this.processUploadedFiles(userId, files),
+      this.fetchSelectedFiles(userId, dto.selectedFileIds),
+    ]);
+
+    // Merge both file sources
+    const allFiles = [...processedFiles, ...selectedFiles];
+
+    this.logger.log(
+      `Preparing job with ${allFiles.length} file(s) (${processedFiles.length} new, ${selectedFiles.length} selected)`
+    );
 
     try {
       const job = await this.contentQueue.add('generate', {
         userId,
         dto,
-        files: processedFiles.map((doc) => ({
+        files: allFiles.map((doc) => ({
           originalname: doc.originalName,
           cloudinaryUrl: doc.cloudinaryUrl,
           cloudinaryId: doc.cloudinaryId,
           googleFileUrl: doc.googleFileUrl,
           googleFileId: doc.googleFileId,
+          documentId: doc.documentId,
         })),
       });
 
@@ -130,38 +152,6 @@ export class ContentService {
     };
   }
 
-  // ==================== CONTENT CRUD ====================
-
-  /**
-   * Create content manually
-   */
-  async createContent(userId: string, createContentDto: CreateContentDto) {
-    await this.verifyUserExists(userId);
-
-    const enhancedContent = await this.enhanceContentWithAI(
-      createContentDto.content
-    );
-
-    const content = await this.prisma.content.create({
-      data: {
-        ...createContentDto,
-        content: enhancedContent,
-        userId,
-      },
-    });
-
-    // Generate learning guide in background
-    this.generateLearningGuideAsync(
-      content.id,
-      createContentDto.topic,
-      enhancedContent
-    );
-
-    await this.invalidateUserCache(userId);
-
-    return content;
-  }
-
   /**
    * Get all content for a user with pagination
    */
@@ -197,7 +187,26 @@ export class ContentService {
       }),
     ]);
 
-    const mappedData = data.map((item) => this.normalizeContentRelations(item));
+    const mappedData = data.map((item) => {
+      const normalized = this.normalizeContentRelations(item);
+
+      // Extract description from learningGuide or content
+      let description = '';
+      if (item.learningGuide && typeof item.learningGuide === 'object') {
+        const guide = item.learningGuide as any;
+        description = guide.overview || '';
+      }
+
+      // Fallback to first 200 chars of content if no overview
+      if (!description && item.content) {
+        description = item.content.substring(0, 200).trim() + '...';
+      }
+
+      return {
+        ...normalized,
+        description,
+      };
+    });
 
     return {
       data: mappedData,
@@ -386,13 +395,69 @@ export class ContentService {
   }
 
   /**
+   * Fetch selected files from UserDocuments
+   */
+  private async fetchSelectedFiles(
+    userId: string,
+    selectedFileIds?: string[]
+  ): Promise<ProcessedDocument[]> {
+    if (!selectedFileIds || selectedFileIds.length === 0) {
+      return [];
+    }
+
+    const results: ProcessedDocument[] = [];
+
+    this.logger.log(
+      `Fetching ${selectedFileIds.length} selected file(s) for user ${userId}`
+    );
+
+    for (const userDocId of selectedFileIds) {
+      try {
+        const userDoc = await this.userDocumentService.getUserDocumentById(
+          userId,
+          userDocId
+        );
+
+        this.logger.debug(
+          `Fetched document: ${userDoc.displayName}, googleFileUrl: ${userDoc.document.googleFileUrl || 'null'}`
+        );
+
+        results.push({
+          originalName: userDoc.displayName,
+          cloudinaryUrl: userDoc.document.cloudinaryUrl,
+          cloudinaryId: userDoc.document.id, // Use document ID as fallback
+          googleFileUrl: userDoc.document.googleFileUrl || undefined,
+          googleFileId: undefined, // Not available in DTO
+          hash: '', // Not needed for existing files
+          isDuplicate: true, // Mark as duplicate since it's already uploaded
+          documentId: userDoc.document.id,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to fetch user document ${userDocId}: ${error.message}`
+        );
+      }
+    }
+
+    this.logger.log(
+      `Successfully fetched ${results.length} selected file(s) for user ${userId}`
+    );
+
+    return results;
+  }
+
+  /**
    * Validate content generation request
    */
   private validateContentRequest(
-    dto: { topic?: string; content?: string },
+    dto: { topic?: string; content?: string; selectedFileIds?: string[] },
     files?: Express.Multer.File[]
   ): void {
-    if (!dto.topic && !dto.content && (!files || files.length === 0)) {
+    const hasFiles = files && files.length > 0;
+    const hasSelectedFiles =
+      dto.selectedFileIds && dto.selectedFileIds.length > 0;
+
+    if (!dto.topic && !dto.content && !hasFiles && !hasSelectedFiles) {
       throw new BadRequestException(
         'Please provide either a topic, content, or upload files to generate study material'
       );
@@ -437,21 +502,6 @@ export class ContentService {
   }
 
   /**
-   * Verify user exists
-   */
-  private async verifyUserExists(userId: string): Promise<void> {
-    const userExists = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!userExists) {
-      throw new BadRequestException(
-        `User with ID ${userId} not found. Please log in again.`
-      );
-    }
-  }
-
-  /**
    * Verify content ownership
    */
   private async verifyContentOwnership(
@@ -468,53 +518,7 @@ export class ContentService {
     }
   }
 
-  /**
-   * Enhance content using AI
-   */
-  private async enhanceContentWithAI(originalContent: string): Promise<string> {
-    try {
-      const enhancedContent = await this.aiService.generateContent({
-        prompt: `Enhance and structure the following study notes into a comprehensive study guide tailored for a Nigerian student. Keep the original meaning but improve clarity, structure, and add missing key details if obvious. Use Markdown formatting.
-        
-Original Notes:
-${originalContent}`,
-        maxTokens: AI_ENHANCEMENT_MAX_TOKENS,
-      });
-
-      return enhancedContent || originalContent;
-    } catch (error) {
-      this.logger.error('Failed to enhance content with AI:', error.stack);
-      return originalContent; // Fallback to original
-    }
-  }
-
-  /**
-   * Generate learning guide asynchronously
-   */
-  private generateLearningGuideAsync(
-    contentId: string,
-    topic: string,
-    content: string
-  ): void {
-    this.aiService
-      .generateLearningGuide({
-        topic,
-        content: content.substring(0, MAX_LEARNING_GUIDE_LENGTH),
-      })
-      .then((learningGuide) => {
-        return this.prisma.content.update({
-          where: { id: contentId },
-          data: { learningGuide },
-        });
-      })
-      .catch((error) => {
-        this.logger.warn(
-          `Failed to generate learning guide for ${contentId}:`,
-          error.message
-        );
-      });
-  }
-
+ 
   /**
    * Normalize content relations (remove nested objects)
    */

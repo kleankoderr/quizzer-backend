@@ -54,6 +54,7 @@ model User {
   topicProgress TopicProgress[]
   fcmTokens     String[]           @default([])
   reports       Report[]
+  userDocuments UserDocument[]
 
   @@map("users")
 }
@@ -451,8 +452,28 @@ model Document {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  userDocuments UserDocument[]
+
   @@index([hash])
   @@map("documents")
+}
+
+model UserDocument {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  displayName String
+  uploadedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, documentId])
+  @@index([userId])
+  @@index([documentId])
+  @@index([uploadedAt])
+  @@map("user_documents")
 }
 
 model PlatformSettings {

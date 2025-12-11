@@ -156,17 +156,7 @@ export class ChallengeService {
       this.logger.warn(
         'No daily challenges found. Triggering fallback generation.'
       );
-      // Logic for fallback generation might go here or be triggered elsewhere
-      // For now, assuming current behavior is sufficient if we just return empty or catch it
     }
-
-    /*
-      Optimized: Instead of ensureCompletionRecords loop, we fetch with completions.
-      If no completion exists, we return it as is (not joined).
-      The frontend handles "joining" or we can auto-join on START.
-      If the business requirement is "auto-join daily challenges", we should do it in bulk.
-      However, for "optimisation", lazy joining is better.
-    */
 
     const result = challenges.map((challenge) => {
       const completion = challenge.completions[0];
@@ -247,7 +237,7 @@ export class ChallengeService {
       throw new NotFoundException('Challenge not found');
     }
 
-    const completion = challenge.completions[0];
+    const completion = challenge?.completions?.[0];
 
     // Transform quiz types for frontend compatibility
     const transformedChallenge = {
@@ -999,24 +989,6 @@ export class ChallengeService {
     return { start, end };
   }
 
-  private async enrichChallengeWithProgress(challenge: any, userId: string) {
-    const completion = await this.prisma.challengeCompletion.findUnique({
-      where: {
-        challengeId_userId: {
-          challengeId: challenge.id,
-          userId,
-        },
-      },
-    });
-
-    return {
-      ...challenge,
-      progress: completion?.progress || 0,
-      completed: completion?.completed || false,
-      participantCount: challenge._count.completions,
-    };
-  }
-
   private async getExistingChallengeTitles(
     type: string,
     start: Date,
@@ -1193,7 +1165,7 @@ export class ChallengeService {
 
         // Determine quiz type and time limit based on difficulty
         let quizType: QuizType;
-        let timeLimit: number | null = null;
+        let timeLimit: number | null;
 
         if (optimalDifficulty === 'easy') {
           // Easy: Standard quiz
@@ -1216,7 +1188,7 @@ export class ChallengeService {
         }
 
         // Determine question types based on difficulty
-        let questionTypes: string[] = [];
+        let questionTypes: string[];
         if (optimalDifficulty === 'easy') {
           // Easy: Only single-select and true/false
           questionTypes = ['single-select', 'true-false'];
@@ -1373,7 +1345,6 @@ export class ChallengeService {
 
   private async calculatePercentile(
     challengeId: string,
-    userId: string,
     score: number
   ): Promise<number> {
     const betterScores = await this.prisma.challengeCompletion.count({

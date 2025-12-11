@@ -8,6 +8,7 @@ import { GenerateQuizDto } from './dto/quiz.dto';
 import { QuizType } from '@prisma/client';
 import { EventFactory } from '../events/events.types';
 import { EVENTS } from '../events/events.constants';
+import { UserDocumentService } from '../user-document/user-document.service';
 
 export interface FileReference {
   originalname: string;
@@ -16,6 +17,7 @@ export interface FileReference {
   googleFileUrl?: string;
   googleFileId?: string;
   mimetype?: string;
+  documentId?: string;
 }
 
 export interface QuizJobData {
@@ -42,7 +44,8 @@ export class QuizProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly eventEmitter: EventEmitter2
+    private readonly eventEmitter: EventEmitter2,
+    private readonly userDocumentService: UserDocumentService
   ) {
     super();
   }
@@ -70,6 +73,11 @@ export class QuizProcessor extends WorkerHost {
         );
       } else {
         await job.updateProgress(20);
+      }
+
+      // Create UserDocument references for uploaded files
+      if (files && files.length > 0) {
+        await this.createUserDocumentReferences(userId, files, jobId);
       }
 
       // Step 2: Generate quiz with AI
@@ -302,5 +310,34 @@ export class QuizProcessor extends WorkerHost {
       EVENTS.QUIZ.PROGRESS,
       EventFactory.quizProgress(userId, jobId, step, percentage)
     );
+  }
+
+  /**
+   * Create UserDocument references for uploaded files
+   */
+  private async createUserDocumentReferences(
+    userId: string,
+    files: FileReference[],
+    jobId: string
+  ): Promise<void> {
+    try {
+      for (const file of files) {
+        if (file.documentId) {
+          await this.userDocumentService.createUserDocument(
+            userId,
+            file.documentId,
+            file.originalname
+          );
+          this.logger.debug(
+            `Job ${jobId}: Created UserDocument reference for ${file.originalname}`
+          );
+        }
+      }
+    } catch (error) {
+      // Log warning but don't fail the job
+      this.logger.warn(
+        `Job ${jobId}: Failed to create UserDocument references: ${error.message}`
+      );
+    }
   }
 }

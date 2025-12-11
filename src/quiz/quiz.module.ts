@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { HttpModule } from '@nestjs/axios';
 import { QuizController } from './quiz.controller';
 import { QuizService } from './quiz.service';
 import { QuizProcessor } from './quiz.processor';
@@ -9,18 +8,23 @@ import { RecommendationModule } from '../recommendation/recommendation.module';
 import { StreakModule } from '../streak/streak.module';
 import { ChallengeModule } from '../challenge/challenge.module';
 import { StudyModule } from '../study/study.module';
+import { FileStorageModule } from '../file-storage/file-storage.module';
+import { UserDocumentModule } from '../user-document/user-document.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [
     BullModule.registerQueue({
       name: 'quiz-generation',
     }),
-    HttpModule,
+    PrismaModule,
     AiModule,
     RecommendationModule,
     StreakModule,
     ChallengeModule,
     StudyModule,
+    FileStorageModule,
+    UserDocumentModule,
   ],
   controllers: [QuizController],
   providers: [QuizService, QuizProcessor],

@@ -53,6 +53,7 @@
     "cookie-parser": "^1.4.7",
     "csrf-csrf": "^4.0.3",
     "google-auth-library": "^10.5.0",
+    "json5": "^2.2.3",
     "langchain": "^1.0.4",
     "mammoth": "^1.11.0",
     "multer": "^2.0.2",
@@ -86,7 +87,6 @@
     "prisma": "^6.19.0",
     "redis": "^5.9.0",
     "ts-jest": "^29.4.5",
-    "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
