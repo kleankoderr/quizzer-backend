@@ -94,41 +94,111 @@ export class StudyPackService {
   }
 
   async findOne(id: string, userId: string) {
-    const cacheKey = `study_packs:${id}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) {
-      // We need to verify ownership even if cached?
-      // If we cache the whole object including userId, we can check.
-      // But typically, cache key should handle security or we verify after.
-      // Since ID is UUID, collision unlikely, but let's be safe.
-      const pack = cached as any;
-      if (pack.userId !== userId) {
-        throw new NotFoundException('Study Pack not found');
-      }
-      return pack;
-    }
+    const cacheKey = `study_packs:${id}:${userId}`;
+    const pack = await this.cacheManager.get(cacheKey);
+    if (pack) return pack;
 
     const studyPack = await this.prisma.studyPack.findUnique({
       where: { id },
-      include: {
-        quizzes: true,
-        flashcardSets: true,
-        contents: true,
-        userDocuments: true,
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        description: true,
+        coverImage: true,
+        createdAt: true,
+        updatedAt: true,
+        quizzes: {
+          select: {
+            id: true,
+            title: true,
+            topic: true,
+            difficulty: true,
+            createdAt: true,
+            updatedAt: true,
+            tags: true,
+            questions: true, // Include JSON field
+          },
+        },
+        flashcardSets: {
+          select: {
+            id: true,
+            title: true,
+            topic: true,
+            createdAt: true,
+            updatedAt: true,
+            cards: true, // Include JSON field
+          },
+        },
+        contents: {
+          select: {
+            id: true,
+            title: true,
+            topic: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        userDocuments: {
+          select: {
+            id: true,
+            displayName: true,
+            uploadedAt: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
     if (!studyPack) {
       throw new NotFoundException('Study Pack not found');
     }
-    // Simple authorization check
+
     if (studyPack.userId !== userId) {
-      // In a real app we might throw ForbiddenException or just NotFound
       throw new NotFoundException('Study Pack not found');
     }
 
-    await this.cacheManager.set(cacheKey, studyPack, 300000); // 5 min
-    return studyPack;
+    // Transform to add _count structure for frontend compatibility
+    const transformedPack = {
+      ...studyPack,
+      quizzes: studyPack.quizzes.map((quiz) => {
+        const questions = Array.isArray(quiz.questions)
+          ? quiz.questions
+          : JSON.parse(quiz.questions as string);
+
+        return {
+          id: quiz.id,
+          title: quiz.title,
+          topic: quiz.topic,
+          difficulty: quiz.difficulty,
+          createdAt: quiz.createdAt,
+          updatedAt: quiz.updatedAt,
+          tags: quiz.tags,
+          _count: {
+            questions: questions.length,
+          },
+        };
+      }),
+      flashcardSets: studyPack.flashcardSets.map((set) => {
+        const cards = Array.isArray(set.cards)
+          ? set.cards
+          : JSON.parse(set.cards as string);
+
+        return {
+          id: set.id,
+          title: set.title,
+          topic: set.topic,
+          createdAt: set.createdAt,
+          updatedAt: set.updatedAt,
+          _count: {
+            cards: cards.length,
+          },
+        };
+      }),
+    };
+
+    await this.cacheManager.set(cacheKey, transformedPack, 300000);
+    return transformedPack;
   }
 
   async update(

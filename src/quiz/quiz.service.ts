@@ -165,6 +165,12 @@ export class QuizService {
         timeLimit: true,
         createdAt: true,
         questions: true,
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
       },
     });
 

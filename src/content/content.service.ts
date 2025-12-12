@@ -176,6 +176,7 @@ export class ContentService {
           updatedAt: true,
           quiz: { select: { id: true } },
           flashcardSet: { select: { id: true } },
+          studyPack: { select: { id: true, title: true } },
         },
         orderBy: {
           createdAt: 'desc',
@@ -201,6 +202,7 @@ export class ContentService {
         updatedAt: item.updatedAt,
         quizId: item.quiz ? item.quiz.id : undefined,
         flashcardSetId: item.flashcardSet ? item.flashcardSet.id : undefined,
+        studyPack: item.studyPack,
       };
     });
 

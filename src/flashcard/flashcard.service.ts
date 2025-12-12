@@ -148,6 +148,12 @@ export class FlashcardService {
         createdAt: true,
         cards: true,
         contentId: true,
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
       },
     });
 
