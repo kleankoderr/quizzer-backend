@@ -55,6 +55,7 @@ model User {
   fcmTokens     String[]           @default([])
   reports       Report[]
   userDocuments UserDocument[]
+  studyPacks    StudyPack[]
 
   @@map("users")
 }
@@ -81,6 +82,10 @@ model Quiz {
   challenges       Challenge[]
   challengeQuizzes ChallengeQuiz[]
   reports          Report[]
+  studyPackId      String?
+  studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
+
+  @@index([studyPackId])
 
   @@index([userId])
   @@index([createdAt])
@@ -102,6 +107,11 @@ model FlashcardSet {
   updatedAt   DateTime @updatedAt
 
   attempts Attempt[]
+
+  studyPackId String?
+  studyPack   StudyPack? @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
+
+  @@index([studyPackId])
 
   @@index([userId])
   @@index([createdAt])
@@ -276,6 +286,10 @@ model Content {
   lastReadPosition Float           @default(0)
   topicProgress    TopicProgress[]
   reports          Report[]
+  studyPackId      String?
+  studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
+
+  @@index([studyPackId])
 
   @@index([userId])
   @@map("contents")
@@ -469,6 +483,10 @@ model UserDocument {
   uploadedAt  DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  studyPackId String?
+  studyPack   StudyPack? @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
+
+  @@index([studyPackId])
 
   @@unique([userId, documentId])
   @@index([userId])
@@ -486,4 +504,23 @@ model PlatformSettings {
   updatedAt         DateTime @updatedAt
 
   @@map("platform_settings")
+}
+
+model StudyPack {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  coverImage  String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quizzes       Quiz[]
+  flashcardSets FlashcardSet[]
+  contents      Content[]
+  userDocuments UserDocument[]
+
+  @@index([userId])
+  @@map("study_packs")
 }

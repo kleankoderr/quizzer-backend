@@ -37,6 +37,7 @@ import { SettingsModule } from './settings/settings.module';
 import { SseModule } from './sse/sse.module';
 import { EventsModule } from './events/events.module';
 import { UserDocumentModule } from './user-document/user-document.module';
+import { StudyPackModule } from './study-pack/study-pack.module';
 
 @Module({
   imports: [
@@ -113,6 +114,7 @@ import { UserDocumentModule } from './user-document/user-document.module';
     SseModule,
     EventsModule,
     UserDocumentModule,
+    StudyPackModule,
   ],
   controllers: [AppController],
   providers: [

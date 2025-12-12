@@ -428,6 +428,8 @@ export class QuizService {
         isCorrect,
         userAnswer,
         correctAnswer: q.correctAnswer,
+        leftColumn: q.leftColumn,
+        rightColumn: q.rightColumn,
       };
     });
 
