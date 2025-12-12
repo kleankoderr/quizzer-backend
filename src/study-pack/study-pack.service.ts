@@ -117,7 +117,7 @@ export class StudyPackService {
             createdAt: true,
             updatedAt: true,
             tags: true,
-            questions: true, // Include JSON field
+            questions: true,
           },
         },
         flashcardSets: {
@@ -127,7 +127,7 @@ export class StudyPackService {
             topic: true,
             createdAt: true,
             updatedAt: true,
-            cards: true, // Include JSON field
+            cards: true,
           },
         },
         contents: {
