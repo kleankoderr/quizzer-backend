@@ -121,6 +121,7 @@ export class FlashcardProcessor extends WorkerHost {
           contentId: dto.contentId,
           sourceType,
           sourceFiles: googleFileUrls.length > 0 ? googleFileUrls : undefined,
+          studyPackId: dto.studyPackId,
         },
       });
 

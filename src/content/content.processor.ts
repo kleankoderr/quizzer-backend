@@ -13,6 +13,7 @@ export interface ContentJobData {
     title?: string;
     topic?: string;
     content?: string;
+    studyPackId?: string;
   };
   files?: Array<{
     originalname: string;
@@ -122,6 +123,7 @@ export class ContentProcessor extends WorkerHost {
           learningGuide,
           userId,
           content: '',
+          studyPackId: dto.studyPackId,
         },
       });
 

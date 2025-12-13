@@ -28,6 +28,10 @@ export class GenerateFlashcardDto {
   @Min(5)
   @Max(100)
   numberOfCards: number;
+
+  @IsOptional()
+  @IsString()
+  studyPackId?: string;
 }
 
 export class CardResponseDto {

@@ -40,6 +40,14 @@ export class CreateContentDto {
   @IsString({ each: true })
   @IsOptional()
   selectedFileIds?: string[];
+
+  @ApiProperty({
+    description: 'ID of the study pack to add this content to',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  studyPackId?: string;
 }
 
 export class CreateHighlightDto {

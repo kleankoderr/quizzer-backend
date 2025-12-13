@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,6 +16,7 @@ import {
 
 @Injectable()
 export class StudyPackService {
+  private readonly logger = new Logger(StudyPackService.name);
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
@@ -33,9 +40,27 @@ export class StudyPackService {
   }
 
   async create(userId: string, createStudyPackDto: CreateStudyPackDto) {
+    const normalizedTitle = createStudyPackDto.title.trim();
+
+    // Check for existing study pack with same title (case-insensitive)
+    const existing = await this.prisma.studyPack.findFirst({
+      where: {
+        userId,
+        title: {
+          equals: normalizedTitle,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('Study pack already exists');
+    }
+
     const created = await this.prisma.studyPack.create({
       data: {
         ...createStudyPackDto,
+        title: normalizedTitle,
         userId,
       },
     });
@@ -214,7 +239,7 @@ export class StudyPackService {
       data: updateStudyPackDto,
     });
 
-    await this.cacheManager.del(`study_packs:${id}`);
+    await this.cacheManager.del(`study_packs:${id}:${userId}`);
     await this.incrementListVersion(userId);
 
     return updated;
@@ -227,7 +252,7 @@ export class StudyPackService {
       where: { id },
     });
 
-    await this.cacheManager.del(`study_packs:${id}`);
+    await this.cacheManager.del(`study_packs:${id}:${userId}`);
     await this.incrementListVersion(userId);
 
     return deleted;
@@ -242,7 +267,39 @@ export class StudyPackService {
     // We should also verify the item belongs to the user, but for now assuming valid IDs from frontend + backend ownership checks in those services would be better.
     // However, Prisma updateMany with userId clause is safe.
 
-    let result;
+    // Find previous study pack ID to invalidate it
+    let previousStudyPackId: string | null = null;
+    try {
+      if (type === 'quiz') {
+        const item = await this.prisma.quiz.findUnique({
+          where: { id: itemId },
+          select: { studyPackId: true },
+        });
+        previousStudyPackId = item?.studyPackId;
+      } else if (type === 'flashcard') {
+        const item = await this.prisma.flashcardSet.findUnique({
+          where: { id: itemId },
+          select: { studyPackId: true },
+        });
+        previousStudyPackId = item?.studyPackId;
+      } else if (type === 'content') {
+        const item = await this.prisma.content.findUnique({
+          where: { id: itemId },
+          select: { studyPackId: true },
+        });
+        previousStudyPackId = item?.studyPackId;
+      } else if (type === 'file') {
+        const item = await this.prisma.userDocument.findUnique({
+          where: { id: itemId },
+          select: { studyPackId: true },
+        });
+        previousStudyPackId = item?.studyPackId;
+      }
+    } catch (e) {
+      this.logger.error(e.message);
+    }
+
+    let result: { count: number };
     switch (type) {
       case 'quiz':
         result = await this.prisma.quiz.updateMany({
@@ -272,7 +329,22 @@ export class StudyPackService {
         throw new Error('Invalid item type');
     }
 
-    await this.cacheManager.del(`study_packs:${id}`);
+    await this.cacheManager.del(`study_packs:${id}:${userId}`);
+    if (previousStudyPackId && previousStudyPackId !== id) {
+      await this.cacheManager.del(
+        `study_packs:${previousStudyPackId}:${userId}`
+      );
+    }
+
+    // Invalidate the specific entity list cache
+    if (type === 'quiz') {
+      await this.cacheManager.del(`quizzes:all:${userId}`);
+    } else if (type === 'flashcard') {
+      await this.cacheManager.del(`flashcards:all:${userId}`);
+    } else if (type === 'content') {
+      await this.cacheManager.del(`content:all:${userId}`);
+    }
+
     await this.incrementListVersion(userId);
 
     return result;
@@ -314,7 +386,17 @@ export class StudyPackService {
         throw new Error('Invalid item type');
     }
 
-    await this.cacheManager.del(`study_packs:${id}`);
+    await this.cacheManager.del(`study_packs:${id}:${userId}`);
+
+    // Invalidate the specific entity list cache
+    if (type === 'quiz') {
+      await this.cacheManager.del(`quizzes:all:${userId}`);
+    } else if (type === 'flashcard') {
+      await this.cacheManager.del(`flashcards:all:${userId}`);
+    } else if (type === 'content') {
+      await this.cacheManager.del(`content:all:${userId}`);
+    }
+
     await this.incrementListVersion(userId);
 
     return result;

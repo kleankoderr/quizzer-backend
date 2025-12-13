@@ -238,6 +238,7 @@ export class QuizProcessor extends WorkerHost {
         sourceType,
         sourceFiles,
         contentId,
+        studyPackId: dto.studyPackId,
       },
     });
   }

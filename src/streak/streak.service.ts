@@ -13,22 +13,18 @@ export class StreakService {
       return null;
     }
 
-    let streak = await this.prisma.streak.findUnique({
+    const streak = await this.prisma.streak.upsert({
       where: { userId },
+      create: {
+        userId,
+        currentStreak: 0,
+        longestStreak: 0,
+        lastActivityDate: new Date(),
+        totalXP: 0,
+        level: 1,
+      },
+      update: {},
     });
-
-    if (!streak) {
-      streak = await this.prisma.streak.create({
-        data: {
-          userId,
-          currentStreak: 0,
-          longestStreak: 0,
-          lastActivityDate: new Date(),
-          totalXP: 0,
-          level: 1,
-        },
-      });
-    }
 
     return this.enrichStreakData(streak);
   }
@@ -47,18 +43,28 @@ export class StreakService {
     });
 
     if (!streak) {
-      streak = await this.prisma.streak.create({
-        data: {
-          userId,
-          currentStreak: 1,
-          longestStreak: 1,
-          lastActivityDate: new Date(),
-          totalXP: 0,
-          level: 1,
-        },
-      });
-      this.logger.log(`New streak started for user ${userId}`);
-      return this.enrichStreakData(streak);
+      try {
+        streak = await this.prisma.streak.create({
+          data: {
+            userId,
+            currentStreak: 1,
+            longestStreak: 1,
+            lastActivityDate: new Date(),
+            totalXP: 0,
+            level: 1,
+          },
+        });
+        this.logger.log(`New streak started for user ${userId}`);
+        return this.enrichStreakData(streak);
+      } catch (error) {
+        if (error.code === 'P2002') {
+          // Race condition: Streak created by another request. Fetch it and proceed to update.
+          streak = await this.prisma.streak.findUnique({ where: { userId } });
+          if (!streak) throw error; // Should not happen
+        } else {
+          throw error;
+        }
+      }
     }
 
     const lastActivity = new Date(streak.lastActivityDate);

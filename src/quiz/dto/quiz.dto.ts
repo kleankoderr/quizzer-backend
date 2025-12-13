@@ -57,6 +57,10 @@ export class GenerateQuizDto {
     { each: true }
   )
   questionTypes?: QuestionType[];
+
+  @IsOptional()
+  @IsString()
+  studyPackId?: string;
 }
 
 export class SubmitQuizDto {
