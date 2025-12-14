@@ -161,7 +161,7 @@ Requirements:
 4. **Content Quality**:
     - "description": A short, insightful summary of what the learner will gain.
     - "sections": Break down the topic into logical learning modules.
-    - "content": Clear, explanatory text with Markdown support (bolding, lists, code blocks).
+    - "content": Clear, explanatory text with Markdown support. IMPORTANT: Use triple backticks (\`\`\`language) for code blocks and single backticks (\`) for inline code variables or references.
     - "example": ONE strong, concrete example per section.
     - "assessment": ONE thought-provoking question or small task to check understanding per section.
 
@@ -176,7 +176,12 @@ Return ONLY a valid JSON object in this exact format (no markdown, no code block
         "title": "Module/Section Title",
         "content": "Clear explanatory content (markdown allowed)",
         "example": "A strong, relevant example",
-        "assessment": "A quick knowledge check question"
+        "knowledgeCheck": {
+          "question": "Multiple choice question text",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "answer": "Correct Option Text",
+          "explanation": "Why this answer is correct"
+        }
       }
     ]
   }
@@ -215,6 +220,7 @@ Requirements:
    - Use > blockquotes for important takeaways or analogies.
 4. Break down complex ideas into digestible parts.
 5. Use a powerful analogy if it helps clarify the concept. Nigerian context can be used if it simplifies the explanation, but avoid forced connections.
+6. **Code Formatting**: If explaining code or technical concepts, ALWAYS use triple backticks (\`\`\`language) for code blocks and single backticks (\`) for inline references (e.g., variable names, functions).
 
 Return the explanation in valid Markdown format.
 `;
@@ -236,6 +242,7 @@ Requirements:
    - Use lists to explain the breakdown of the example.
 4. Explain *why* each example fits the concept.
 5. Relate it to real-world scenarios. You may include examples relevant to Nigeria (e.g., local markets) if they fit naturally, but ensure a mix of contexts.
+6. **Code Formatting**: If explaining code or technical concepts, ALWAYS use triple backticks (\`\`\`language) for code blocks and single backticks (\`) for inline references.
 
 Return the examples in valid Markdown format.
 `;

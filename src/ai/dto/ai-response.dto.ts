@@ -70,6 +70,12 @@ export interface LearningGuideSectionDto {
   content: string;
   example?: string;
   assessment?: string;
+  knowledgeCheck?: {
+    question: string;
+    options: string[];
+    answer: string;
+    explanation: string;
+  };
 }
 
 /**
