@@ -8,7 +8,6 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
-  BadRequestException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -58,25 +57,6 @@ export class FlashcardController {
     @Body() dto: GenerateFlashcardDto,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
-    if (!dto.topic && !dto.content && (!files || files.length === 0)) {
-      throw new BadRequestException(
-        'Please provide either a topic, content, or upload files to generate flashcards'
-      );
-    }
-
-    if (!dto.numberOfCards) {
-      throw new BadRequestException('numberOfCards is required');
-    }
-
-    const numberOfCards = Number(dto.numberOfCards);
-    if (isNaN(numberOfCards) || numberOfCards < 5 || numberOfCards > 100) {
-      throw new BadRequestException(
-        'numberOfCards must be a number between 5 and 100'
-      );
-    }
-
-    dto.numberOfCards = numberOfCards;
-
     return this.flashcardService.generateFlashcards(userId, dto, files);
   }
 

@@ -49,6 +49,8 @@ export class AdminService {
       totalFlashcards,
       totalAttempts,
       totalContents,
+      totalStudyPacks,
+      totalDocuments,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { isActive: true } }),
@@ -56,6 +58,8 @@ export class AdminService {
       this.prisma.flashcardSet.count(),
       this.prisma.attempt.count(),
       this.prisma.content.count(),
+      this.prisma.studyPack.count(),
+      this.prisma.document.count(),
     ]);
 
     // Get recent activity (last 7 days)
@@ -80,6 +84,8 @@ export class AdminService {
         quizzes: totalQuizzes,
         flashcards: totalFlashcards,
         studyMaterials: totalContents,
+        studyPacks: totalStudyPacks,
+        documents: totalDocuments,
       },
       engagement: {
         totalAttempts: totalAttempts,

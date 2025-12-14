@@ -20,10 +20,12 @@ import {
   FILE_STORAGE_SERVICE,
 } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
-import { processFileUploads } from '../common/helpers/file-upload.helpers';
+import {
+  processFileUploads,
+  ProcessedDocument,
+} from '../common/helpers/file-upload.helpers';
+import { UserDocumentService } from '../user-document/user-document.service';
 
-const FLASHCARD_MIN_CARDS = 5;
-const FLASHCARD_MAX_CARDS = 100;
 const CACHE_TTL_MS = 300000; // 5 minutes
 
 @Injectable()
@@ -43,7 +45,8 @@ export class FlashcardService {
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
-    private readonly documentHashService: DocumentHashService
+    private readonly documentHashService: DocumentHashService,
+    private readonly userDocumentService: UserDocumentService
   ) {}
 
   /**
@@ -60,13 +63,18 @@ export class FlashcardService {
       `User ${userId} requesting ${dto.numberOfCards} flashcard(s)`
     );
 
-    const processedFiles = await this.processUploadedFiles(userId, files);
+    const [processedFiles, selectedFiles] = await Promise.all([
+      this.processUploadedFiles(userId, files),
+      this.fetchSelectedFiles(userId, dto.selectedFileIds),
+    ]);
+
+    const allFiles = [...processedFiles, ...selectedFiles];
 
     try {
       const job = await this.flashcardQueue.add('generate', {
         userId,
         dto,
-        files: processedFiles.map((doc) => ({
+        files: allFiles.map((doc) => ({
           originalname: doc.originalName,
           cloudinaryUrl: doc.cloudinaryUrl,
           cloudinaryId: doc.cloudinaryId,
@@ -328,20 +336,14 @@ export class FlashcardService {
     files?: Express.Multer.File[]
   ): void {
     // Validate input sources
-    if (!dto.topic && !dto.content && (!files || files.length === 0)) {
-      throw new BadRequestException(
-        'Please provide either a topic, content, or upload files to generate flashcards'
-      );
-    }
-
-    // Validate number of cards
     if (
-      !dto.numberOfCards ||
-      dto.numberOfCards < FLASHCARD_MIN_CARDS ||
-      dto.numberOfCards > FLASHCARD_MAX_CARDS
+      !dto.topic &&
+      !dto.content &&
+      (!files || files.length === 0) &&
+      (!dto.selectedFileIds || dto.selectedFileIds.length === 0)
     ) {
       throw new BadRequestException(
-        `Number of cards must be between ${FLASHCARD_MIN_CARDS} and ${FLASHCARD_MAX_CARDS}`
+        'Please provide either a topic, content, or upload files to generate flashcards'
       );
     }
   }
@@ -542,5 +544,47 @@ export class FlashcardService {
           err.stack
         )
       );
+  }
+
+  /**
+   * Fetch selected files from UserDocuments
+   */
+  private async fetchSelectedFiles(
+    userId: string,
+    selectedFileIds?: string[]
+  ): Promise<ProcessedDocument[]> {
+    if (!selectedFileIds || selectedFileIds.length === 0) {
+      return [];
+    }
+
+    this.logger.log(
+      `Fetching ${selectedFileIds.length} selected file(s) for user ${userId}`
+    );
+
+    try {
+      // Use efficient batch fetch
+      const userDocs = await this.userDocumentService.getUserDocumentsByIds(
+        userId,
+        selectedFileIds
+      );
+
+      this.logger.debug(`Successfully fetched ${userDocs.length} documents`);
+
+      return userDocs.map((userDoc: any) => ({
+        originalName: userDoc.displayName,
+        cloudinaryUrl: userDoc.document.cloudinaryUrl,
+        cloudinaryId: userDoc.document.id, // Use document ID as fallback/identifier
+        googleFileUrl: userDoc.document.googleFileUrl || undefined,
+        googleFileId: userDoc.document.googleFileId,
+        hash: '', // Not needed for existing files
+        isDuplicate: true, // Mark as duplicate since it's already uploaded
+        documentId: userDoc.document.id,
+      }));
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch selected files for user ${userId}: ${error.message}`
+      );
+      return [];
+    }
   }
 }

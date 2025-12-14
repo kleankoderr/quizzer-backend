@@ -44,6 +44,11 @@ export class GenerateQuizDto {
   quizType?: QuizType;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedFileIds?: string[];
+
+  @IsOptional()
   @Transform(({ value }) => Number.parseInt(value, 10))
   @IsInt()
   @Min(60)

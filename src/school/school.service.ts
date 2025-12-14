@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class SchoolService {
+  private readonly logger = new Logger(SchoolService.name);
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
@@ -71,8 +72,7 @@ export class SchoolService {
         // Sort combined results
         results.sort((a, b) => a.name.localeCompare(b.name));
         results = results.slice(0, 10); // Limit total to 10
-      } catch (error) {
-        console.error('Failed to fetch from external school API:', error);
+      } catch (_error) {
         // Continue with local results if external fails
       }
     }
@@ -124,7 +124,7 @@ export class SchoolService {
         }
       }
     } catch (error) {
-      console.error('Failed to invalidate school cache:', error);
+      this.logger.error('Failed to invalidate school cache:', error);
     }
   }
 }

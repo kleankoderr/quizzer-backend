@@ -28,7 +28,7 @@ export class UserDocumentService {
   private sanitizeDisplayName(filename: string): string {
     // Replace special characters (except dots for file extensions) with underscores
     // Keep alphanumeric, dots, and replace everything else with underscore
-    return filename.replace(/[^a-zA-Z0-9.]+/g, '_');
+    return filename.replaceAll(/[^a-zA-Z0-9.]+/g, '_');
   }
 
   /**

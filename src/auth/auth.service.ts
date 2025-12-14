@@ -14,7 +14,7 @@ import axios from 'axios';
 
 @Injectable()
 export class AuthService {
-  private client: OAuth2Client;
+  private readonly client: OAuth2Client;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -121,11 +121,7 @@ export class AuthService {
           name = userInfo.name;
           picture = userInfo.picture;
           uid = userInfo.sub;
-        } catch (error) {
-          console.error(
-            'Failed to fetch user info with access token:',
-            error.response?.data || error.message
-          );
+        } catch (_error) {
           throw new UnauthorizedException('Invalid Google access token');
         }
       }
@@ -169,8 +165,7 @@ export class AuthService {
       }
 
       return this.generateAuthResponse(user);
-    } catch (error) {
-      console.error('Google login error:', error);
+    } catch (_error) {
       throw new UnauthorizedException('Invalid Google token');
     }
   }

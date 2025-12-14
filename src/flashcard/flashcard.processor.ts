@@ -144,9 +144,15 @@ export class FlashcardProcessor extends WorkerHost {
 
       this.eventEmitter.emit(
         EVENTS.FLASHCARD.COMPLETED,
-        EventFactory.flashcardCompleted(userId, flashcardSet.id, cards.length, {
-          title: flashcardSet.title,
-        })
+        EventFactory.flashcardCompleted(
+          userId,
+          jobId,
+          flashcardSet.id,
+          cards.length,
+          {
+            title: flashcardSet.title,
+          }
+        )
       );
 
       return {

@@ -32,6 +32,11 @@ export class GenerateFlashcardDto {
   @IsOptional()
   @IsString()
   studyPackId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedFileIds?: string[];
 }
 
 export class CardResponseDto {

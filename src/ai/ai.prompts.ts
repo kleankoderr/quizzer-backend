@@ -120,7 +120,7 @@ Return ONLY a valid JSON object in this exact format (no markdown, no code block
 
   static generateRecommendations(weakTopics: string[], recentAttempts: any[]) {
     return `
-Analyze the following user learning data and generate 3-5 personalized study recommendations:
+Analyze the following user learning data and generate exactly 1 prioritized, personalized study recommendation:
 
 Weak Topics: ${JSON.stringify(weakTopics)}
 Recent Performance: ${JSON.stringify(recentAttempts.slice(0, 10))}

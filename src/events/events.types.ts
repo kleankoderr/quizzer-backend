@@ -53,6 +53,7 @@ export interface FlashcardProgressEvent extends ProgressEvent {
 export interface FlashcardCompletedEvent extends CompletionEvent {
   eventType: typeof EVENTS.FLASHCARD.COMPLETED;
   resourceType: 'flashcard-set';
+  jobId: string;
   flashcardSetId: string;
   cardCount: number;
 }
@@ -238,12 +239,14 @@ export const EventFactory = {
 
   flashcardCompleted: (
     userId: string,
+    jobId: string,
     flashcardSetId: string,
     cardCount: number,
     metadata?: Record<string, any>
   ): FlashcardCompletedEvent => ({
     eventType: EVENTS.FLASHCARD.COMPLETED,
     userId,
+    jobId,
     resourceId: flashcardSetId,
     resourceType: 'flashcard-set',
     flashcardSetId,

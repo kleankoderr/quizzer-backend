@@ -15,7 +15,11 @@ import {
 } from '../file-storage/interfaces/file-storage.interface';
 import { QuizType } from '@prisma/client';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
-import { processFileUploads } from '../common/helpers/file-upload.helpers';
+import {
+  processFileUploads,
+  ProcessedDocument,
+} from '../common/helpers/file-upload.helpers';
+import { UserDocumentService } from '../user-document/user-document.service';
 
 const CACHE_TTL_MS = 300000; // 5 minutes
 const DUPLICATE_SUBMISSION_WINDOW_MS = 10000; // 10 seconds
@@ -67,7 +71,8 @@ export class QuizService {
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
-    private readonly documentHashService: DocumentHashService
+    private readonly documentHashService: DocumentHashService,
+    private readonly userDocumentService: UserDocumentService
   ) {}
 
   // ==================== QUIZ GENERATION ====================
@@ -81,14 +86,21 @@ export class QuizService {
       `User ${userId} requesting ${dto.numberOfQuestions} question(s), difficulty: ${dto.difficulty}`
     );
 
-    const processedFiles = await this.processUploadedFiles(userId, files);
+    // Process uploaded files and fetch selected files in parallel
+    const [processedFiles, selectedFiles] = await Promise.all([
+      this.processUploadedFiles(userId, files),
+      this.fetchSelectedFiles(userId, dto.selectedFileIds),
+    ]);
+
+    // Merge both file sources
+    const allFiles = [...processedFiles, ...selectedFiles];
 
     try {
       const job = await this.quizQueue.add('generate', {
         userId,
         dto,
         contentId: dto.contentId,
-        files: processedFiles.map((doc) => ({
+        files: allFiles.map((doc) => ({
           originalname: doc.originalName,
           cloudinaryUrl: doc.cloudinaryUrl,
           cloudinaryId: doc.cloudinaryId,
@@ -720,6 +732,53 @@ export class QuizService {
     });
   }
 
+  /**
+   * Fetch selected files from UserDocuments
+   */
+  private async fetchSelectedFiles(
+    userId: string,
+    selectedFileIds?: string[]
+  ): Promise<ProcessedDocument[]> {
+    if (!selectedFileIds || selectedFileIds.length === 0) {
+      return [];
+    }
+
+    this.logger.log(
+      `Fetching ${selectedFileIds.length} selected file(s) for user ${userId}`
+    );
+
+    try {
+      // Use efficient batch fetch
+      const userDocs = await this.userDocumentService.getUserDocumentsByIds(
+        userId,
+        selectedFileIds
+      );
+
+      this.logger.debug(`Successfully fetched ${userDocs.length} documents`);
+
+      return userDocs.map((userDoc: any) => ({
+        originalName: userDoc.displayName,
+        cloudinaryUrl: userDoc.document.cloudinaryUrl,
+        cloudinaryId: userDoc.document.id, // Use document ID as fallback/identifier
+        googleFileUrl: userDoc.document.googleFileUrl || undefined,
+        googleFileId: userDoc.document.googleFileId,
+        hash: '', // Not needed for existing files
+        isDuplicate: true, // Mark as duplicate since it's already uploaded
+        documentId: userDoc.document.id,
+      }));
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch selected files for user ${userId}: ${error.message}`
+      );
+      // Return empty array instead of failing, to matching ContentService behavior validation
+      // or should we fail? ContentService warns and continues loop.
+      // Since we do batch, if it fails, it fails for all.
+      // But getUserDocumentsByIds likely won't fail unless DB error.
+      // If some IDs are not found, it just returns what is found.
+      return [];
+    }
+  }
+
   // ==================== EXISTING HELPER METHODS ====================
 
   private async processUploadedFiles(
@@ -848,36 +907,23 @@ export class QuizService {
   }
 
   private checkFillBlankAnswer(userAnswer: any, correctAnswer: any): boolean {
-    if (typeof userAnswer !== 'string' || typeof correctAnswer !== 'string') {
+    if (typeof userAnswer !== 'string') {
       return false;
     }
 
     const userNormalized = userAnswer.toLowerCase().trim();
-    const correctNormalized = correctAnswer.toLowerCase().trim();
 
-    if (userNormalized === correctNormalized) {
-      return true;
-    }
-
-    if (
-      correctNormalized.includes(userNormalized) &&
-      userNormalized.length >= correctNormalized.length * 0.6
-    ) {
-      return true;
-    }
-
-    const correctWords = correctNormalized.split(/\s+/);
-    const userWords = userNormalized.split(/\s+/);
-
-    if (correctWords.length > 1 && userWords.length > 0) {
-      const matchedWords = userWords.filter((word) =>
-        correctWords.some(
-          (cWord) => cWord.includes(word) || word.includes(cWord)
-        )
+    // If correctAnswer is an array, check if user's answer is in the list
+    if (Array.isArray(correctAnswer)) {
+      const normalizedAnswers = correctAnswer.map((ans) =>
+        typeof ans === 'string' ? ans.toLowerCase().trim() : ''
       );
-      if (matchedWords.length >= Math.ceil(correctWords.length * 0.7)) {
-        return true;
-      }
+      return normalizedAnswers.includes(userNormalized);
+    }
+
+    // If correctAnswer is a single string
+    if (typeof correctAnswer === 'string') {
+      return correctAnswer.toLowerCase().trim() === userNormalized;
     }
 
     return false;

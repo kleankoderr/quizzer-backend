@@ -23,7 +23,12 @@ export interface QuizQuestionDto {
     | 'fill-blank';
   question: string;
   options?: string[];
-  correctAnswer: number | number[] | string | { [key: string]: string };
+  correctAnswer:
+    | number
+    | number[]
+    | string
+    | string[]
+    | { [key: string]: string };
   explanation?: string;
   leftColumn?: string[];
   rightColumn?: string[];

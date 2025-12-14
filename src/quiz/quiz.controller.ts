@@ -55,9 +55,14 @@ export class QuizController {
     @Body() dto: GenerateQuizDto,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
-    if (!dto.topic && !dto.content && (!files || files.length === 0)) {
+    if (
+      !dto.topic &&
+      !dto.content &&
+      (!files || files.length === 0) &&
+      (!dto.selectedFileIds || dto.selectedFileIds.length === 0)
+    ) {
       throw new BadRequestException(
-        'Please provide either a topic, content, or upload files'
+        'Please provide either a topic, content, uploaded files, or select existing files'
       );
     }
 

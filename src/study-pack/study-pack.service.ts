@@ -99,7 +99,7 @@ export class StudyPackService {
             },
           },
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { title: 'asc' },
       }),
       this.prisma.studyPack.count({ where: { userId } }),
     ]);
@@ -259,38 +259,32 @@ export class StudyPackService {
   }
 
   async moveItem(id: string, userId: string, moveItemDto: MoveItemDto) {
-    // Verify target study pack exists and belongs to user
-    await this.findOne(id, userId);
-
     const { type, itemId } = moveItemDto;
-
-    // We should also verify the item belongs to the user, but for now assuming valid IDs from frontend + backend ownership checks in those services would be better.
-    // However, Prisma updateMany with userId clause is safe.
 
     // Find previous study pack ID to invalidate it
     let previousStudyPackId: string | null = null;
     try {
       if (type === 'quiz') {
         const item = await this.prisma.quiz.findUnique({
-          where: { id: itemId },
+          where: { id: itemId, userId },
           select: { studyPackId: true },
         });
         previousStudyPackId = item?.studyPackId;
       } else if (type === 'flashcard') {
         const item = await this.prisma.flashcardSet.findUnique({
-          where: { id: itemId },
+          where: { id: itemId, userId },
           select: { studyPackId: true },
         });
         previousStudyPackId = item?.studyPackId;
       } else if (type === 'content') {
         const item = await this.prisma.content.findUnique({
-          where: { id: itemId },
+          where: { id: itemId, userId },
           select: { studyPackId: true },
         });
         previousStudyPackId = item?.studyPackId;
       } else if (type === 'file') {
         const item = await this.prisma.userDocument.findUnique({
-          where: { id: itemId },
+          where: { id: itemId, userId },
           select: { studyPackId: true },
         });
         previousStudyPackId = item?.studyPackId;

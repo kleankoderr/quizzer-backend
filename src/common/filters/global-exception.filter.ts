@@ -30,7 +30,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message:
         exception instanceof HttpException
           ? exception.message
-          : 'Internal server error',
+          : 'Something went wrong. Please try again.',
     };
 
     if (httpStatus >= 500) {

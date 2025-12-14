@@ -23,7 +23,12 @@ export interface QuizQuestion {
     | 'fill-blank';
   question: string;
   options?: string[];
-  correctAnswer: number | number[] | string | { [key: string]: string };
+  correctAnswer:
+    | number
+    | number[]
+    | string
+    | string[]
+    | { [key: string]: string };
   explanation?: string;
   leftColumn?: string[];
   rightColumn?: string[];
@@ -738,7 +743,7 @@ export class AiService {
     }
     if (questionTypes.includes('multi-select')) {
       instructions.push(
-        '- Multi-select: Multiple choice with multiple correct answers (4-6 options)'
+        '- Multi-select: Multiple choice with multiple correct answers (4 options)'
       );
     }
     if (questionTypes.includes('matching')) {
@@ -748,7 +753,7 @@ export class AiService {
     }
     if (questionTypes.includes('fill-blank')) {
       instructions.push(
-        '- Fill-in-the-blank: Complete the sentence or phrase with the correct answer'
+        '- Fill-in-the-blank: Complete the sentence or phrase with the correct answer. Provide multiple correct answers as an array if applicable.'
       );
     }
 

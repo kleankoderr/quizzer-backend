@@ -123,7 +123,7 @@ export class RecommendationService {
     // Find topics with average score < 70%
     for (const [topic, stats] of topicScores.entries()) {
       const average = stats.total / stats.count;
-      if (average < 70) {
+      if (average < 75) {
         weakTopics.push(topic);
       }
     }
@@ -132,9 +132,27 @@ export class RecommendationService {
       this.logger.debug(
         `Found ${weakTopics.length} weak topics for user ${userId}: ${weakTopics.join(', ')}`
       );
+
+      // Check if latest attempt was successful (>= 75%)
+      const latestAttempt = attempts[0];
+      if (
+        latestAttempt &&
+        latestAttempt.score != null &&
+        latestAttempt.totalQuestions
+      ) {
+        const latestPercentage =
+          (latestAttempt.score / latestAttempt.totalQuestions) * 100;
+        if (latestPercentage >= 75) {
+          this.logger.debug(
+            `Latest attempt score (${latestPercentage}%) is good (>= 75%). Skipping new recommendations.`
+          );
+          return [];
+        }
+      }
+
       this.logger.debug(`Calling AI service to generate recommendations`);
       const recommendations = await this.aiService.generateRecommendations({
-        weakTopics,
+        weakTopics: weakTopics.slice(0, 1), // Focus on the most critical weak topic
         recentAttempts: attempts.map((a) => ({
           topic: a.quiz?.topic,
           score: a.score,
@@ -142,12 +160,15 @@ export class RecommendationService {
         })),
       });
 
+      // Limit to 1 recommendation as requested
+      const singleRecommendation = recommendations.slice(0, 1);
+
       // Save recommendations to database
       this.logger.debug(
-        `Saving ${recommendations.length} recommendations to database`
+        `Saving ${singleRecommendation.length} recommendation(s) to database`
       );
       await Promise.all(
-        recommendations.map((rec) =>
+        singleRecommendation.map((rec) =>
           this.prisma.recommendation.upsert({
             where: {
               userId_topic: {
@@ -173,9 +194,9 @@ export class RecommendationService {
       await this.cacheManager.del(`recommendations:${userId}`);
 
       this.logger.log(
-        `Successfully generated and stored ${recommendations.length} recommendations for user ${userId}`
+        `Successfully generated and stored ${singleRecommendation.length} recommendations for user ${userId}`
       );
-      return recommendations;
+      return singleRecommendation;
     } catch (error) {
       this.logger.error(
         `Error generating recommendations for user ${userId}:`,
