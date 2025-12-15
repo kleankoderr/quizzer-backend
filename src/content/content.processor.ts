@@ -46,7 +46,6 @@ export class ContentProcessor extends WorkerHost {
     );
 
     try {
-      this.emitProgress(userId, jobId, 'Starting content generation...', 10);
       await job.updateProgress(10);
 
       // Validate input - at least one of topic, content, or files must be provided
@@ -68,12 +67,6 @@ export class ContentProcessor extends WorkerHost {
       );
 
       if (fileReferences.length > 0) {
-        this.emitProgress(
-          userId,
-          jobId,
-          `Processing ${fileReferences.length} file(s)...`,
-          20
-        );
       }
 
       await job.updateProgress(20);
@@ -86,21 +79,9 @@ export class ContentProcessor extends WorkerHost {
       this.logger.log(
         `Job ${jobId}: Generating content for topic: "${dto.topic || 'from files/text'}"`
       );
-      this.emitProgress(
-        userId,
-        jobId,
-        `Analyzing content and preparing sections...`,
-        30
-      );
       await job.updateProgress(30);
 
       // Use the unified single-call generation strategy
-      this.emitProgress(
-        userId,
-        jobId,
-        'Generating comprehensive learning guide...',
-        60
-      );
       await job.updateProgress(60);
 
       const result = await this.aiService.generateLearningGuideFromInputs(
@@ -112,7 +93,6 @@ export class ContentProcessor extends WorkerHost {
       // Extract generated data from the unified response
       const { title, topic, description, learningGuide } = result;
 
-      this.emitProgress(userId, jobId, 'Finalizing and saving...', 80);
       await job.updateProgress(80);
 
       const content = await this.prisma.content.create({

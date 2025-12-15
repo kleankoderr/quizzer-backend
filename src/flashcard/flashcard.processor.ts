@@ -49,7 +49,6 @@ export class FlashcardProcessor extends WorkerHost {
     );
 
     try {
-      this.emitProgress(userId, jobId, 'Starting flashcard generation...', 10);
       await job.updateProgress(10);
 
       // Prepare file references for AI service
@@ -66,12 +65,6 @@ export class FlashcardProcessor extends WorkerHost {
         `Job ${jobId}: Using ${fileReferences.length} pre-uploaded file(s)`
       );
 
-      this.emitProgress(
-        userId,
-        jobId,
-        `Processing ${fileReferences.length} file(s)...`,
-        20
-      );
       await job.updateProgress(20);
 
       // Create UserDocument references for uploaded files
@@ -83,12 +76,6 @@ export class FlashcardProcessor extends WorkerHost {
       this.logger.log(
         `Job ${jobId}: Generating flashcards with topic: "${dto.topic || 'N/A'}"`
       );
-      this.emitProgress(
-        userId,
-        jobId,
-        `Generating content.. This might take a moment.`,
-        40
-      );
 
       const { cards, title, topic } = await this.aiService.generateFlashcards({
         topic: dto.topic,
@@ -98,7 +85,6 @@ export class FlashcardProcessor extends WorkerHost {
       });
 
       this.logger.log(`Job ${jobId}: Generated ${cards.length} flashcard(s)`);
-      this.emitProgress(userId, jobId, 'Finalizing and saving...', 85);
       await job.updateProgress(70);
 
       // Determine source type for analytics

@@ -27,15 +27,11 @@ export interface QuizJobData {
   files?: FileReference[];
 }
 
-// ==================== CONSTANTS ====================
-
 const QUIZ_TYPE_MAP: Record<string, QuizType> = {
   standard: QuizType.STANDARD,
   timed: QuizType.TIMED_TEST,
   scenario: QuizType.SCENARIO_BASED,
 };
-
-// ==================== PROCESSOR ====================
 
 @Processor('quiz-generation')
 export class QuizProcessor extends WorkerHost {
@@ -60,17 +56,9 @@ export class QuizProcessor extends WorkerHost {
 
     try {
       // Step 1: Initialize and prepare
-      await this.emitProgress(userId, jobId, 'Starting quiz generation...', 10);
-
       const fileReferences = this.prepareFileReferences(files);
 
       if (fileReferences.length > 0) {
-        await this.emitProgress(
-          userId,
-          jobId,
-          `Processing ${fileReferences.length} file(s)...`,
-          20
-        );
       } else {
         await job.updateProgress(20);
       }
@@ -81,13 +69,6 @@ export class QuizProcessor extends WorkerHost {
       }
 
       // Step 2: Generate quiz with AI
-      await this.emitProgress(
-        userId,
-        jobId,
-        'Generating questions... This might take a moment.',
-        40
-      );
-
       const { questions, title, topic } = await this.generateQuizWithAI(
         dto,
         fileReferences
@@ -98,8 +79,6 @@ export class QuizProcessor extends WorkerHost {
       this.logger.log(
         `Job ${jobId}: Generated ${shuffledQuestions.length} question(s)`
       );
-
-      await this.emitProgress(userId, jobId, 'Finalizing and saving...', 70);
 
       const quiz = await this.saveQuiz(
         userId,

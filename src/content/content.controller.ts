@@ -93,6 +93,17 @@ export class ContentController {
     return this.contentService.generate(userId, dto, files);
   }
 
+  @Get('status/:jobId')
+  @ApiOperation({ summary: 'Check content generation job status' })
+  @ApiResponse({ status: 200, description: 'Job status' })
+  @ApiResponse({ status: 404, description: 'Job not found' })
+  async getJobStatus(
+    @Param('jobId') jobId: string,
+    @CurrentUser('sub') userId: string
+  ) {
+    return this.contentService.getJobStatus(jobId, userId);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all content for user' })
   @ApiQuery({ name: 'topic', required: false, description: 'Filter by topic' })
