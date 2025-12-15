@@ -7,80 +7,176 @@ export class AiPrompts {
     questionTypeInstructions: string,
     sourceContent: string = ''
   ) {
-    return `
-You are an expert quiz generator. Generate ${numberOfQuestions} questions based on the following:
+    return `You are a professional educational assessment designer with expertise in creating accurate, pedagogically sound quiz questions.
 
-${topic ? `Topic: ${topic}` : ''}
-${sourceContent ? `Content:\n${sourceContent}` : ''}
+TASK: Generate exactly ${numberOfQuestions} quiz questions based on the parameters below.
 
-Difficulty Level: ${difficulty}
-Quiz Type: ${quizType}
+INPUT PARAMETERS:
+${topic ? `- Topic: ${topic}` : '- Topic: Not specified (use source content only)'}
+${sourceContent ? `- Source Content:\n${sourceContent}\n` : '- Source Content: None provided'}
+- Difficulty Level: ${difficulty}
+- Quiz Type: ${quizType}
+- Question Types: ${questionTypeInstructions}
 
-Question Types to Generate:
-${questionTypeInstructions}
+CRITICAL REQUIREMENTS:
+1. ACCURACY: Every question MUST be factually correct and verifiable
+2. SOURCE FIDELITY: If source content is provided, questions MUST be answerable from that content ONLY. Do NOT add external information
+3. CLARITY: Each question must have ONE clear, unambiguous correct answer
+4. NO HALLUCINATION: If source content is insufficient for ${numberOfQuestions} questions, generate fewer questions rather than inventing information
+5. DISTRIBUTION: Distribute questions evenly across specified question types
+6. EXPLANATIONS: Provide brief, factual explanations that reference the source material when available
 
-Requirements:
-1. Distribute questions evenly across the specified question types
-2. For each question, include the "questionType" field
-3. Questions should be clear and unambiguous
-4. Provide brief explanations for correct answers
-5. Make questions appropriate for the quiz type and difficulty level
-6. If content is provided, include a "citation" field indicating the source text or section for the answer
-7. **Contextualize**: You may occasionally use examples and scenarios relevant to Nigeria to make it relatable, but ensure the content remains broadly applicable and balanced.
+QUESTION FORMAT SPECIFICATIONS:
 
-Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
+For TRUE-FALSE questions:
+- Write clear declarative statements
+- Avoid double negatives or ambiguous phrasing
+- correctAnswer: 0 for True, 1 for False
+
+For SINGLE-SELECT questions:
+- Provide 4 distinct options
+- options array: Plain text ONLY. Do NOT include prefixes like "A)", "B)", "1.", "2.", etc. Just the option text content.
+- correctAnswer: Index (0-3) of the correct option
+- Ensure wrong answers are plausible but clearly incorrect
+- Avoid "all of the above" or "none of the above" unless necessary
+
+For MULTI-SELECT questions:
+- Clearly indicate "Select all that apply" in the question
+- options array: Plain text ONLY. Do NOT include prefixes like "A)", "B)", etc.
+- correctAnswer: Array of indices for ALL correct options (e.g., [0, 2, 3])
+- Ensure at least 2 correct answers exist
+- Options should be independent statements
+
+For MATCHING questions:
+- Provide 3-5 items per column
+- Items should have clear, one-to-one relationships
+- correctAnswer: Object mapping left items to right items exactly
+
+For FILL-IN-THE-BLANK questions:
+- Use ____ to indicate the blank
+- correctAnswer: ALWAYS use an array of acceptable answers (even if only one answer)
+  * Single answer: "correctAnswer": ["Paris"]
+  * Multiple acceptable answers: "correctAnswer": ["CPU", "Central Processing Unit", "Processor"]
+- All answers are case-insensitive
+- Include all common variations, synonyms, and equivalent terms
+- List the most common/preferred answer first in the array
+
+For THEORY questions:
+- Ask open-ended questions requiring detailed explanations or essays
+- Provide a markingGuideline object with scoring criteria
+- Include key points that should be present in a good answer
+- Specify maximum points and point distribution
+- markingGuideline structure:
+  * maxPoints: Total points for the question
+  * keyPoints: Array of essential concepts/points (with point values)
+  * acceptableConcepts: Array of related concepts that add value
+  * qualityCriteria: What makes an answer excellent vs. adequate
+
+DIFFICULTY CALIBRATION:
+- Easy: Recall and basic comprehension
+- Medium: Application and analysis
+- Hard: Synthesis, evaluation, and complex problem-solving
+
+OUTPUT FORMAT:
+Return ONLY valid JSON (no markdown, no code fences, no preamble):
+
 {
-  "title": "Generated quiz title",
-  "topic": "Main topic covered",
+  "title": "Specific, descriptive title based on actual content",
+  "topic": "${topic || 'Content-based Assessment'}",
   "questions": [
-    // For true-false questions:
     {
       "questionType": "true-false",
-      "question": "Statement here?",
+      "question": "Clear statement here?",
       "options": ["True", "False"],
       "correctAnswer": 0,
-      "explanation": "Brief explanation",
-      "citation": "Source text reference (optional)"
+      "explanation": "Factual explanation referencing source material",
+      "citation": "Exact quote or section reference from source (if applicable)"
     },
-    // For single-select questions:
     {
       "questionType": "single-select",
-      "question": "Question text?",
-      "options": ["Option A", "Option B", "Option C", "Option D"], // Instruction for AI: List only the option text. Do NOT include labels like A), B), C), or D). Just provide the text of each option.
+      "question": "Clear question text?",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
       "correctAnswer": 0,
-      "explanation": "Brief explanation",
-      "citation": "Source text reference (optional)"
+      "explanation": "Why this answer is correct",
+      "citation": "Source reference (if applicable)"
     },
-    // For multi-select questions:
     {
       "questionType": "multi-select",
-      "question": "Select all that apply:",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "question": "Select all that apply: Question text?",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
       "correctAnswer": [0, 2],
-      "explanation": "Brief explanation",
-      "citation": "Source text reference (optional)"
+      "explanation": "Why these answers are correct",
+      "citation": "Source reference (if applicable)"
     },
-    // For matching questions:
     {
       "questionType": "matching",
-      "question": "Match the following:",
-      "leftColumn": ["Item 1", "Item 2", "Item 3"],
-      "rightColumn": ["Match A", "Match B", "Match C"],
-      "correctAnswer": {"Item 1": "Match A", "Item 2": "Match B", "Item 3": "Match C"},
-      "explanation": "Brief explanation",
-      "citation": "Source text reference (optional)"
+      "question": "Match the following items:",
+      "leftColumn": ["Term 1", "Term 2", "Term 3"],
+      "rightColumn": ["Definition A", "Definition B", "Definition C"],
+      "correctAnswer": {"Term 1": "Definition A", "Term 2": "Definition B", "Term 3": "Definition C"},
+      "explanation": "Brief explanation of relationships",
+      "citation": "Source reference (if applicable)"
     },
-    // For fill-in-the-blank questions:
     {
       "questionType": "fill-blank",
       "question": "Complete the sentence: The capital of France is ____.",
-      "correctAnswer": "Paris",
-      "explanation": "Brief explanation",
-      "citation": "Source text reference (optional)"
+      "correctAnswer": ["Paris"],
+      "explanation": "Paris is the capital and largest city of France",
+      "citation": "Source reference (if applicable)"
+    },
+    // Example with multiple acceptable answers:
+    {
+      "questionType": "fill-blank",
+      "question": "The ____ is the brain of the computer.",
+      "correctAnswer": ["CPU", "Central Processing Unit", "Processor"],
+      "explanation": "The CPU (Central Processing Unit), also called processor, is the primary component that executes instructions",
+      "citation": "Source reference (if applicable)"
+    },
+    // For theory questions:
+    {
+      "questionType": "theory",
+      "question": "Explain the process of photosynthesis and its importance to life on Earth.",
+      "markingGuideline": {
+        "maxPoints": 10,
+        "keyPoints": [
+          {"point": "Definition: Process where plants convert light energy to chemical energy", "value": 2},
+          {"point": "Location: Takes place in chloroplasts using chlorophyll", "value": 1},
+          {"point": "Inputs: Carbon dioxide, water, and sunlight", "value": 1},
+          {"point": "Outputs: Glucose (sugar) and oxygen", "value": 2},
+          {"point": "Equation: 6CO2 + 6H2O + light → C6H12O6 + 6O2", "value": 1},
+          {"point": "Importance: Produces oxygen for respiration", "value": 1},
+          {"point": "Importance: Forms base of food chain/energy for ecosystems", "value": 2}
+        ],
+        "acceptableConcepts": [
+          "Light-dependent and light-independent reactions",
+          "Role of ATP and NADPH",
+          "Calvin cycle",
+          "Stomata function",
+          "Environmental factors affecting rate"
+        ],
+        "qualityCriteria": {
+          "excellent": "Covers all key points with clear explanations, uses scientific terminology correctly, provides examples, shows deep understanding",
+          "good": "Covers most key points, generally accurate, may lack some detail or examples",
+          "adequate": "Covers basic process and importance, may have minor inaccuracies or missing details",
+          "poor": "Missing major concepts, significant inaccuracies, or incomplete explanation"
+        }
+      },
+      "sampleAnswer": "Photosynthesis is the process by which plants convert light energy into chemical energy. It occurs in the chloroplasts of plant cells, where chlorophyll captures sunlight. The plant takes in carbon dioxide from the air and water from the soil, then uses light energy to convert these into glucose (a sugar) and oxygen. The equation is 6CO2 + 6H2O + light → C6H12O6 + 6O2. This process is crucial for life on Earth because it produces the oxygen we breathe and forms the foundation of the food chain by creating energy-rich glucose that sustains plant growth and, indirectly, all other organisms.",
+      "explanation": "This comprehensive answer covers the process, location, inputs, outputs, and importance of photosynthesis",
+      "citation": "Source reference (if applicable)"
     }
   ]
 }
-`;
+
+VALIDATION CHECKLIST (verify before responding):
+✓ All questions are factually accurate
+✓ Questions are answerable from provided content (if content given)
+✓ No invented or assumed information
+✓ Correct answer indices match the options array
+✓ All required fields present for each question type
+✓ JSON is valid and parseable
+✓ Options do not contain prefixes (A), 1., etc.)
+✓ No markdown formatting or code fences in output`;
   }
 
   static generateFlashcards(
@@ -88,58 +184,119 @@ Return ONLY a valid JSON object in this exact format (no markdown, no code block
     numberOfCards: number,
     sourceContent: string = ''
   ) {
-    return `
-You are an expert flashcard creator. Generate ${numberOfCards} flashcards based on the following:
+    return `You are an expert in spaced repetition learning and flashcard design, specializing in creating memorable, accurate educational content.
 
-${topic ? `Topic: ${topic}` : ''}
-${sourceContent ? `Content:\n${sourceContent}` : ''}
+TASK: Generate exactly ${numberOfCards} flashcards based on the inputs below.
 
-Requirements:
-1. Front side should be a concise question or term
-2. Back side should be a clear, complete answer or definition
-3. Add an optional explanation with additional context, examples, or mnemonics to help remember
-4. Focus on key concepts, definitions, and important facts
-5. Make cards clear and educational
-6. Avoid overly complex or ambiguous cards
-7. **Cultural Relevance**: You may use examples relevant to Nigerian students where it enhances understanding, but ensure the cards remain universally clear.
+INPUT PARAMETERS:
+${topic ? `- Topic: ${topic}` : '- Topic: Not specified (use source content only)'}
+${sourceContent ? `- Source Content:\n${sourceContent}\n` : '- Source Content: None provided'}
 
-Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
+CRITICAL REQUIREMENTS:
+1. ACCURACY: Every flashcard MUST contain factually correct information
+2. SOURCE FIDELITY: If source content is provided, derive cards ONLY from that content. Do NOT add external facts
+3. ATOMICITY: Each card should test ONE concept or fact
+4. CLARITY: Front and back must be clear and unambiguous
+5. NO HALLUCINATION: If source is insufficient for ${numberOfCards} cards, create fewer cards rather than inventing content
+6. PEDAGOGICAL VALUE: Focus on concepts worth remembering, not trivial details
+
+FLASHCARD DESIGN PRINCIPLES:
+- FRONT: Concise question, term, or prompt (5-15 words ideal)
+- BACK: Clear, complete answer or definition (1-3 sentences)
+- EXPLANATION: Additional context, mnemonics, or examples to aid retention (optional but recommended)
+
+CONTENT HIERARCHY (prioritize in order):
+1. Core concepts and definitions
+2. Key relationships and processes
+3. Important facts and figures
+4. Supporting details and examples
+
+AVOID:
+- Yes/no questions without context
+- Overly complex multi-part questions
+- Ambiguous or trick questions
+- Trivial or obvious information
+- Verbatim copying of long text passages
+
+OUTPUT FORMAT:
+Return ONLY valid JSON (no markdown, no code fences, no preamble):
+
 {
-  "title": "Specific, descriptive title that reflects the content (NOT generic like 'General Knowledge')",
-  "topic": "Main topic covered",
+  "title": "Specific, descriptive title reflecting the actual content (not generic)",
+  "topic": "${topic || 'Content-based Study Cards'}",
   "cards": [
     {
-      "front": "Question or term",
-      "back": "Answer or definition",
-      "explanation": "Additional context, examples, or memory aids (optional)"
+      "front": "Clear question or term",
+      "back": "Complete, accurate answer or definition",
+      "explanation": "Additional context, example, or mnemonic to aid memory (optional)"
     }
   ]
 }
-`;
+
+QUALITY CHECKLIST (verify each card):
+✓ Factually accurate and verifiable
+✓ Derived from source content (if provided)
+✓ Tests a single, clear concept
+✓ Answer is complete and unambiguous
+✓ Explanation adds meaningful value
+✓ No invented or external information
+
+VALIDATION CHECKLIST (verify before responding):
+✓ Exactly ${numberOfCards} cards generated (or fewer if source is limited)
+✓ All required fields present
+✓ JSON is valid and parseable
+✓ No markdown formatting or code fences in output`;
   }
 
   static generateRecommendations(weakTopics: string[], recentAttempts: any[]) {
-    return `
-Analyze the following user learning data and generate exactly 1 prioritized, personalized study recommendation:
+    return `You are an adaptive learning specialist who analyzes student performance data to generate personalized, actionable study recommendations.
 
-Weak Topics: ${JSON.stringify(weakTopics)}
-Recent Performance: ${JSON.stringify(recentAttempts.slice(0, 10))}
+TASK: Analyze the performance data below and generate EXACTLY 1 high-priority study recommendation.
 
-Generate recommendations focusing on:
-1. Topics where the user scored poorly
-2. Topics not practiced recently
-3. Progressive learning paths
-4. Encouraging tone suitable for a motivated student.
+INPUT DATA:
+- Weak Topics: ${JSON.stringify(weakTopics)}
+- Recent Performance History: ${JSON.stringify(recentAttempts.slice(0, 10))}
 
-Return ONLY a valid JSON array in this exact format (no markdown, no code blocks):
+ANALYSIS FRAMEWORK:
+1. PERFORMANCE GAPS: Identify topics with lowest scores or highest error rates
+2. RECENCY: Prioritize topics not practiced in the last 5-7 days
+3. LEARNING PROGRESSION: Consider prerequisite relationships and logical next steps
+4. ENGAGEMENT: Balance challenge with achievability to maintain motivation
+
+RECOMMENDATION CRITERIA:
+- Focus on ONE specific, actionable topic
+- Provide clear rationale based on observable data
+- Use encouraging, growth-oriented language
+- Avoid generic advice; make it personal to the data
+
+PRIORITY LEVELS:
+- HIGH: Critical gaps (score <60%) or fundamental concepts not mastered
+- MEDIUM: Moderate gaps (score 60-75%) or important supporting topics
+- LOW: Minor gaps (score >75%) or advanced enrichment topics
+
+OUTPUT FORMAT:
+Return ONLY valid JSON (no markdown, no code fences, no preamble):
+
 [
   {
-    "topic": "Topic name",
-    "reason": "Why this is recommended",
-    "priority": "high|medium|low"
+    "topic": "Specific topic name from the weak topics list",
+    "reason": "Data-driven explanation referencing performance patterns or gaps",
+    "priority": "high"
   }
 ]
-`;
+
+QUALITY STANDARDS:
+✓ Recommendation is based on actual performance data
+✓ Topic name matches one from the weak topics list
+✓ Reason is specific and actionable
+✓ Tone is encouraging and constructive
+✓ Priority level is justified by the data
+
+VALIDATION CHECKLIST:
+✓ Exactly 1 recommendation provided
+✓ All required fields present
+✓ JSON is valid and parseable
+✓ No markdown formatting or code fences in output`;
   }
 
   static generateComprehensiveLearningGuide(
@@ -147,104 +304,478 @@ Return ONLY a valid JSON array in this exact format (no markdown, no code blocks
     sourceContent: string = '',
     fileContext: string = ''
   ) {
-    return `
-You are an expert educational content creator. Create a comprehensive learning guide based on the following inputs:
+    return `You are an expert instructional designer specializing in creating structured, comprehensive learning materials that promote deep understanding.
 
-${topic ? `Topic: ${topic}` : ''}
-${sourceContent ? `Content: ${sourceContent}` : ''}
-${fileContext ? `File Context: ${fileContext}` : ''}
+TASK: Create a complete learning guide based on the inputs below.
 
-Requirements:
-1. **Unified Source**: Synthesize all provided information (Topic, Content, Files) into one cohesive guide.
-2. **Cultural Relevance**: Use diverse examples. You may include examples relevant to the Nigerian context where appropriate, but maintain a balanced approach.
-3. **Structure**: Follow the exact JSON schema provided below.
-4. **Content Quality**:
-    - "description": A short, insightful summary of what the learner will gain.
-    - "sections": Break down the topic into logical learning modules.
-    - "content": Clear, explanatory text with Markdown support. IMPORTANT: Use triple backticks (\`\`\`language) for code blocks and single backticks (\`) for inline code variables or references.
-    - "example": ONE strong, concrete example per section.
-    - "assessment": ONE thought-provoking question or small task to check understanding per section.
+INPUT PARAMETERS:
+${topic ? `- Topic: ${topic}` : '- Topic: Not specified (derive from content)'}
+${sourceContent ? `- Primary Content:\n${sourceContent}\n` : '- Primary Content: None provided'}
+${fileContext ? `- Additional Context:\n${fileContext}\n` : '- Additional Context: None provided'}
 
-Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
+CRITICAL REQUIREMENTS:
+1. ACCURACY: All information must be factually correct and verifiable
+2. SOURCE FIDELITY: Base content ONLY on provided materials. Do NOT introduce external information unless explicitly filling knowledge gaps in a general topic
+3. COHERENCE: Synthesize all inputs into one unified, logical learning path
+4. COMPLETENESS: Cover the topic comprehensively within the scope of provided content
+5. NO HALLUCINATION: If content is insufficient, create a focused guide on available material rather than inventing information
+
+INSTRUCTIONAL DESIGN PRINCIPLES:
+- Progress from fundamental concepts to advanced applications
+- Build on previous sections logically
+- Balance theoretical explanation with practical examples
+- Include active learning checks to reinforce understanding
+
+SECTION STRUCTURE REQUIREMENTS:
+
+DESCRIPTION:
+- 2-4 sentences explaining what the learner will gain
+- Focus on outcomes and practical value
+- Set clear expectations
+
+SECTIONS (3-6 recommended):
+- TITLE: Clear, descriptive module name
+- CONTENT: 
+  * Comprehensive explanation of the concept (200-400 words per section)
+  * Use Markdown for formatting:
+    - **Bold** for key terms and concepts
+    - \`inline code\` for technical terms, variables, function names
+    - \`\`\`language for multi-line code blocks (always specify language)
+    - > blockquotes for important notes or principles
+    - Numbered or bulleted lists for steps or features
+  * Break complex ideas into digestible paragraphs
+  * Define technical terms on first use
+  
+- EXAMPLE:
+  * ONE concrete, detailed example per section
+  * Show real-world application or practical scenario
+  * Explain HOW the example demonstrates the concept
+  * For code examples: include comments explaining key lines
+  
+- KNOWLEDGE CHECK:
+  * ONE well-crafted multiple-choice question
+  * Test understanding, not just recall
+  * 4 plausible options (avoid obvious wrong answers)
+  * Provide clear, instructive explanation of why the answer is correct
+
+MARKDOWN CODE FORMATTING RULES:
+✓ Use \`\`\`javascript for JavaScript code blocks
+✓ Use \`\`\`python for Python code blocks
+✓ Use \`\`\`html, \`\`\`css, etc. for other languages
+✓ Use \`variableName\` for inline code references
+✓ Always close code blocks properly
+✓ Add comments in code to explain complex parts
+
+OUTPUT FORMAT:
+Return ONLY valid JSON (no markdown, no code fences, no preamble):
+
 {
-  "title": "Descriptive title",
-  "topic": "Main topic",
-  "description": "Short and insightful summary",
+  "title": "Specific, descriptive title reflecting the actual content",
+  "topic": "${topic || 'Comprehensive Study Guide'}",
+  "description": "Clear, outcome-focused summary (2-4 sentences)",
   "learningGuide": {
     "sections": [
       {
-        "title": "Module/Section Title",
-        "content": "Clear explanatory content (markdown allowed)",
-        "example": "A strong, relevant example",
+        "title": "Descriptive Section Title",
+        "content": "Comprehensive explanation with proper Markdown formatting. Use **bold** for emphasis, \`inline code\` for technical terms, and \`\`\`language for code blocks. Break into clear paragraphs.",
+        "example": "Detailed, practical example with explanation. For code: \`\`\`javascript\\nconst example = 'proper formatting';\\n// Comment explaining the code\\nconsole.log(example);\\n\`\`\`",
         "knowledgeCheck": {
-          "question": "Multiple choice question text",
+          "question": "Clear, thought-provoking question testing understanding",
           "options": ["Option A", "Option B", "Option C", "Option D"],
-          "answer": "Correct Option Text",
-          "explanation": "Why this answer is correct"
+          "answer": "Option A",
+          "explanation": "Detailed explanation of why this answer is correct and why others are wrong"
         }
       }
     ]
   }
 }
-`;
+
+QUALITY CHECKLIST (verify each section):
+✓ Content is factually accurate and complete
+✓ Markdown formatting is correct (especially code blocks)
+✓ Example is relevant and well-explained
+✓ Knowledge check tests understanding, not just memory
+✓ Explanation is instructive and clear
+✓ Progressive difficulty across sections
+
+VALIDATION CHECKLIST (verify before responding):
+✓ All required fields present
+✓ 3-6 sections included
+✓ Code blocks properly formatted with language specified
+✓ JSON is valid and parseable
+✓ No outer markdown code fences in the response`;
   }
 
   static extractTitle(content: string) {
-    return `Based on the following content, generate a concise, descriptive, and professional title (max 10 words). Return ONLY the title, nothing else.
+    return `Analyze the content below and generate a precise, descriptive title.
 
-Content:
-${content.substring(0, 1500)}`;
+CONTENT:
+${content.substring(0, 1500)}
+
+REQUIREMENTS:
+- Maximum 10 words
+- Be specific, not generic
+- Capture the main topic or focus
+- Use title case capitalization
+- Avoid clickbait or overly promotional language
+
+EXAMPLES OF GOOD TITLES:
+✓ "Introduction to Object-Oriented Programming in Python"
+✓ "Photosynthesis: Converting Light Energy to Chemical Energy"
+✓ "World War II: Causes and Major Events"
+
+EXAMPLES OF BAD TITLES:
+✗ "Learn This Today!" (too generic)
+✗ "Everything You Need to Know About Science" (too broad)
+✗ "Amazing Facts" (not descriptive)
+
+OUTPUT:
+Return ONLY the title text, no quotes, no punctuation at the end, no additional explanation.`;
   }
 
   static extractTopic(text: string) {
-    return `Based on this text, provide a single concise topic name (max 3 words). Return ONLY the topic name, nothing else.
+    return `Analyze the text below and identify the main topic.
 
-Text:
-${text.substring(0, 1000)}`;
+TEXT:
+${text.substring(0, 1000)}
+
+REQUIREMENTS:
+- Maximum 4 words
+- Be specific, not generic
+- Use the most precise terminology
+- Capitalize important words
+- Focus on the primary subject matter
+
+EXAMPLES OF GOOD TOPICS:
+✓ "Neural Networks"
+✓ "French Revolution"
+✓ "Cellular Respiration"
+✓ "React Hooks"
+
+EXAMPLES OF BAD TOPICS:
+✗ "Science Stuff" (too vague)
+✗ "General Knowledge" (not specific)
+✗ "Learning Material" (too generic)
+
+OUTPUT:
+Return ONLY the topic name, no quotes, no punctuation, no additional explanation.`;
   }
 
   static generateExplanation(topic: string, context: string) {
-    return `
-You are an expert, friendly tutor who excels at making complex topics easy to understand. 
-Provide a clearer, simpler explanation for the following concept:
+    return `You are an expert educator who excels at making complex concepts accessible and engaging.
 
-Topic: ${topic}
-Context: ${context}
+TASK: Provide a clear, comprehensive explanation of the concept below.
 
-Requirements:
-1. Go STRAIGHT to the explanation. DO NOT use introductory phrases like "Here is an explanation" or "Let's break this down".
-2. Use a conversational and encouraging tone, but keep it professional and direct.
-3. Use **Markdown** formatting to structure your response:
-   - Use **bold** for key terms.
-   - Use lists (bullet points) to break down steps or features.
-   - Use > blockquotes for important takeaways or analogies.
-4. Break down complex ideas into digestible parts.
-5. Use a powerful analogy if it helps clarify the concept. Nigerian context can be used if it simplifies the explanation, but avoid forced connections.
-6. **Code Formatting**: If explaining code or technical concepts, ALWAYS use triple backticks (\`\`\`language) for code blocks and single backticks (\`) for inline references (e.g., variable names, functions).
+CONCEPT:
+- Topic: ${topic}
+- Context: ${context}
 
-Return the explanation in valid Markdown format.
-`;
+INSTRUCTIONAL APPROACH:
+1. START IMMEDIATELY with the explanation (no meta-commentary like "Here's an explanation" or "Let me break this down")
+2. Define the concept clearly in the first sentence
+3. Explain WHY it matters or where it's used
+4. Break down complex parts into simpler components
+5. Use a powerful analogy if it clarifies understanding
+6. End with a key takeaway or practical implication
+
+FORMATTING REQUIREMENTS (use Markdown):
+- **Bold** key terms and important concepts
+- Use bullet points (•) or numbered lists (1.) for steps or components
+- Use > blockquotes for critical insights or memorable principles
+- Use \`inline code\` for technical terms, variables, or function names
+- Use \`\`\`language for code examples (always specify the language)
+- Use proper code formatting:
+  * \`\`\`javascript for JavaScript
+  * \`\`\`python for Python
+  * \`\`\`html for HTML, etc.
+  * Include comments in code to explain key parts
+
+TONE:
+- Direct and conversational
+- Professional but approachable
+- Encouraging without being condescending
+- Focus on clarity over complexity
+
+EXAMPLE STRUCTURE:
+**Topic** is [clear definition]. This concept is important because [practical relevance].
+
+The key components include:
+• **Component 1**: Explanation
+• **Component 2**: Explanation
+
+> Key Insight: [Memorable takeaway]
+
+Think of it like [powerful analogy if applicable]. In practice, this means [practical implication].
+
+CODE EXAMPLE (if relevant):
+\`\`\`language
+// Well-commented code demonstrating the concept
+\`\`\`
+
+OUTPUT:
+Return the explanation in Markdown format. No preamble, no code fences wrapping the markdown, start directly with the content.`;
   }
 
   static generateExample(topic: string, context: string) {
-    return `
-You are an expert, practical tutor. Provide concrete, real-world examples for the following concept, with practical relevance:
+    return `You are an expert educator who creates concrete, memorable examples that illuminate abstract concepts.
 
-Topic: ${topic}
-Context: ${context}
+TASK: Provide 2-3 distinct, detailed examples demonstrating the concept below.
 
-Requirements:
-1. Go STRAIGHT to the examples. DO NOT use introductory phrases like "Here are some examples" or "Let's look at this".
-2. Provide 2-3 distinct, detailed examples.
-3. Use **Markdown** formatting:
-   - Use ### Headers for each example title.
-   - Use **bold** for important parts.
-   - Use lists to explain the breakdown of the example.
-4. Explain *why* each example fits the concept.
-5. Relate it to real-world scenarios. You may include examples relevant to Nigeria (e.g., local markets) if they fit naturally, but ensure a mix of contexts.
-6. **Code Formatting**: If explaining code or technical concepts, ALWAYS use triple backticks (\`\`\`language) for code blocks and single backticks (\`) for inline references.
+CONCEPT:
+- Topic: ${topic}
+- Context: ${context}
 
-Return the examples in valid Markdown format.
-`;
+EXAMPLE DESIGN PRINCIPLES:
+1. START IMMEDIATELY with examples (no meta-commentary like "Here are examples" or "Let's look at")
+2. Make each example concrete and specific
+3. Show HOW the example demonstrates the concept
+4. Use diverse scenarios to show different applications
+5. Include both simple and more complex examples if appropriate
+6. Connect examples to real-world situations
+
+FORMATTING REQUIREMENTS (use Markdown):
+- Use ### headers for each example title
+- **Bold** important parts and key concepts
+- Use bullet points for breakdowns or steps
+- Use \`inline code\` for technical terms in context
+- Use \`\`\`language for code examples (always specify language)
+- Use proper code formatting with comments:
+  * \`\`\`javascript for JavaScript
+  * \`\`\`python for Python
+  * \`\`\`html, \`\`\`css, etc.
+  * Add comments explaining key lines
+
+EXAMPLE STRUCTURE:
+
+### Example 1: [Descriptive Title]
+
+[Brief setup/scenario]
+
+**Key aspects:**
+• **Aspect 1**: How it relates to the concept
+• **Aspect 2**: Why this matters
+
+[Explanation of how this demonstrates the concept]
+
+\`\`\`language
+// Code example with explanatory comments
+\`\`\`
+
+**Why this works:** [Brief explanation]
+
+EXAMPLE QUALITY CRITERIA:
+✓ Concrete and specific (not abstract)
+✓ Clearly demonstrates the concept
+✓ Includes explanation of WHY it's a good example
+✓ Relatable to real-world applications
+✓ Properly formatted code (if applicable)
+
+OUTPUT:
+Return 2-3 examples in Markdown format. No preamble, no code fences wrapping the markdown, start directly with the first example.`;
+  }
+
+  static scoreTheoryQuestion(
+    question: string,
+    studentAnswer: string,
+    markingGuideline: any,
+    sampleAnswer?: string
+  ) {
+    return `You are an experienced educator and exam marker with expertise in evaluating open-ended theory questions fairly and consistently.
+
+TASK: Evaluate the student's answer against the marking guidelines and provide a detailed assessment.
+
+QUESTION:
+${question}
+
+STUDENT'S ANSWER:
+${studentAnswer}
+
+MARKING GUIDELINES:
+${JSON.stringify(markingGuideline, null, 2)}
+
+${sampleAnswer ? `SAMPLE ANSWER (for reference):\n${sampleAnswer}\n` : ''}
+
+EVALUATION REQUIREMENTS:
+
+1. FAIRNESS: Evaluate based on content, not writing style or length
+2. KEY POINTS COVERAGE: Check which key points from the guidelines are addressed
+3. ACCURACY: Verify factual correctness of statements
+4. COMPREHENSION: Assess depth of understanding demonstrated
+5. PARTIAL CREDIT: Award points proportionally for partially correct points
+6. CONSTRUCTIVE FEEDBACK: Provide specific, actionable feedback
+
+SCORING PROCESS:
+
+Step 1: Identify which key points are present in the student's answer
+Step 2: Assess the quality and accuracy of each identified point
+Step 3: Check for additional acceptable concepts that add value
+Step 4: Determine overall quality level (excellent/good/adequate/poor)
+Step 5: Calculate total score and provide justification
+
+CRITICAL RULES:
+- Award points ONLY for content that demonstrates understanding
+- Do NOT penalize for different wording if the concept is correct
+- Do NOT require exact phrasing from sample answer
+- DO accept equivalent explanations and valid alternative perspectives
+- DO consider context - if the question is about fundamentals, focus on fundamentals
+- DO NOT deduct points for minor grammatical errors unless they affect clarity
+- DO award partial credit for incomplete but correct explanations
+
+OUTPUT FORMAT:
+Return ONLY valid JSON (no markdown, no code fences, no preamble):
+
+{
+  "totalScore": 8.5,
+  "maxPoints": 10,
+  "percentage": 85,
+  "grade": "B+",
+  "pointsBreakdown": [
+    {
+      "keyPoint": "Definition: Process where plants convert light energy to chemical energy",
+      "maxValue": 2,
+      "awarded": 2,
+      "feedback": "Clearly explained the basic definition with accurate terminology"
+    },
+    {
+      "keyPoint": "Location: Takes place in chloroplasts using chlorophyll",
+      "maxValue": 1,
+      "awarded": 0.5,
+      "feedback": "Mentioned chloroplasts but did not specify chlorophyll's role"
+    }
+  ],
+  "qualityLevel": "good",
+  "strengths": [
+    "Strong understanding of the basic process",
+    "Good use of scientific terminology",
+    "Clear explanation of importance to ecosystems"
+  ],
+  "areasForImprovement": [
+    "Could include more detail about the chemical equation",
+    "Missing explanation of where the process occurs within the cell",
+    "Would benefit from mentioning specific environmental factors"
+  ],
+  "additionalConceptsFound": [
+    "Mentioned role of stomata in gas exchange"
+  ],
+  "overallFeedback": "Your answer demonstrates a solid understanding of photosynthesis and its importance. You clearly explained the basic process and its role in sustaining life. To improve, include more specific details about the cellular location and the chemical equation. Consider also discussing factors that affect the rate of photosynthesis.",
+  "encouragement": "Good work on explaining the ecological importance! Your understanding of the fundamentals is clear."
+}
+
+VALIDATION CHECKLIST:
+✓ Score is fair and justified by the breakdown
+✓ Feedback is specific and constructive
+✓ All key points are evaluated
+✓ Partial credit awarded appropriately
+✓ Strengths and improvements are balanced
+✓ Tone is encouraging and educational
+✓ JSON is valid and parseable`;
+  }
+
+  static generateTheoryQuestions(
+    topic: string,
+    numberOfQuestions: number,
+    difficulty: string,
+    sourceContent: string = ''
+  ) {
+    return `You are an expert educational assessment designer specializing in open-ended theory questions that test deep understanding and critical thinking.
+
+TASK: Generate exactly ${numberOfQuestions} theory questions based on the parameters below.
+
+INPUT PARAMETERS:
+${topic ? `- Topic: ${topic}` : '- Topic: Not specified (use source content only)'}
+${sourceContent ? `- Source Content:\n${sourceContent}\n` : '- Source Content: None provided'}
+- Difficulty Level: ${difficulty}
+
+CRITICAL REQUIREMENTS:
+1. DEPTH: Questions should require explanation, analysis, or synthesis - not simple recall
+2. CLARITY: Questions must be clear and unambiguous about what is being asked
+3. SCOPE: Questions should be answerable in 100-300 words (adjustable based on difficulty)
+4. ACCURACY: Marking guidelines must be comprehensive and fair
+5. SOURCE FIDELITY: If source content provided, base questions ONLY on that content
+6. NO HALLUCINATION: If content insufficient, generate fewer questions
+
+QUESTION DESIGN BY DIFFICULTY:
+
+EASY:
+- Focus on explanation and description
+- Test understanding of basic concepts
+- Example: "Explain what X is and why it is important"
+- Expected depth: 2-4 key points
+
+MEDIUM:
+- Require comparison, analysis, or application
+- Test ability to connect concepts
+- Example: "Compare X and Y, explaining their advantages and disadvantages"
+- Expected depth: 4-6 key points
+
+HARD:
+- Demand synthesis, evaluation, or problem-solving
+- Test critical thinking and deeper insights
+- Example: "Evaluate the impact of X on Y, considering multiple perspectives"
+- Expected depth: 6-8 key points with nuanced understanding
+
+MARKING GUIDELINE DESIGN:
+
+Key Points Structure:
+- Each key point should be specific and measurable
+- Assign point values based on importance (1-3 points typically)
+- Total points should be 10-20 depending on complexity
+- Include both required and optional concepts
+
+Quality Criteria:
+- Define what makes an answer excellent, good, adequate, or poor
+- Be specific about depth and breadth expected
+- Consider both content accuracy and demonstration of understanding
+
+OUTPUT FORMAT:
+Return ONLY valid JSON (no markdown, no code fences, no preamble):
+
+{
+  "title": "Theory Questions: ${topic}",
+  "topic": "${topic}",
+  "difficulty": "${difficulty}",
+  "questions": [
+    {
+      "questionType": "theory",
+      "question": "Clear, open-ended question requiring detailed explanation",
+      "markingGuideline": {
+        "maxPoints": 10,
+        "keyPoints": [
+          {"point": "Specific concept or fact that should be mentioned", "value": 2},
+          {"point": "Another important concept", "value": 2}
+        ],
+        "acceptableConcepts": [
+          "Related concept that adds value",
+          "Alternative explanation or perspective"
+        ],
+        "qualityCriteria": {
+          "excellent": "Detailed description of excellent answer",
+          "good": "Description of good answer",
+          "adequate": "Description of adequate answer",
+          "poor": "Description of poor answer"
+        }
+      },
+      "sampleAnswer": "A model answer demonstrating the expected depth and coverage",
+      "explanation": "Brief note on what this question tests",
+      "citation": "Source reference (if applicable)"
+    }
+  ]
+}
+
+QUALITY CHECKLIST:
+✓ Questions test understanding, not just recall
+✓ Marking guidelines are comprehensive and fair
+✓ Point distribution is logical and balanced
+✓ Sample answers demonstrate expected quality
+✓ Questions are appropriate for difficulty level
+✓ All content is accurate and verifiable
+✓ JSON is valid and parseable
+
+VALIDATION CHECKLIST:
+✓ Exactly ${numberOfQuestions} questions generated (or fewer if source limited)
+✓ All required fields present
+✓ Marking guidelines are detailed and usable
+✓ No invented information if source content provided
+✓ No markdown formatting or code fences in output`;
   }
 }

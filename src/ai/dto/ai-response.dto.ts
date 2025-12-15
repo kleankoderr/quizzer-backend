@@ -69,7 +69,7 @@ export interface LearningGuideSectionDto {
   title: string;
   content: string;
   example?: string;
-  assessment?: string;
+
   knowledgeCheck?: {
     question: string;
     options: string[];

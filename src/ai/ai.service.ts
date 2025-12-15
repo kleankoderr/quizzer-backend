@@ -526,8 +526,21 @@ export class AiService {
    * Parse JSON response from Gemini with robust error handling
    * Uses multiple strategies to handle malformed JSON from AI responses
    */
+
   private parseJsonResponse<T>(responseText: string, context: string): T {
-    // Strategy 1: Clean and parse with JSON5 (handles relaxed JSON syntax)
+    // Strategy 1: Attempt to extract JSON payload using brace matching (most robust)
+    try {
+      const extracted = this.extractJsonPayload(responseText);
+      if (extracted) {
+        return JSON5.parse(extracted);
+      }
+    } catch (_error) {
+      this.logger.debug(
+        `Brace extraction parsing failed for ${context}, trying next strategy`
+      );
+    }
+
+    // Strategy 2: Clean and parse with JSON5 (handles relaxed JSON syntax)
     try {
       const cleaned = this.cleanJsonResponse(responseText);
       return JSON5.parse(cleaned);
@@ -537,7 +550,7 @@ export class AiService {
       );
     }
 
-    // Strategy 2: Sanitize control characters and try again
+    // Strategy 3: Sanitize control characters and try again
     try {
       const sanitized = this.sanitizeJsonString(responseText);
       const cleaned = this.cleanJsonResponse(sanitized);
@@ -548,7 +561,7 @@ export class AiService {
       );
     }
 
-    // Strategy 3: Try to extract JSON from markdown code blocks more aggressively
+    // Strategy 4: Try to extract JSON from markdown code blocks more aggressively (greedy)
     try {
       const extracted = this.extractJsonFromMarkdown(responseText);
       return JSON5.parse(extracted);
@@ -558,7 +571,7 @@ export class AiService {
       );
     }
 
-    // Strategy 4: Last resort - try standard JSON.parse on cleaned response
+    // Strategy 5: Last resort - try standard JSON.parse on cleaned response
     try {
       const cleaned = this.cleanJsonResponse(responseText);
       return JSON.parse(cleaned) as T;
@@ -578,7 +591,44 @@ export class AiService {
   }
 
   /**
+   * Extract the JSON payload by finding the outermost braces or brackets.
+   * This handles cases where the JSON is wrapped in text or markdown code blocks,
+   * without being confused by internal code blocks.
+   */
+  private extractJsonPayload(text: string): string | null {
+    const firstOpenBrace = text.indexOf('{');
+    const firstOpenBracket = text.indexOf('[');
+
+    let startIndex = -1;
+    let isObject = false;
+
+    // Determine start index and type based on what comes first
+    if (
+      firstOpenBrace !== -1 &&
+      (firstOpenBracket === -1 || firstOpenBrace < firstOpenBracket)
+    ) {
+      startIndex = firstOpenBrace;
+      isObject = true;
+    } else if (firstOpenBracket !== -1) {
+      startIndex = firstOpenBracket;
+      isObject = false;
+    }
+
+    if (startIndex === -1) return null;
+
+    // Find the corresponding last closing character
+    const endIndex = text.lastIndexOf(isObject ? '}' : ']');
+
+    if (endIndex !== -1 && endIndex > startIndex) {
+      return text.substring(startIndex, endIndex + 1);
+    }
+
+    return null;
+  }
+
+  /**
    * Clean JSON response by removing markdown code blocks
+   * Note: This is a destructive operation that might break nested code blocks
    */
   private cleanJsonResponse(text: string): string {
     return text
@@ -601,21 +651,16 @@ export class AiService {
   }
 
   /**
-   * Extract JSON from markdown code blocks more aggressively
+   * Extract JSON from markdown code blocks (greedy version)
    */
   private extractJsonFromMarkdown(text: string): string {
-    // Try to find JSON within code blocks
-    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    // Try to find JSON within code blocks (greedy match to capture nested blocks)
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*)```/i);
     if (codeBlockMatch) {
       return codeBlockMatch[1].trim();
     }
 
-    // Try to find JSON object/array by looking for { or [
-    const jsonMatch = text.match(/(\{[\s\S]*}|\[[\s\S]*])/);
-    if (jsonMatch) {
-      return jsonMatch[1].trim();
-    }
-
+    // Fallback: try to just trim
     return text.trim();
   }
 
