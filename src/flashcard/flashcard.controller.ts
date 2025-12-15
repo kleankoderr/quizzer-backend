@@ -86,7 +86,7 @@ export class FlashcardController {
     return this.flashcardService.getAllFlashcardSets(
       userId,
       page ? Number(page) : 1,
-      limit ? Number(limit) : 10
+      limit ? Number(limit) : 20
     );
   }
 

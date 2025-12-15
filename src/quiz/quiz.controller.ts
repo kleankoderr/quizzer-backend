@@ -117,7 +117,7 @@ export class QuizController {
     return this.quizService.getAllQuizzes(
       userId,
       page ? Number(page) : 1,
-      limit ? Number(limit) : 10
+      limit ? Number(limit) : 20
     );
   }
 

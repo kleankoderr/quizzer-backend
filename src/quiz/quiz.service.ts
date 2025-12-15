@@ -156,7 +156,7 @@ export class QuizService {
 
   // ==================== QUIZ RETRIEVAL ====================
 
-  async getAllQuizzes(userId: string, page: number = 1, limit: number = 10) {
+  async getAllQuizzes(userId: string, page: number = 1, limit: number = 20) {
     const cacheKey = `quizzes:all:${userId}:${page}:${limit}`;
     const cached = await this.getFromCache<any>(cacheKey);
 
@@ -181,10 +181,10 @@ export class QuizService {
           quizType: true,
           timeLimit: true,
           createdAt: true,
-          questions: true, // Get JSON to count
+          questions: true, // Select only to count, not to return
           _count: {
             select: {
-              attempts: true, // Count attempts relation
+              attempts: true,
             },
           },
           studyPack: {
@@ -200,12 +200,11 @@ export class QuizService {
       }),
     ]);
 
-    // Transform to QuizListItemDto format
+    // Transform to QuizListItemDto format - parse questions only for count
     const transformedQuizzes = quizzes.map((quiz) => {
-      // Parse questions JSON to get count
       const questions = Array.isArray(quiz.questions)
         ? quiz.questions
-        : JSON.parse(quiz.questions as string);
+        : JSON.parse((quiz.questions as string) || '[]');
 
       return {
         id: quiz.id,
@@ -215,7 +214,7 @@ export class QuizService {
         quizType: this.transformQuizType(quiz.quizType),
         timeLimit: quiz.timeLimit,
         createdAt: quiz.createdAt,
-        questionCount: questions.length,
+        questionCount: questions.length, // Only return the count
         attemptCount: quiz._count.attempts,
         studyPack: quiz.studyPack,
       };

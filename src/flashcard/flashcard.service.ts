@@ -140,7 +140,7 @@ export class FlashcardService {
   async getAllFlashcardSets(
     userId: string,
     page: number = 1,
-    limit: number = 10
+    limit: number = 20
   ) {
     const cacheKey = `flashcards:all:${userId}:${page}:${limit}`;
     const cached = await this.cacheManager.get(cacheKey);
