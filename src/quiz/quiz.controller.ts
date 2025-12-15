@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
@@ -17,6 +18,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiConsumes,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -105,8 +107,18 @@ export class QuizController {
   @Get()
   @ApiOperation({ summary: 'Get all quizzes for current user' })
   @ApiResponse({ status: 200, description: 'List of user quizzes' })
-  async getAllQuizzes(@CurrentUser('sub') userId: string) {
-    return this.quizService.getAllQuizzes(userId);
+  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+  async getAllQuizzes(
+    @CurrentUser('sub') userId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ) {
+    return this.quizService.getAllQuizzes(
+      userId,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10
+    );
   }
 
   @Get(':id')

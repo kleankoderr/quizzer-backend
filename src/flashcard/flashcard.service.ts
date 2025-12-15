@@ -137,8 +137,12 @@ export class FlashcardService {
   /**
    * Retrieve all flashcard sets for a user (with caching)
    */
-  async getAllFlashcardSets(userId: string) {
-    const cacheKey = `flashcards:all:${userId}`;
+  async getAllFlashcardSets(
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const cacheKey = `flashcards:all:${userId}:${page}:${limit}`;
     const cached = await this.cacheManager.get(cacheKey);
 
     if (cached) {
@@ -146,29 +150,64 @@ export class FlashcardService {
       return cached;
     }
 
-    const flashcardSets = await this.prisma.flashcardSet.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        title: true,
-        topic: true,
-        createdAt: true,
-        cards: true,
-        contentId: true,
-        studyPack: {
-          select: {
-            id: true,
-            title: true,
+    const skip = (page - 1) * limit;
+
+    const [flashcardSets, total] = await Promise.all([
+      this.prisma.flashcardSet.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          topic: true,
+          createdAt: true,
+          cards: true, // Get JSON to count
+          studyPack: {
+            select: {
+              id: true,
+              title: true,
+            },
           },
         },
-      },
+      }),
+      this.prisma.flashcardSet.count({
+        where: { userId },
+      }),
+    ]);
+
+    const transformedSets = flashcardSets.map((set) => {
+      const cards = Array.isArray(set.cards)
+        ? set.cards
+        : JSON.parse(set.cards as string);
+
+      return {
+        id: set.id,
+        title: set.title,
+        topic: set.topic,
+        createdAt: set.createdAt,
+        cardCount: cards.length,
+        studyPack: set.studyPack,
+      };
     });
 
-    await this.cacheManager.set(cacheKey, flashcardSets, CACHE_TTL_MS);
-    this.logger.debug(`Cached ${flashcardSets.length} sets for user ${userId}`);
+    const result = {
+      data: transformedSets,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
 
-    return flashcardSets;
+    await this.cacheManager.set(cacheKey, result, CACHE_TTL_MS);
+    this.logger.debug(
+      `Cached ${transformedSets.length} sets for user ${userId}`
+    );
+
+    return result;
   }
 
   /**
@@ -325,8 +364,6 @@ export class FlashcardService {
     this.logger.log(`Flashcard set ${id} deleted`);
     return { success: true, message: 'Flashcard set deleted successfully' };
   }
-
-  // ==================== PRIVATE HELPER METHODS ====================
 
   /**
    * Validate flashcard generation request

@@ -156,47 +156,87 @@ export class QuizService {
 
   // ==================== QUIZ RETRIEVAL ====================
 
-  async getAllQuizzes(userId: string) {
-    const cacheKey = `quizzes:all:${userId}`;
-    const cached = await this.getFromCache<any[]>(cacheKey);
+  async getAllQuizzes(userId: string, page: number = 1, limit: number = 10) {
+    const cacheKey = `quizzes:all:${userId}:${page}:${limit}`;
+    const cached = await this.getFromCache<any>(cacheKey);
 
     if (cached) {
       this.logger.debug(`Cache hit for user ${userId}`);
       return cached;
     }
 
-    const quizzes = await this.prisma.quiz.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        title: true,
-        topic: true,
-        difficulty: true,
-        quizType: true,
-        timeLimit: true,
-        createdAt: true,
-        questions: true,
-        studyPack: {
-          select: {
-            id: true,
-            title: true,
+    const skip = (page - 1) * limit;
+
+    const [quizzes, total] = await Promise.all([
+      this.prisma.quiz.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          topic: true,
+          difficulty: true,
+          quizType: true,
+          timeLimit: true,
+          createdAt: true,
+          questions: true, // Get JSON to count
+          _count: {
+            select: {
+              attempts: true, // Count attempts relation
+            },
+          },
+          studyPack: {
+            select: {
+              id: true,
+              title: true,
+            },
           },
         },
-      },
+      }),
+      this.prisma.quiz.count({
+        where: { userId },
+      }),
+    ]);
+
+    // Transform to QuizListItemDto format
+    const transformedQuizzes = quizzes.map((quiz) => {
+      // Parse questions JSON to get count
+      const questions = Array.isArray(quiz.questions)
+        ? quiz.questions
+        : JSON.parse(quiz.questions as string);
+
+      return {
+        id: quiz.id,
+        title: quiz.title,
+        topic: quiz.topic,
+        difficulty: quiz.difficulty,
+        quizType: this.transformQuizType(quiz.quizType),
+        timeLimit: quiz.timeLimit,
+        createdAt: quiz.createdAt,
+        questionCount: questions.length,
+        attemptCount: quiz._count.attempts,
+        studyPack: quiz.studyPack,
+      };
     });
 
-    const transformedQuizzes = quizzes.map((quiz) => ({
-      ...quiz,
-      quizType: this.transformQuizType(quiz.quizType),
-    }));
+    const result = {
+      data: transformedQuizzes,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
 
-    await this.setCache(cacheKey, transformedQuizzes);
+    await this.setCache(cacheKey, result);
     this.logger.debug(
       `Cached ${transformedQuizzes.length} quizzes for user ${userId}`
     );
 
-    return transformedQuizzes;
+    return result;
   }
 
   async getQuizById(id: string, userId: string) {

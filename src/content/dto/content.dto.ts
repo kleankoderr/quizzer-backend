@@ -137,3 +137,27 @@ export class UpdateContentDto {
   @IsOptional()
   lastReadPosition?: number;
 }
+
+export class ContentListItemDto {
+  id: string;
+  title: string;
+  topic: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  quizId?: string;
+  flashcardSetId?: string;
+  studyPack?: {
+    id: string;
+    title: string;
+  };
+}
+
+export class ContentDetailDto extends ContentListItemDto {
+  content: string; // Full content text
+  userId: string;
+  learningGuide?: any;
+  highlights?: any[];
+  lastReadPosition?: number;
+  sourceFiles?: string[];
+}

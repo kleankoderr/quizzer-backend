@@ -142,7 +142,7 @@ export class StudyPackService {
             createdAt: true,
             updatedAt: true,
             tags: true,
-            questions: true,
+            questions: true, // Get JSON to count
           },
         },
         flashcardSets: {
@@ -152,7 +152,7 @@ export class StudyPackService {
             topic: true,
             createdAt: true,
             updatedAt: true,
-            cards: true,
+            cards: true, // Get JSON to count
           },
         },
         contents: {
@@ -183,7 +183,7 @@ export class StudyPackService {
       throw new NotFoundException('Study Pack not found');
     }
 
-    // Transform to add _count structure for frontend compatibility
+    // Transform to StudyPackDetailDto format with counts
     const transformedPack = {
       ...studyPack,
       quizzes: studyPack.quizzes.map((quiz) => {
@@ -199,9 +199,7 @@ export class StudyPackService {
           createdAt: quiz.createdAt,
           updatedAt: quiz.updatedAt,
           tags: quiz.tags,
-          _count: {
-            questions: questions.length,
-          },
+          questionCount: questions.length,
         };
       }),
       flashcardSets: studyPack.flashcardSets.map((set) => {
@@ -215,9 +213,7 @@ export class StudyPackService {
           topic: set.topic,
           createdAt: set.createdAt,
           updatedAt: set.updatedAt,
-          _count: {
-            cards: cards.length,
-          },
+          cardCount: cards.length,
         };
       }),
     };

@@ -76,3 +76,40 @@ export class SubmitQuizDto {
   @IsString()
   challengeId?: string;
 }
+
+export class QuizListItemDto {
+  id: string;
+  title: string;
+  topic: string;
+  difficulty: string;
+  quizType: string;
+  timeLimit?: number;
+  createdAt: Date;
+  questionCount: number; // Instead of full questions array
+  attemptCount?: number; // Instead of full attempts array
+  studyPack?: {
+    id: string;
+    title: string;
+  };
+}
+
+export class QuizDetailDto extends QuizListItemDto {
+  questions: any[]; // Full questions array for detail view
+  userId: string;
+  tags?: string[];
+  contentId?: string;
+  studyPackId?: string;
+  sourceFiles?: string[];
+}
+
+export class QuizSubmissionResultDto {
+  attemptId: string;
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  correctAnswers: any[];
+  feedback: {
+    message: string;
+    percentile?: number;
+  };
+}

@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
@@ -16,6 +17,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiConsumes,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { FlashcardService } from './flashcard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -74,8 +76,18 @@ export class FlashcardController {
   @Get()
   @ApiOperation({ summary: 'Get all flashcard sets for current user' })
   @ApiResponse({ status: 200, description: 'List of flashcard sets' })
-  async getAllFlashcardSets(@CurrentUser('sub') userId: string) {
-    return this.flashcardService.getAllFlashcardSets(userId);
+  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+  async getAllFlashcardSets(
+    @CurrentUser('sub') userId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ) {
+    return this.flashcardService.getAllFlashcardSets(
+      userId,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10
+    );
   }
 
   @Get(':id')

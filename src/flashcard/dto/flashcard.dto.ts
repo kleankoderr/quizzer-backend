@@ -54,3 +54,38 @@ export class RecordFlashcardSessionDto {
   @Type(() => CardResponseDto)
   cardResponses: CardResponseDto[];
 }
+
+export class FlashcardListItemDto {
+  id: string;
+  title: string;
+  topic: string;
+  createdAt: Date;
+  cardCount: number; // Instead of full cards array
+  lastStudiedAt?: Date;
+  studyPack?: {
+    id: string;
+    title: string;
+  };
+}
+
+export class FlashcardSetDetailDto extends FlashcardListItemDto {
+  cards: any[]; // Full cards array for detail view
+  userId: string;
+  contentId?: string;
+  studyPackId?: string;
+  sourceFiles?: string[];
+}
+
+export class FlashcardSessionResultDto {
+  id: string; // Attempt ID
+  userId: string;
+  flashcardSetId: string;
+  score: number;
+  totalQuestions: number;
+  correctCount: number;
+  incorrectCount: number;
+  skippedCount: number;
+  percentage: number;
+  isPerfect: boolean;
+  completedAt: Date;
+}
