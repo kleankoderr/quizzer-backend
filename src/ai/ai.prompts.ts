@@ -381,8 +381,8 @@ Return ONLY valid JSON (no markdown, no code fences, no preamble):
         "example": "Detailed, practical example with explanation. For code: \`\`\`javascript\\nconst example = 'proper formatting';\\n// Comment explaining the code\\nconsole.log(example);\\n\`\`\`",
         "knowledgeCheck": {
           "question": "Clear, thought-provoking question testing understanding",
-          "options": array: Plain text ONLY. Do NOT include prefixes like "A)", "B)", "1.", "2.", etc. Just the option text content.
-          "correctAnswer": Index (0-3) of the correct option
+          "options": (array) Plain text ONLY. Do NOT include prefixes like "A)", "B)", "1.", "2.", etc. Just the option text content.
+          "correctAnswer": Index (0-3) of the correct option (it can be 0, 1, 2, 3) based on what is correct for the question,
           "explanation": "Detailed explanation of why this answer is correct and why others are wrong"
         }
       }
