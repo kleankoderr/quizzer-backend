@@ -86,7 +86,6 @@ model Quiz {
   studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
 
   @@index([studyPackId])
-
   @@index([userId])
   @@index([createdAt])
   @@map("quizzes")
@@ -112,7 +111,6 @@ model FlashcardSet {
   studyPack   StudyPack? @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
 
   @@index([studyPackId])
-
   @@index([userId])
   @@index([createdAt])
   @@map("flashcard_sets")
@@ -270,7 +268,7 @@ model Content {
   id            String   @id @default(uuid())
   title         String
   content       String   @db.Text
-  description   String?  // Short insightful description
+  description   String? // Short insightful description
   learningGuide Json? // Store structured learning guide
   topic         String
   userId        String
@@ -290,7 +288,6 @@ model Content {
   studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
 
   @@index([studyPackId])
-
   @@index([userId])
   @@map("contents")
 }
@@ -312,6 +309,11 @@ model Highlight {
 
   @@index([contentId])
   @@index([userId])
+  @@index([contentId, userId])
+  @@index([contentId, sectionIndex])
+  @@index([userId, createdAt])
+  @@index([contentId, text])
+  @@index([contentId, color])
   @@map("highlights")
 }
 
@@ -474,21 +476,20 @@ model Document {
 }
 
 model UserDocument {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documentId  String
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document    Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
   displayName String
-  uploadedAt  DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  uploadedAt  DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   studyPackId String?
   studyPack   StudyPack? @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
 
-  @@index([studyPackId])
-
   @@unique([userId, documentId])
+  @@index([studyPackId])
   @@index([userId])
   @@index([documentId])
   @@index([uploadedAt])

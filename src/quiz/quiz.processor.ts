@@ -68,9 +68,21 @@ export class QuizProcessor extends WorkerHost {
         await this.createUserDocumentReferences(userId, files, jobId);
       }
 
-      // Step 2: Generate quiz with AI
+      // Step 2: Fetch content and learning guide if contentId is provided
+      let contentForAI = dto.content;
+      if (contentId) {
+        const fetchedContent =
+          await this.fetchContentWithLearningGuide(contentId);
+        contentForAI = fetchedContent;
+        this.logger.log(
+          `Job ${jobId}: Fetched content and learning guide for contentId ${contentId}`
+        );
+      }
+
+      // Step 3: Generate quiz with AI
       const { questions, title, topic } = await this.generateQuizWithAI(
         dto,
+        contentForAI,
         fileReferences
       );
 
@@ -176,11 +188,12 @@ export class QuizProcessor extends WorkerHost {
    */
   private async generateQuizWithAI(
     dto: GenerateQuizDto,
+    content: string | undefined,
     fileReferences: FileReference[]
   ) {
     return this.aiService.generateQuiz({
       topic: dto.topic,
-      content: dto.content,
+      content: content || dto.content,
       fileReferences,
       numberOfQuestions: dto.numberOfQuestions,
       difficulty: dto.difficulty,
@@ -290,6 +303,70 @@ export class QuizProcessor extends WorkerHost {
       EVENTS.QUIZ.PROGRESS,
       EventFactory.quizProgress(userId, jobId, step, percentage)
     );
+  }
+
+  /**
+   * Fetch content and learning guide by contentId
+   */
+  private async fetchContentWithLearningGuide(
+    contentId: string
+  ): Promise<string> {
+    try {
+      const content = await this.prisma.content.findUnique({
+        where: { id: contentId },
+        select: {
+          content: true,
+          learningGuide: true,
+        },
+      });
+
+      if (!content) {
+        this.logger.warn(`Content ${contentId} not found, using empty content`);
+        return '';
+      }
+
+      // Combine content with learning guide for comprehensive quiz generation
+      let combinedContent = content.content;
+
+      if (content.learningGuide) {
+        const learningGuide = content.learningGuide as any;
+
+        // Add learning guide sections to the content
+        if (learningGuide.sections && Array.isArray(learningGuide.sections)) {
+          const sectionsText = learningGuide.sections
+            .map((section: any) => {
+              let sectionContent = `\n\n## ${section.title}\n${section.content}`;
+
+              // Add examples if available
+              if (section.examples && section.examples.length > 0) {
+                sectionContent += '\n\n### Examples:\n';
+                sectionContent += section.examples.join('\n\n');
+              }
+
+              // Add explanations if available
+              if (section.explanation) {
+                sectionContent += `\n\n### Explanation:\n${section.explanation}`;
+              }
+
+              return sectionContent;
+            })
+            .join('\n');
+
+          combinedContent += `\n\n# Learning Guide\n${sectionsText}`;
+        }
+      }
+
+      this.logger.debug(
+        `Combined content length: ${combinedContent.length} characters`
+      );
+
+      return combinedContent;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch content ${contentId}: ${error.message}`
+      );
+      return '';
+    }
   }
 
   /**

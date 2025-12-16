@@ -62,6 +62,7 @@ export class CreateHighlightDto {
   @ApiProperty({
     example: 'yellow',
     description: 'Color of the highlight',
+    enum: ['yellow', 'green', 'pink'],
     required: false,
   })
   @IsString()

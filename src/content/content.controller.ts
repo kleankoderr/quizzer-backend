@@ -192,6 +192,59 @@ export class ContentController {
     return this.contentService.deleteHighlight(userId, highlightId);
   }
 
+  @Post(':id/highlights/batch')
+  @ApiOperation({ summary: 'Add multiple highlights in batch' })
+  @ApiResponse({ status: 201, description: 'Highlights added successfully' })
+  async addHighlightsBatch(
+    @CurrentUser('sub') userId: string,
+    @Param('id') contentId: string,
+    @Body() dto: { highlights: CreateHighlightDto[] }
+  ) {
+    return this.contentService.addHighlightsBatch(
+      userId,
+      contentId,
+      dto.highlights
+    );
+  }
+
+  @Delete('highlights/batch')
+  @ApiOperation({ summary: 'Delete multiple highlights' })
+  @ApiResponse({ status: 200, description: 'Highlights deleted successfully' })
+  async deleteHighlightsBatch(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: { highlightIds: string[] }
+  ) {
+    return this.contentService.deleteHighlightsBatch(userId, dto.highlightIds);
+  }
+
+  @Get(':id/highlights')
+  @ApiOperation({ summary: 'Get highlights with optional filters' })
+  @ApiQuery({
+    name: 'color',
+    required: false,
+    enum: ['yellow', 'green', 'pink'],
+  })
+  @ApiQuery({ name: 'sectionIndex', required: false, type: Number })
+  @ApiQuery({ name: 'hasNote', required: false, type: Boolean })
+  @ApiResponse({
+    status: 200,
+    description: 'Highlights retrieved successfully',
+  })
+  async getHighlights(
+    @CurrentUser('sub') userId: string,
+    @Param('id') contentId: string,
+    @Query('color') color?: string,
+    @Query('sectionIndex') sectionIndex?: string,
+    @Query('hasNote') hasNote?: string
+  ) {
+    return this.contentService.getHighlights(userId, contentId, {
+      color,
+      sectionIndex: sectionIndex ? parseInt(sectionIndex, 10) : undefined,
+      hasNote:
+        hasNote === 'true' ? true : hasNote === 'false' ? false : undefined,
+    });
+  }
+
   @Post(':id/explain')
   @ApiOperation({ summary: 'Generate explanation for a section' })
   @ApiResponse({

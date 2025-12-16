@@ -342,6 +342,23 @@ export class ContentService {
   ) {
     await this.verifyContentOwnership(userId, contentId);
 
+    // Check for duplicate highlight (same text in same section)
+    const existingHighlight = await this.prisma.highlight.findFirst({
+      where: {
+        contentId,
+        text: {
+          equals: createHighlightDto.text,
+          mode: 'insensitive',
+        },
+        sectionIndex: createHighlightDto.sectionIndex ?? null,
+      },
+    });
+
+    if (existingHighlight) {
+      // Return existing highlight instead of creating duplicate
+      return existingHighlight;
+    }
+
     return this.prisma.highlight.create({
       data: {
         ...createHighlightDto,
@@ -365,6 +382,124 @@ export class ContentService {
 
     return this.prisma.highlight.delete({
       where: { id: highlightId },
+    });
+  }
+
+  /**
+   * Add multiple highlights in batch
+   */
+  async addHighlightsBatch(
+    userId: string,
+    contentId: string,
+    highlights: CreateHighlightDto[]
+  ) {
+    await this.verifyContentOwnership(userId, contentId);
+
+    // Use transaction for atomicity
+    return this.prisma.$transaction(async (tx) => {
+      const createdHighlights = [];
+
+      for (const highlightDto of highlights) {
+        // Check for duplicate
+        const existing = await tx.highlight.findFirst({
+          where: {
+            contentId,
+            text: {
+              equals: highlightDto.text,
+              mode: 'insensitive',
+            },
+            sectionIndex: highlightDto.sectionIndex ?? null,
+          },
+        });
+
+        if (existing) {
+          createdHighlights.push(existing);
+        } else {
+          const created = await tx.highlight.create({
+            data: {
+              ...highlightDto,
+              contentId,
+              userId,
+            },
+          });
+          createdHighlights.push(created);
+        }
+      }
+
+      return createdHighlights;
+    });
+  }
+
+  /**
+   * Delete multiple highlights in batch
+   */
+  async deleteHighlightsBatch(userId: string, highlightIds: string[]) {
+    // Verify ownership for all highlights in single query
+    const highlights = await this.prisma.highlight.findMany({
+      where: {
+        id: { in: highlightIds },
+        userId,
+      },
+      select: { id: true },
+    });
+
+    if (highlights.length !== highlightIds.length) {
+      throw new NotFoundException(
+        'One or more highlights not found or unauthorized'
+      );
+    }
+
+    // Bulk delete
+    const result = await this.prisma.highlight.deleteMany({
+      where: {
+        id: { in: highlightIds },
+        userId,
+      },
+    });
+
+    return { deleted: result.count };
+  }
+
+  /**
+   * Get highlights with optional filters
+   */
+  async getHighlights(
+    userId: string,
+    contentId: string,
+    filters?: {
+      color?: string;
+      sectionIndex?: number;
+      hasNote?: boolean;
+    }
+  ) {
+    await this.verifyContentOwnership(userId, contentId);
+
+    const where: any = {
+      contentId,
+      userId,
+    };
+
+    if (filters?.color) {
+      where.color = filters.color;
+    }
+
+    if (filters?.sectionIndex !== undefined) {
+      where.sectionIndex = filters.sectionIndex;
+    }
+
+    if (filters?.hasNote !== undefined) {
+      if (filters.hasNote) {
+        where.note = { not: null };
+      } else {
+        where.note = null;
+      }
+    }
+
+    return this.prisma.highlight.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
   }
 
