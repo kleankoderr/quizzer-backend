@@ -12,6 +12,7 @@ import {
   UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -39,6 +40,7 @@ export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 
   @Post('generate')
+  @Throttle({ default: { limit: 5, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate a new content' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Content successfully generated' })
@@ -246,6 +248,7 @@ export class ContentController {
   }
 
   @Post(':id/explain')
+  @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate explanation for a section' })
   @ApiResponse({
     status: 200,
@@ -265,6 +268,7 @@ export class ContentController {
   }
 
   @Post(':id/example')
+  @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate examples for a section' })
   @ApiResponse({ status: 200, description: 'Examples generated successfully' })
   async exampleSection(

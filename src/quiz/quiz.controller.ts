@@ -11,6 +11,7 @@ import {
   UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -33,6 +34,7 @@ export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
   @Post('generate')
+  @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate a new quiz' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Quiz successfully generated' })

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -78,8 +79,9 @@ import { StudyPackModule } from './study-pack/study-pack.module';
 
     ThrottlerModule.forRoot([
       {
+        name: 'default',
         ttl: 60000,
-        limit: 100,
+        limit: 10,
       },
     ]),
     PrismaModule,
@@ -120,7 +122,7 @@ import { StudyPackModule } from './study-pack/study-pack.module';
   providers: [
     AppService,
     {
-      provide: 'APP_GUARD',
+      provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
   ],

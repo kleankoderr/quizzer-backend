@@ -10,6 +10,7 @@ import {
   UseInterceptors,
   UploadedFiles,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -32,6 +33,7 @@ export class FlashcardController {
   constructor(private readonly flashcardService: FlashcardService) {}
 
   @Post('generate')
+  @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate flashcards' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({

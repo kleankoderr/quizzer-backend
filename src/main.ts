@@ -6,12 +6,18 @@ import { json } from 'express';
 import { AppModule } from './app.module';
 // import { doubleCsrfProtection } from "./config/csrf.config";
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
 
 async function bootstrap() {
   // Trigger restart - DB Synced
   const app = await NestFactory.create(AppModule);
   const httpAdapter = app.get(HttpAdapterHost);
+
+  // Register global exception filter
   app.useGlobalFilters(new GlobalExceptionFilter(httpAdapter));
+
+  // Register global response transform interceptor
+  app.useGlobalInterceptors(new ResponseTransformInterceptor());
 
   // Trust proxy is required for cookies to work behind a load balancer (like Render)
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
