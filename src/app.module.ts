@@ -39,6 +39,7 @@ import { EventsModule } from './events/events.module';
 import { UserDocumentModule } from './user-document/user-document.module';
 import { StudyPackModule } from './study-pack/study-pack.module';
 import { CommonModule } from './common/common.module';
+import { SessionModule } from './session/session.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { CommonModule } from './common/common.module';
     PrismaModule,
     FileStorageModule,
     CacheModule,
+    SessionModule,
     AiModule,
     AuthModule,
     QuizModule,

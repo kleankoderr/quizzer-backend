@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { SignupDto, LoginDto, GoogleAuthDto } from './dto/auth.dto';
 import { SettingsService } from '../settings/settings.service';
+import { SessionService } from '../session/session.service';
 import axios from 'axios';
 
 @Injectable()
@@ -19,7 +20,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly settingsService: SettingsService
+    private readonly settingsService: SettingsService,
+    private readonly sessionService: SessionService
   ) {
     this.client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
@@ -170,13 +172,30 @@ export class AuthService {
     }
   }
 
-  private generateAuthResponse(user: any) {
+  private async generateAuthResponse(
+    user: any,
+    deviceInfo?: string,
+    ipAddress?: string,
+    userAgent?: string
+  ) {
     const payload = {
       sub: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
     };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    // Create session in Redis
+    await this.sessionService.createSession({
+      userId: user.id,
+      email: user.email,
+      token: accessToken,
+      deviceInfo,
+      ipAddress,
+      userAgent,
+    });
 
     return {
       user: {
@@ -191,7 +210,7 @@ export class AuthService {
         assessmentPopupShown: user.assessmentPopupShown,
         createdAt: user.createdAt,
       },
-      accessToken: this.jwtService.sign(payload),
+      accessToken,
     };
   }
 
@@ -211,5 +230,35 @@ export class AuthService {
         createdAt: true,
       },
     });
+  }
+
+  /**
+   * Blacklist a token (for logout)
+   */
+  async blacklistToken(token: string, expiresIn: number): Promise<void> {
+    await this.sessionService.blacklistToken(token, expiresIn);
+  }
+
+  /**
+   * Calculate remaining lifetime of a JWT token
+   * Returns remaining seconds until expiration
+   */
+  async calculateTokenRemainingTime(token: string): Promise<number> {
+    try {
+      // Decode JWT without verification to get expiration
+      const decoded = this.jwtService.decode(token) as { exp?: number };
+
+      if (!decoded || !decoded.exp) {
+        return 0; // Invalid token, no need to blacklist
+      }
+
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const remainingTime = decoded.exp - now;
+
+      return remainingTime > 0 ? remainingTime : 0;
+    } catch (_error) {
+      // If decoding fails, return 0 (don't blacklist)
+      return 0;
+    }
   }
 }

@@ -100,14 +100,14 @@ const MODELS = {
 };
 
 const MODEL_MAPPING: Record<string, string> = {
-  quiz: MODELS.LITE,
-  flashcard: MODELS.LITE,
-  'learning-guide': MODELS.PREMIUM,
-  explanation: MODELS.LITE,
-  example: MODELS.LITE,
-  recommendation: MODELS.STANDARD,
-  companion: MODELS.LITE,
-  content: MODELS.LITE, // generic content fallback
+  quiz: MODELS.PREMIUM, // Lite model for quizzes
+  flashcard: MODELS.PREMIUM, // Lite model for flashcards
+  'learning-guide': MODELS.PREMIUM, // Premium model for learning guides
+  explanation: MODELS.PREMIUM, // Lite model for explanations
+  example: MODELS.PREMIUM, // Lite model for examples
+  recommendation: MODELS.STANDARD, // Standard model for recommendations
+  companion: MODELS.PREMIUM, // Lite model for companion interactions
+  content: MODELS.PREMIUM, // Lite model for generic content
 };
 
 const DEFAULT_TEMPERATURE = 0.7;

@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SessionService } from '../../session/session.service';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
@@ -9,7 +10,8 @@ import { Request } from 'express';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly sessionService: SessionService
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -20,10 +22,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ]),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_SECRET'),
+      passReqToCallback: true, // Pass request to validate method
     });
   }
 
-  async validate(payload: any) {
+  async validate(req: Request, payload: any) {
+    // Extract token for session validation
+    const token =
+      req?.cookies?.Authentication ||
+      req?.headers?.authorization?.replace('Bearer ', '');
+
+    // Check if token is blacklisted
+    if (token && (await this.sessionService.isTokenBlacklisted(token))) {
+      throw new UnauthorizedException('Token has been revoked');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });

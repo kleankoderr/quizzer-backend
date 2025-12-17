@@ -81,24 +81,26 @@ export class LeaderboardService {
       })),
       currentUser: currentUserEntry
         ? currentUserEntry
-        : topStreaks.find((s) => s.userId === currentUserId)
-          ? {
-              userId: currentUserId,
-              userName: topStreaks.find((s) => s.userId === currentUserId)!.user
-                .name,
-              avatar: topStreaks.find((s) => s.userId === currentUserId)!.user
-                .avatar,
-              schoolName: topStreaks.find((s) => s.userId === currentUserId)!
-                .user.schoolName,
-              score: topStreaks.find((s) => s.userId === currentUserId)!
-                .totalXP,
-              rank: topStreaks.findIndex((s) => s.userId === currentUserId) + 1,
-            }
-          : null,
+        : (() => {
+            const currentStreak = topStreaks.find(
+              (s) => s.userId === currentUserId
+            );
+            return currentStreak
+              ? {
+                  userId: currentUserId,
+                  userName: currentStreak.user.name,
+                  avatar: currentStreak.user.avatar,
+                  schoolName: currentStreak.user.schoolName,
+                  score: currentStreak.totalXP,
+                  rank:
+                    topStreaks.findIndex((s) => s.userId === currentUserId) + 1,
+                }
+              : null;
+          })(),
     };
 
-    // Cache leaderboard for 1 minute
-    await this.cacheManager.set(cacheKey, result, 60000);
+    // Cache leaderboard for 5 minutes (reduced database load)
+    await this.cacheManager.set(cacheKey, result, 300000);
 
     return result;
   }
@@ -189,20 +191,22 @@ export class LeaderboardService {
       })),
       currentUser: currentUserEntry
         ? currentUserEntry
-        : topStreaks.find((s) => s.userId === userId)
-          ? {
-              userId: userId,
-              userName: topStreaks.find((s) => s.userId === userId)!.user.name,
-              avatar: topStreaks.find((s) => s.userId === userId)!.user.avatar,
-              schoolName: topStreaks.find((s) => s.userId === userId)!.user
-                .schoolName,
-              score: topStreaks.find((s) => s.userId === userId)!.totalXP,
-              rank: topStreaks.findIndex((s) => s.userId === userId) + 1,
-            }
-          : null,
+        : (() => {
+            const currentStreak = topStreaks.find((s) => s.userId === userId);
+            return currentStreak
+              ? {
+                  userId: userId,
+                  userName: currentStreak.user.name,
+                  avatar: currentStreak.user.avatar,
+                  schoolName: currentStreak.user.schoolName,
+                  score: currentStreak.totalXP,
+                  rank: topStreaks.findIndex((s) => s.userId === userId) + 1,
+                }
+              : null;
+          })(),
     };
 
-    await this.cacheManager.set(cacheKey, result, 60000);
+    await this.cacheManager.set(cacheKey, result, 300000); // 5 minutes
     return result;
   }
 

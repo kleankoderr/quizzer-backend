@@ -24,20 +24,11 @@ import {
   AuthResponseDto,
   GoogleAuthDto,
 } from './dto/auth.dto';
-import { generateCsrfToken } from '../config/csrf.config';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  @Get('csrf-token')
-  @ApiOperation({ summary: 'Get CSRF token' })
-  @ApiResponse({ status: 200, description: 'CSRF token retrieved' })
-  getCsrfToken(@Req() req: Request, @Res() res: Response) {
-    const csrfToken = generateCsrfToken(req, res);
-    return res.json({ csrfToken });
-  }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } }) //
   @Post('signup')
@@ -53,10 +44,11 @@ export class AuthController {
   })
   async signup(
     @Body() signupDto: SignupDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
     const { user, accessToken } = await this.authService.signup(signupDto);
-    this.setCookie(res, accessToken);
+    this.setCookie(res, accessToken, req);
     return { user, accessToken, message: 'Account created successfully.' };
   }
 
@@ -71,10 +63,11 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(
     @Body() loginDto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
     const { user, accessToken } = await this.authService.login(loginDto);
-    this.setCookie(res, accessToken);
+    this.setCookie(res, accessToken, req);
     return { user, accessToken };
   }
 
@@ -89,11 +82,12 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid Google token' })
   async googleLogin(
     @Body() googleAuthDto: GoogleAuthDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
     const { user, accessToken } =
       await this.authService.googleLogin(googleAuthDto);
-    this.setCookie(res, accessToken);
+    this.setCookie(res, accessToken, req);
     return { user, accessToken };
   }
 
@@ -112,8 +106,22 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout current user' })
   @ApiResponse({ status: 200, description: 'Logged out successfully' })
-  async logout(@Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const isProduction = process.env.NODE_ENV === 'production';
+
+    // Extract token for blacklisting
+    const token =
+      req?.cookies?.Authentication ||
+      req?.headers?.authorization?.replace('Bearer ', '');
+
+    // Blacklist token with precise remaining lifetime
+    if (token) {
+      const remainingTime =
+        await this.authService.calculateTokenRemainingTime(token);
+      if (remainingTime > 0) {
+        await this.authService.blacklistToken(token, remainingTime);
+      }
+    }
 
     res.clearCookie('Authentication', {
       httpOnly: true,
@@ -124,15 +132,23 @@ export class AuthController {
     return { message: 'Logged out successfully' };
   }
 
-  private setCookie(res: Response, token: string) {
+  private setCookie(res: Response, token: string, req?: Request) {
     const isProduction = process.env.NODE_ENV === 'production';
+
+    // Detect mobile browser for longer cookie expiration
+    const userAgent = req?.headers['user-agent'] || '';
+    const isMobile = /Mobile|Android|iPhone|iPad/i.test(userAgent);
+
+    // 7 days for mobile, 1 day for desktop
+    const maxAge = isMobile ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
     res.cookie('Authentication', token, {
       httpOnly: true,
       secure: isProduction, // Required for SameSite: 'None'
       sameSite: isProduction ? 'none' : 'lax', // 'None' for cross-domain in prod, 'Lax' for local dev
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      maxAge,
       path: '/', // Ensure cookie is available for all paths
+      domain: process.env.COOKIE_DOMAIN, // For subdomain support (e.g., .yourdomain.com)
     });
   }
 }
