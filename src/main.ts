@@ -6,8 +6,6 @@ import { json } from 'express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
-import cluster from 'cluster';
-import * as os from 'os';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -80,55 +78,6 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-
-  const workerId = cluster.worker?.id || 'Primary';
-  console.log(
-    `🚀 Worker ${workerId} - Application is running on: http://localhost:${port}`
-  );
-  console.log(`📚 Worker ${workerId} - Swagger: http://localhost:${port}/api`);
 }
 
-// Cluster mode implementation
-if (cluster.isPrimary) {
-  const numCPUs = os.cpus().length;
-  const numWorkers = process.env.CLUSTER_WORKERS
-    ? parseInt(process.env.CLUSTER_WORKERS)
-    : numCPUs;
-
-  console.log(`🎯 Primary process ${process.pid} is running`);
-  console.log(`🔧 CPU cores: ${numCPUs}`);
-  console.log(`👷 Spawning ${numWorkers} worker(s)...`);
-
-  // Fork workers
-  for (let i = 0; i < numWorkers; i++) {
-    cluster.fork();
-  }
-
-  // Handle worker exit and respawn
-  cluster.on('exit', (worker, code, signal) => {
-    console.log(
-      `⚠️  Worker ${worker.process.pid} died (${signal || code}). Restarting...`
-    );
-    cluster.fork();
-  });
-
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received. Shutting down gracefully...');
-    for (const id in cluster.workers) {
-      cluster.workers[id]?.kill();
-    }
-    process.exit(0);
-  });
-
-  process.on('SIGINT', () => {
-    console.log('🛑 SIGINT received. Shutting down gracefully...');
-    for (const id in cluster.workers) {
-      cluster.workers[id]?.kill();
-    }
-    process.exit(0);
-  });
-} else {
-  // Worker process
-  bootstrap();
-}
+bootstrap();
