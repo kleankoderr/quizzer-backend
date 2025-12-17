@@ -40,6 +40,7 @@ import { UserDocumentModule } from './user-document/user-document.module';
 import { StudyPackModule } from './study-pack/study-pack.module';
 import { CommonModule } from './common/common.module';
 import { SessionModule } from './session/session.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -119,6 +120,7 @@ import { SessionModule } from './session/session.module';
     UserDocumentModule,
     StudyPackModule,
     CommonModule,
+    SubscriptionModule,
   ],
   controllers: [AppController],
   providers: [

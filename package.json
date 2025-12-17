@@ -22,8 +22,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
+    "prisma:seed": "ts-node prisma/seed.ts",
     "check-user": "ts-node scripts/check-user.ts",
     "decode-jwt": "ts-node scripts/decode-jwt.ts"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

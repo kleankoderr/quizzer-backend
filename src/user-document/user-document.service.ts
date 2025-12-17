@@ -7,6 +7,7 @@ import {
 } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
 import { processFileUploads } from '../common/helpers/file-upload.helpers';
+import { QuotaService } from '../common/services/quota.service';
 
 @Injectable()
 export class UserDocumentService {
@@ -18,7 +19,8 @@ export class UserDocumentService {
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
-    private readonly documentHashService: DocumentHashService
+    private readonly documentHashService: DocumentHashService,
+    private readonly quotaService: QuotaService
   ) {}
 
   /**
@@ -183,6 +185,13 @@ export class UserDocumentService {
         id: userDocumentId,
         userId,
       },
+      include: {
+        document: {
+          select: {
+            sizeBytes: true,
+          },
+        },
+      },
     });
 
     if (!userDocument) {
@@ -191,12 +200,25 @@ export class UserDocumentService {
       );
     }
 
+    // Calculate file size in MB for quota decrement
+    const fileSizeMB = userDocument.document.sizeBytes / (1024 * 1024);
+
     await this.prisma.userDocument.delete({
       where: { id: userDocumentId },
     });
 
+    // Decrement storage quota
+    await this.prisma.userQuota.update({
+      where: { userId },
+      data: {
+        totalFileStorageMB: {
+          decrement: fileSizeMB,
+        },
+      },
+    });
+
     this.logger.log(
-      `Deleted user document reference: ${userDocumentId} for user ${userId}`
+      `Deleted user document reference: ${userDocumentId} for user ${userId}, freed ${fileSizeMB.toFixed(2)}MB`
     );
   }
 
@@ -275,6 +297,17 @@ export class UserDocumentService {
     this.logger.log(`Uploading ${files.length} file(s) for user ${userId}`);
 
     try {
+      // Check file upload quota (daily/monthly file count)
+      await this.quotaService.checkQuota(userId, 'fileUpload');
+
+      // Calculate total file size in MB
+      const totalFileSizeMB = files.reduce((sum, file) => {
+        return sum + file.size / (1024 * 1024);
+      }, 0);
+
+      // Check file storage limit
+      await this.quotaService.checkFileStorageLimit(userId, totalFileSizeMB);
+
       // Process file uploads (upload to storage and create Document records)
       const processedDocs = await processFileUploads(
         files,
@@ -334,6 +367,9 @@ export class UserDocumentService {
       this.logger.log(
         `Successfully uploaded ${userDocuments.length} file(s) for user ${userId}`
       );
+
+      // Increment quota after successful upload
+      await this.quotaService.incrementFileUpload(userId, totalFileSizeMB);
 
       return userDocuments;
     } catch (error) {

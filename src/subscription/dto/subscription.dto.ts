@@ -1,0 +1,201 @@
+import { IsString, IsNotEmpty, IsUrl, IsObject } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { SubscriptionStatus } from '@prisma/client';
+
+/**
+ * DTO for initiating subscription checkout
+ */
+export class CheckoutDto {
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Subscription plan ID',
+  })
+  @IsString()
+  @IsNotEmpty()
+  planId: string;
+
+  @ApiProperty({
+    example: 'https://yourdomain.com/subscription/verify',
+    description: 'Frontend callback URL for payment redirect',
+  })
+  @IsUrl()
+  @IsNotEmpty()
+  callbackUrl: string;
+}
+
+/**
+ * DTO for checkout response
+ */
+export class CheckoutResponseDto {
+  @ApiProperty({
+    example: 'https://checkout.paystack.com/abc123',
+    description: 'Paystack authorization URL for payment',
+  })
+  authorizationUrl: string;
+
+  @ApiProperty({
+    example: 'ref_abc123xyz',
+    description: 'Payment reference for tracking',
+  })
+  reference: string;
+
+  @ApiProperty({
+    example: 'Checkout initialized successfully',
+    description: 'Success message',
+  })
+  message: string;
+}
+
+/**
+ * DTO for subscription plan details
+ */
+export class PlanDetailsDto {
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Plan ID',
+  })
+  id: string;
+
+  @ApiProperty({
+    example: 'Premium Monthly',
+    description: 'Plan name',
+  })
+  name: string;
+
+  @ApiProperty({
+    example: 2000,
+    description: 'Plan price in kobo (NGN)',
+  })
+  price: number;
+
+  @ApiProperty({
+    example: 'monthly',
+    description: 'Billing interval',
+  })
+  interval: string;
+
+  @ApiProperty({
+    example: {
+      dailyQuizCount: 50,
+      dailyFlashcardCount: 50,
+      dailyLearningGuideCount: 20,
+      dailyExplanationCount: 100,
+      monthlyTotalCount: 1000,
+      dailyFileUploadCount: 20,
+      monthlyFileUploadCount: 500,
+      maxFileStorageMB: 1000,
+    },
+    description: 'Quota limits for this plan',
+  })
+  quotas: Record<string, any>;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether the plan is active',
+  })
+  isActive: boolean;
+}
+
+/**
+ * DTO for subscription response
+ */
+export class SubscriptionResponseDto {
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Subscription ID',
+  })
+  id: string;
+
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'User ID',
+  })
+  userId: string;
+
+  @ApiProperty({
+    enum: SubscriptionStatus,
+    example: SubscriptionStatus.ACTIVE,
+    description: 'Subscription status',
+  })
+  status: SubscriptionStatus;
+
+  @ApiProperty({
+    example: '2025-01-17T20:00:00.000Z',
+    description: 'Current period end date',
+  })
+  currentPeriodEnd: Date;
+
+  @ApiProperty({
+    example: false,
+    description: 'Whether subscription will be cancelled at period end',
+  })
+  cancelAtPeriodEnd: boolean;
+
+  @ApiProperty({
+    type: PlanDetailsDto,
+    description: 'Subscription plan details',
+  })
+  plan: PlanDetailsDto;
+
+  @ApiProperty({
+    example: '2024-12-17T20:00:00.000Z',
+    description: 'Subscription creation date',
+  })
+  createdAt: Date;
+
+  @ApiProperty({
+    example: '2024-12-17T20:00:00.000Z',
+    description: 'Subscription last update date',
+  })
+  updatedAt: Date;
+}
+
+/**
+ * Type for Paystack webhook event data
+ */
+export interface WebhookEventData {
+  reference?: string;
+  amount?: number;
+  status?: string;
+  customer?: {
+    email?: string;
+  };
+  [key: string]: any;
+}
+
+/**
+ * DTO for Paystack webhook event
+ */
+export class WebhookEventDto {
+  @ApiProperty({
+    example: 'charge.success',
+    description: 'Webhook event type',
+  })
+  @IsString()
+  @IsNotEmpty()
+  event: string;
+
+  @ApiProperty({
+    description: 'Event data containing payment details',
+  })
+  @IsObject()
+  @IsNotEmpty()
+  data: WebhookEventData;
+}
+
+/**
+ * DTO for subscription cancellation response
+ */
+export class CancelSubscriptionResponseDto {
+  @ApiProperty({
+    example: 'Subscription will be cancelled at the end of the current period',
+    description: 'Success message',
+  })
+  message: string;
+
+  @ApiProperty({
+    type: SubscriptionResponseDto,
+    description: 'Updated subscription details',
+  })
+  subscription: SubscriptionResponseDto;
+}
