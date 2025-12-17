@@ -10,6 +10,7 @@ import { GenerateFlashcardDto } from './dto/flashcard.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { UserDocumentService } from '../user-document/user-document.service';
+import { QuotaService } from '../common/services/quota.service';
 
 export interface ProcessedFileData {
   originalname: string;
@@ -36,7 +37,8 @@ export class FlashcardProcessor extends WorkerHost {
     private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly userDocumentService: UserDocumentService
+    private readonly userDocumentService: UserDocumentService,
+    private readonly quotaService: QuotaService
   ) {
     super();
   }
@@ -120,8 +122,9 @@ export class FlashcardProcessor extends WorkerHost {
         this.logger.debug(`Job ${jobId}: Linked to content ${dto.contentId}`);
       }
 
-      // Invalidate user's flashcard cache
       await this.cacheManager.del(`flashcards:all:${userId}`);
+
+      await this.quotaService.incrementQuota(userId, 'flashcard');
 
       await job.updateProgress(100);
       this.logger.log(
@@ -143,7 +146,7 @@ export class FlashcardProcessor extends WorkerHost {
 
       return {
         success: true,
-        flashcardSet,
+        id: flashcardSet.id,
       };
     } catch (error) {
       this.logger.error(
@@ -156,18 +159,6 @@ export class FlashcardProcessor extends WorkerHost {
       );
       throw error;
     }
-  }
-
-  private emitProgress(
-    userId: string,
-    jobId: string,
-    step: string,
-    percentage: number
-  ) {
-    this.eventEmitter.emit(
-      EVENTS.FLASHCARD.PROGRESS,
-      EventFactory.flashcardProgress(userId, jobId, step, percentage)
-    );
   }
 
   /**

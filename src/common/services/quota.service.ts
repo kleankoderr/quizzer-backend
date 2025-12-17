@@ -24,26 +24,26 @@ export class QuotaService {
   ) {
     // Initialize free tier limits with env vars or defaults
     this.FREE_TIER_LIMITS = {
-      quiz: this.configService.get<number>('QUOTA_FREE_QUIZ', 3),
-      flashcard: this.configService.get<number>('QUOTA_FREE_FLASHCARD', 3),
+      quiz: this.configService.get<number>('QUOTA_FREE_QUIZ', 2),
+      flashcard: this.configService.get<number>('QUOTA_FREE_FLASHCARD', 2),
       learningGuide: this.configService.get<number>(
         'QUOTA_FREE_LEARNING_GUIDE',
-        3
+        1
       ),
       explanation: this.configService.get<number>('QUOTA_FREE_EXPLANATION', 5),
     };
 
     // Initialize premium tier limits with env vars or defaults
     this.PREMIUM_TIER_LIMITS = {
-      quiz: this.configService.get<number>('QUOTA_PREMIUM_QUIZ', 20),
-      flashcard: this.configService.get<number>('QUOTA_PREMIUM_FLASHCARD', 20),
+      quiz: this.configService.get<number>('QUOTA_PREMIUM_QUIZ', 15),
+      flashcard: this.configService.get<number>('QUOTA_PREMIUM_FLASHCARD', 15),
       learningGuide: this.configService.get<number>(
         'QUOTA_PREMIUM_LEARNING_GUIDE',
         10
       ),
       explanation: this.configService.get<number>(
         'QUOTA_PREMIUM_EXPLANATION',
-        999
+        20
       ),
     };
   }
@@ -52,32 +52,26 @@ export class QuotaService {
    * Check if user has quota available for feature
    * Throws ForbiddenException if quota exceeded
    */
-  async checkAndIncrementQuota(
+  async checkQuota(
     userId: string,
     feature: QuotaFeature
   ): Promise<{ allowed: true; remaining: number }> {
-    // Get or create user quota record
     let userQuota = await this.prisma.userQuota.findUnique({
       where: { userId },
     });
 
-    // Create quota record if it doesn't exist
     if (!userQuota) {
       userQuota = await this.prisma.userQuota.create({
         data: { userId },
       });
     }
 
-    // Reset quota if needed (daily reset at midnight)
     if (this.shouldResetQuota(userQuota.quotaResetAt)) {
       await this.resetDailyQuota(userId);
-      // After reset, usage is 0, so allow and increment
-      await this.incrementUsage(userId, feature);
       const limit = this.getLimit(userQuota.isPremium, feature);
-      return { allowed: true, remaining: limit - 1 };
+      return { allowed: true, remaining: limit };
     }
 
-    // Get current usage and limit
     const currentUsage = this.getCurrentUsage(userQuota, feature);
     const limit = this.getLimit(userQuota.isPremium, feature);
 
@@ -90,10 +84,12 @@ export class QuotaService {
       );
     }
 
-    // Increment usage
-    await this.incrementUsage(userId, feature);
+    return { allowed: true, remaining: limit - currentUsage };
+  }
 
-    return { allowed: true, remaining: limit - currentUsage - 1 };
+  async incrementQuota(userId: string, feature: QuotaFeature): Promise<void> {
+    await this.incrementUsage(userId, feature);
+    this.logger.log(`Incremented ${feature} quota for user ${userId}`);
   }
 
   /**

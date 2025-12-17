@@ -22,7 +22,7 @@ export class QuotaGuard implements CanActivate {
     );
 
     if (!feature) {
-      return true; // No quota check needed
+      return true;
     }
 
     const request = context.switchToHttp().getRequest();
@@ -32,8 +32,7 @@ export class QuotaGuard implements CanActivate {
       throw new UnauthorizedException('User not authenticated');
     }
 
-    // This will throw ForbiddenException if quota exceeded
-    await this.quotaService.checkAndIncrementQuota(userId, feature);
+    await this.quotaService.checkQuota(userId, feature);
 
     return true;
   }

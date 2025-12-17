@@ -9,6 +9,7 @@ import { QuizType } from '@prisma/client';
 import { EventFactory } from '../events/events.types';
 import { EVENTS } from '../events/events.constants';
 import { UserDocumentService } from '../user-document/user-document.service';
+import { QuotaService } from '../common/services/quota.service';
 
 export interface FileReference {
   originalname: string;
@@ -41,7 +42,8 @@ export class QuizProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly userDocumentService: UserDocumentService
+    private readonly userDocumentService: UserDocumentService,
+    private readonly quotaService: QuotaService
   ) {
     super();
   }
@@ -57,11 +59,7 @@ export class QuizProcessor extends WorkerHost {
     try {
       // Step 1: Initialize and prepare
       const fileReferences = this.prepareFileReferences(files);
-
-      if (fileReferences.length > 0) {
-      } else {
-        await job.updateProgress(20);
-      }
+      await job.updateProgress(20);
 
       // Create UserDocument references for uploaded files
       if (files && files.length > 0) {
@@ -102,10 +100,11 @@ export class QuizProcessor extends WorkerHost {
         files
       );
 
-      // Step 4: Link to content if applicable
       if (contentId) {
         await this.linkToContent(contentId, quiz.id);
       }
+
+      await this.quotaService.incrementQuota(userId, 'quiz');
 
       await job.updateProgress(100);
 
@@ -124,7 +123,7 @@ export class QuizProcessor extends WorkerHost {
 
       return {
         success: true,
-        quiz,
+        id: quiz.id,
       };
     } catch (error) {
       this.logger.error(`Job ${jobId}: Failed to generate quiz`, error.stack);
@@ -138,8 +137,6 @@ export class QuizProcessor extends WorkerHost {
       throw error;
     }
   }
-
-  // ==================== PRIVATE HELPER METHODS ====================
 
   /**
    * Prepare file references for AI service
@@ -288,21 +285,6 @@ export class QuizProcessor extends WorkerHost {
         error.message
       );
     }
-  }
-
-  /**
-   * Emit progress event
-   */
-  private async emitProgress(
-    userId: string,
-    jobId: string,
-    step: string,
-    percentage: number
-  ): Promise<void> {
-    this.eventEmitter.emit(
-      EVENTS.QUIZ.PROGRESS,
-      EventFactory.quizProgress(userId, jobId, step, percentage)
-    );
   }
 
   /**

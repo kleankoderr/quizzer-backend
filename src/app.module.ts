@@ -35,7 +35,6 @@ import { SearchModule } from './search/search.module';
 import { SchoolModule } from './school/school.module';
 import { CoachingModule } from './coaching/coaching.module';
 import { SettingsModule } from './settings/settings.module';
-import { SseModule } from './sse/sse.module';
 import { EventsModule } from './events/events.module';
 import { UserDocumentModule } from './user-document/user-document.module';
 import { StudyPackModule } from './study-pack/study-pack.module';
@@ -71,7 +70,7 @@ import { CommonModule } from './common/common.module';
             backoff: undefined, // Disable backoff
             ttl: 60_000, // Jobs expire after 60s
             removeOnComplete: { age: 60 }, // Keep completed jobs 60s
-            removeOnFail: true, // Remove failed job immediately
+            removeOnFail: { age: 60 }, // Keep failed jobs for 60s (1 minute)
           },
         };
       },
@@ -114,7 +113,6 @@ import { CommonModule } from './common/common.module';
     SettingsModule,
     OnboardingModule,
     SearchModule,
-    SseModule,
     EventsModule,
     UserDocumentModule,
     StudyPackModule,

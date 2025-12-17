@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { EventFactory, EVENTS } from '../events/events.types';
 import { UserDocumentService } from '../user-document/user-document.service';
+import { QuotaService } from '../common/services/quota.service';
 
 export interface ContentJobData {
   userId: string;
@@ -33,7 +34,8 @@ export class ContentProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly userDocumentService: UserDocumentService
+    private readonly userDocumentService: UserDocumentService,
+    private readonly quotaService: QuotaService
   ) {
     super();
   }
@@ -107,6 +109,8 @@ export class ContentProcessor extends WorkerHost {
         },
       });
 
+      await this.quotaService.incrementQuota(userId, 'learningGuide');
+
       await job.updateProgress(100);
       this.logger.log(
         `Job ${jobId}: Successfully completed (Content ID: ${content.id})`
@@ -122,7 +126,7 @@ export class ContentProcessor extends WorkerHost {
 
       return {
         success: true,
-        content,
+        id: content.id,
       };
     } catch (error) {
       this.logger.error(
@@ -135,18 +139,6 @@ export class ContentProcessor extends WorkerHost {
       );
       throw error;
     }
-  }
-
-  private emitProgress(
-    userId: string,
-    jobId: string,
-    step: string,
-    percentage: number
-  ) {
-    this.eventEmitter.emit(
-      EVENTS.CONTENT.PROGRESS,
-      EventFactory.contentProgress(userId, jobId, step, percentage)
-    );
   }
 
   /**

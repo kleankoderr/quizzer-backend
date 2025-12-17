@@ -28,6 +28,7 @@ import {
   ProcessedDocument,
 } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
+import { QuotaService } from '../common/services/quota.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -57,7 +58,8 @@ export class ContentService {
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
-    private readonly userDocumentService: UserDocumentService
+    private readonly userDocumentService: UserDocumentService,
+    private readonly quotaService: QuotaService
   ) {}
 
   /**
@@ -516,13 +518,13 @@ export class ContentService {
       return cached;
     }
 
-    // Generate explanation
     const result = await this.aiService.generateExplanation({
       topic: sectionTitle,
       context: sectionContent,
     });
 
-    // Cache for 12 hours (matches CACHE_TTL_EXPLANATION_MS)
+    await this.quotaService.incrementQuota(userId, 'explanation');
+
     await this.cacheManager.set(cacheKey, result, 43200000);
 
     return result;
@@ -547,13 +549,13 @@ export class ContentService {
       return cached;
     }
 
-    // Generate example
     const result = await this.aiService.generateExample({
       topic: sectionTitle,
       context: sectionContent,
     });
 
-    // Cache for 12 hours (matches CACHE_TTL_EXPLANATION_MS)
+    await this.quotaService.incrementQuota(userId, 'explanation');
+
     await this.cacheManager.set(cacheKey, result, 43200000);
 
     return result;
