@@ -23,16 +23,19 @@ import {
 } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { QuotaGuard } from '../common/guards/quota.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CheckQuota } from '../common/decorators/check-quota.decorator';
 import { GenerateQuizDto, SubmitQuizDto } from './dto/quiz.dto';
 
 @ApiTags('Quizzes')
 @ApiBearerAuth()
 @Controller('quiz')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, QuotaGuard)
 export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
+  @CheckQuota('quiz')
   @Post('generate')
   @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate a new quiz' })

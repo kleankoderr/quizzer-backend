@@ -22,16 +22,19 @@ import {
 } from '@nestjs/swagger';
 import { FlashcardService } from './flashcard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { QuotaGuard } from '../common/guards/quota.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CheckQuota } from '../common/decorators/check-quota.decorator';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
 
 @ApiTags('Flashcards')
 @ApiBearerAuth()
 @Controller('flashcards')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, QuotaGuard)
 export class FlashcardController {
   constructor(private readonly flashcardService: FlashcardService) {}
 
+  @CheckQuota('flashcard')
   @Post('generate')
   @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate flashcards' })

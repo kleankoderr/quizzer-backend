@@ -20,6 +20,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { UserService } from './user.service';
+import { QuotaService } from '../common/services/quota.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -31,7 +32,10 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly quotaService: QuotaService
+  ) {}
 
   @Get('profile')
   @ApiOperation({ summary: 'Get user profile with statistics' })
@@ -112,5 +116,15 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Updated successfully' })
   async updateAssessmentPopupShown(@CurrentUser('sub') userId: string) {
     return this.userService.updateAssessmentPopupShown(userId);
+  }
+
+  @Get('quota')
+  @ApiOperation({ summary: 'Get current quota status' })
+  @ApiResponse({
+    status: 200,
+    description: 'Quota status retrieved successfully',
+  })
+  async getQuotaStatus(@CurrentUser('sub') userId: string) {
+    return this.quotaService.getQuotaStatus(userId);
   }
 }

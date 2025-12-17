@@ -30,15 +30,18 @@ import {
   UpdateContentDto,
 } from './dto/content.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { QuotaGuard } from '../common/guards/quota.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CheckQuota } from '../common/decorators/check-quota.decorator';
 
 @ApiTags('Content')
 @Controller('content')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, QuotaGuard)
 @ApiBearerAuth()
 export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 
+  @CheckQuota('learningGuide')
   @Post('generate')
   @Throttle({ default: { limit: 5, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate a new content' })
@@ -247,6 +250,7 @@ export class ContentController {
     });
   }
 
+  @CheckQuota('explanation')
   @Post(':id/explain')
   @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate explanation for a section' })
@@ -267,6 +271,7 @@ export class ContentController {
     );
   }
 
+  @CheckQuota('explanation')
   @Post(':id/example')
   @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate examples for a section' })

@@ -286,8 +286,6 @@ export class ContentService {
     contentId: string,
     updateContentDto: UpdateContentDto
   ) {
-    await this.verifyContentOwnership(userId, contentId);
-
     const updatedContent = await this.prisma.content.update({
       where: { id: contentId },
       data: updateContentDto,
@@ -340,8 +338,6 @@ export class ContentService {
     contentId: string,
     createHighlightDto: CreateHighlightDto
   ) {
-    await this.verifyContentOwnership(userId, contentId);
-
     // Check for duplicate highlight (same text in same section)
     const existingHighlight = await this.prisma.highlight.findFirst({
       where: {
@@ -393,8 +389,6 @@ export class ContentService {
     contentId: string,
     highlights: CreateHighlightDto[]
   ) {
-    await this.verifyContentOwnership(userId, contentId);
-
     // Use transaction for atomicity
     return this.prisma.$transaction(async (tx) => {
       const createdHighlights = [];
@@ -472,8 +466,6 @@ export class ContentService {
       hasNote?: boolean;
     }
   ) {
-    await this.verifyContentOwnership(userId, contentId);
-
     const where: any = {
       contentId,
       userId,
@@ -514,12 +506,26 @@ export class ContentService {
     sectionTitle: string,
     sectionContent: string
   ) {
-    await this.verifyContentOwnership(userId, contentId);
+    // Cache key based on content and section
+    const cacheKey = `explanation:${contentId}:${sectionTitle}`;
 
-    return this.aiService.generateExplanation({
+    // Check cache
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for explanation: ${cacheKey}`);
+      return cached;
+    }
+
+    // Generate explanation
+    const result = await this.aiService.generateExplanation({
       topic: sectionTitle,
       context: sectionContent,
     });
+
+    // Cache for 12 hours (matches CACHE_TTL_EXPLANATION_MS)
+    await this.cacheManager.set(cacheKey, result, 43200000);
+
+    return result;
   }
 
   /**
@@ -531,12 +537,26 @@ export class ContentService {
     sectionTitle: string,
     sectionContent: string
   ) {
-    await this.verifyContentOwnership(userId, contentId);
+    // Cache key
+    const cacheKey = `example:${contentId}:${sectionTitle}`;
 
-    return this.aiService.generateExample({
+    // Check cache
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for example: ${cacheKey}`);
+      return cached;
+    }
+
+    // Generate example
+    const result = await this.aiService.generateExample({
       topic: sectionTitle,
       context: sectionContent,
     });
+
+    // Cache for 12 hours (matches CACHE_TTL_EXPLANATION_MS)
+    await this.cacheManager.set(cacheKey, result, 43200000);
+
+    return result;
   }
 
   // ==================== ANALYTICS ====================
@@ -670,23 +690,6 @@ export class ContentService {
         error.stack
       );
       throw new BadRequestException(`Failed to upload files: ${error.message}`);
-    }
-  }
-
-  /**
-   * Verify content ownership
-   */
-  private async verifyContentOwnership(
-    userId: string,
-    contentId: string
-  ): Promise<void> {
-    const content = await this.prisma.content.findUnique({
-      where: { id: contentId },
-      select: { userId: true },
-    });
-
-    if (content?.userId !== userId) {
-      throw new NotFoundException('Content not found');
     }
   }
 

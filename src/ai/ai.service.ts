@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { createHash } from 'crypto';
 import JSON5 from 'json5';
 import { AiPrompts } from './ai.prompts';
 import {
@@ -91,15 +92,42 @@ export interface ExplanationParams {
   context: string;
 }
 
-const CACHE_TTL_MS = 3600000; // 1 hour
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// Model selection strategy - configurable via environment
+const MODELS = {
+  PREMIUM: process.env.GEMINI_MODEL_PREMIUM || 'gemini-2.5-flash',
+  STANDARD: process.env.GEMINI_MODEL_STANDARD || 'gemini-2.0-flash',
+  LITE: process.env.GEMINI_MODEL_LITE || 'gemini-2.0-flash-lite',
+};
+
+const MODEL_MAPPING: Record<string, string> = {
+  quiz: MODELS.LITE,
+  flashcard: MODELS.LITE,
+  'learning-guide': MODELS.PREMIUM,
+  explanation: MODELS.LITE,
+  example: MODELS.LITE,
+  recommendation: MODELS.STANDARD,
+  companion: MODELS.LITE,
+  content: MODELS.LITE, // generic content fallback
+};
+
 const DEFAULT_TEMPERATURE = 0.7;
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly genAI: GoogleGenerativeAI;
-  private readonly model: any;
+  private readonly CACHE_TTLS: {
+    QUIZ_TOPIC: number;
+    QUIZ_FILE: number;
+    FLASHCARD_TOPIC: number;
+    FLASHCARD_FILE: number;
+    LEARNING_GUIDE: number;
+    EXPLANATION: number;
+    EXAMPLE: number;
+    RECOMMENDATION: number;
+    COMPANION: number;
+    GENERIC_CONTENT: number;
+  };
 
   constructor(
     private readonly configService: ConfigService,
@@ -111,14 +139,90 @@ export class AiService {
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({
-      model: GEMINI_MODEL,
+
+    // Initialize cache TTLs from environment variables with defaults
+    this.CACHE_TTLS = {
+      QUIZ_TOPIC: this.configService.get<number>(
+        'CACHE_TTL_QUIZ_TOPIC_MS',
+        86400000
+      ), // 24 hours
+      QUIZ_FILE: this.configService.get<number>(
+        'CACHE_TTL_QUIZ_FILE_MS',
+        86400000
+      ), // 24 hours
+      FLASHCARD_TOPIC: this.configService.get<number>(
+        'CACHE_TTL_FLASHCARD_TOPIC_MS',
+        86400000
+      ), // 24 hours
+      FLASHCARD_FILE: this.configService.get<number>(
+        'CACHE_TTL_FLASHCARD_FILE_MS',
+        86400000
+      ), // 24 hours
+      LEARNING_GUIDE: this.configService.get<number>(
+        'CACHE_TTL_LEARNING_GUIDE_MS',
+        43200000
+      ), // 12 hours
+      EXPLANATION: this.configService.get<number>(
+        'CACHE_TTL_EXPLANATION_MS',
+        43200000
+      ), // 12 hours
+      EXAMPLE: this.configService.get<number>('CACHE_TTL_EXAMPLE_MS', 43200000), // 12 hours
+      RECOMMENDATION: this.configService.get<number>(
+        'CACHE_TTL_RECOMMENDATION_MS',
+        1800000
+      ), // 30 minutes
+      COMPANION: this.configService.get<number>(
+        'CACHE_TTL_COMPANION_MS',
+        3600000
+      ), // 1 hour
+      GENERIC_CONTENT: this.configService.get<number>(
+        'CACHE_TTL_GENERIC_CONTENT_MS',
+        3600000
+      ), // 1 hour
+    };
+
+    this.logger.log('Initialized AI service with tiered model strategy');
+  }
+
+  /**
+   * Get appropriate model for task type
+   */
+  private getModelForTask(taskType: string) {
+    const modelName = MODEL_MAPPING[taskType] || MODELS.STANDARD;
+
+    this.logger.debug(`Selected model ${modelName} for task type: ${taskType}`);
+
+    return this.genAI.getGenerativeModel({
+      model: modelName,
       generationConfig: {
         temperature: DEFAULT_TEMPERATURE,
       },
     });
+  }
 
-    this.logger.log(`Initialized AI service with model: ${GEMINI_MODEL}`);
+  /**
+   * Generate content with specific Gemini model
+   */
+  private async generateWithGeminiModel(
+    model: any,
+    prompt: string,
+    fileReferences?: FileReference[],
+    taskType?: string
+  ): Promise<string> {
+    try {
+      const parts = this.buildGeminiRequestParts(fileReferences, prompt);
+      const result = await model.generateContent(parts);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      this.logger.error(
+        `Gemini API call failed for task type "${taskType}":`,
+        error.stack
+      );
+      throw new Error(
+        `AI generation failed: ${error.message || 'Unknown error'}`
+      );
+    }
   }
 
   /**
@@ -140,32 +244,37 @@ export class AiService {
     // Validate input first (fast, synchronous)
     this.validateGenerationInput(topic, content, fileReferences, 'quiz');
 
-    // Check cache and build prompt parts in parallel
-    const shouldCache = !fileReferences || fileReferences.length === 0;
+    // Build cache key (file-based or topic-based)
+    let cacheKey: string;
+    if (fileReferences && fileReferences.length > 0) {
+      cacheKey = this.buildFileCacheKey(fileReferences, {
+        type: 'quiz',
+        numberOfItems: numberOfQuestions,
+        difficulty,
+        quizType,
+      });
+    } else {
+      cacheKey = this.buildQuizCacheKey(
+        topic,
+        numberOfQuestions,
+        difficulty,
+        quizType,
+        questionTypes
+      );
+    }
 
-    const [cached, questionTypeInstructions, quizTypeContext] =
-      await Promise.all([
-        shouldCache
-          ? this.getFromCache<any>(
-              this.buildQuizCacheKey(
-                topic,
-                numberOfQuestions,
-                difficulty,
-                quizType,
-                questionTypes
-              )
-            )
-          : Promise.resolve(null),
-        Promise.resolve(this.buildQuestionTypeInstructions(questionTypes)),
-        Promise.resolve(this.buildQuizTypeContext(quizType)),
-      ]);
-
+    // Check cache
+    const cached = await this.getFromCache<QuizGenerationResponse>(cacheKey);
     if (cached) {
-      this.logger.debug(`Cache hit for quiz generation`);
+      this.logger.debug(`Cache hit for quiz: ${cacheKey}`);
       return cached;
     }
 
-    // Build prompt
+    // Generate with AI
+    const questionTypeInstructions =
+      this.buildQuestionTypeInstructions(questionTypes);
+    const quizTypeContext = this.buildQuizTypeContext(quizType);
+
     const prompt = AiPrompts.generateQuiz(
       topic || '',
       numberOfQuestions,
@@ -175,8 +284,13 @@ export class AiService {
       content || ''
     );
 
-    // Generate with Gemini
-    const result = await this.generateWithGemini(prompt, fileReferences);
+    const model = this.getModelForTask('quiz');
+    const result = await this.generateWithGeminiModel(
+      model,
+      prompt,
+      fileReferences,
+      'quiz'
+    );
 
     // Parse and validate
     const parsed = this.parseJsonResponse<any>(result, 'quiz');
@@ -186,19 +300,14 @@ export class AiService {
       questions: this.validateQuizQuestions(parsed.questions),
     };
 
-    // Cache if applicable (fire and forget)
-    if (shouldCache) {
-      const cacheKey = this.buildQuizCacheKey(
-        topic,
-        numberOfQuestions,
-        difficulty,
-        quizType,
-        questionTypes
-      );
-      this.setCache(cacheKey, finalResult).catch((err) =>
-        this.logger.warn(`Cache write failed: ${err.message}`)
-      );
-    }
+    // Cache result with feature-specific TTL
+    const ttl =
+      fileReferences && fileReferences.length > 0
+        ? this.CACHE_TTLS.QUIZ_FILE
+        : this.CACHE_TTLS.QUIZ_TOPIC;
+    await this.setCache(cacheKey, finalResult, ttl).catch((err) =>
+      this.logger.warn(`Cache write failed: ${err.message}`)
+    );
 
     return finalResult;
   }
@@ -214,24 +323,38 @@ export class AiService {
     // Validate input
     this.validateGenerationInput(topic, content, fileReferences, 'flashcards');
 
-    // Check cache in parallel with prompt building
-    const shouldCache = !fileReferences || fileReferences.length === 0;
-    const cacheKey = `flashcards:${topic}:${numberOfCards}`;
+    // Build cache key (file-based or topic-based)
+    let cacheKey: string;
+    if (fileReferences && fileReferences.length > 0) {
+      cacheKey = this.buildFileCacheKey(fileReferences, {
+        type: 'flashcard',
+        numberOfItems: numberOfCards,
+      });
+    } else {
+      cacheKey = `flashcards:${topic}:${numberOfCards}`;
+    }
 
-    const [cached, prompt] = await Promise.all([
-      shouldCache ? this.getFromCache<any>(cacheKey) : Promise.resolve(null),
-      Promise.resolve(
-        AiPrompts.generateFlashcards(topic || '', numberOfCards, content || '')
-      ),
-    ]);
-
+    // Check cache
+    const cached =
+      await this.getFromCache<FlashcardGenerationResponse>(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit for flashcards: ${cacheKey}`);
       return cached;
     }
 
     // Generate with Gemini
-    const result = await this.generateWithGemini(prompt, fileReferences);
+    const prompt = AiPrompts.generateFlashcards(
+      topic || '',
+      numberOfCards,
+      content || ''
+    );
+    const model = this.getModelForTask('flashcard');
+    const result = await this.generateWithGeminiModel(
+      model,
+      prompt,
+      fileReferences,
+      'flashcard'
+    );
 
     // Parse and validate
     const parsed = this.parseJsonResponse<any>(result, 'flashcards');
@@ -241,12 +364,14 @@ export class AiService {
       cards: this.validateFlashcards(parsed.cards),
     };
 
-    // Cache if applicable (fire and forget)
-    if (shouldCache) {
-      this.setCache(cacheKey, finalResult).catch((err) =>
-        this.logger.warn(`Cache write failed: ${err.message}`)
-      );
-    }
+    // Cache result with feature-specific TTL
+    const ttl =
+      fileReferences && fileReferences.length > 0
+        ? this.CACHE_TTLS.FLASHCARD_FILE
+        : this.CACHE_TTLS.FLASHCARD_TOPIC;
+    await this.setCache(cacheKey, finalResult, ttl).catch((err) =>
+      this.logger.warn(`Cache write failed: ${err.message}`)
+    );
 
     return finalResult;
   }
@@ -275,13 +400,21 @@ export class AiService {
     }
 
     // Generate with Gemini
-    const result = await this.generateWithGemini(prompt);
+    const model = this.getModelForTask('recommendation');
+    const result = await this.generateWithGeminiModel(
+      model,
+      prompt,
+      undefined,
+      'recommendation'
+    );
 
     // Parse response
     try {
       const parsed = this.parseJsonResponse<any[]>(result, 'recommendations');
-      // Fire and forget cache write
-      this.setCache(cacheKey, parsed).catch(() => {});
+      // Cache with recommendation-specific TTL (30 minutes for personalized content)
+      this.setCache(cacheKey, parsed, this.CACHE_TTLS.RECOMMENDATION).catch(
+        () => {}
+      );
       return parsed;
     } catch (error) {
       this.logger.error('Failed to parse recommendations:', error.stack);
@@ -314,11 +447,20 @@ export class AiService {
       );
     }
 
-    const cacheKey = `comprehensive_guide:${topic || ''}:${content?.length || 0}:${fileReferences?.length || 0}`;
-    const cached = await this.getFromCache<LearningGuideResponse>(cacheKey);
+    // Build cache key (file-based or content-based)
+    let cacheKey: string;
+    if (fileReferences && fileReferences.length > 0) {
+      cacheKey = this.buildFileCacheKey(fileReferences, {
+        type: 'learning_material',
+        numberOfItems: 1, // Not applicable for learning guides
+      });
+    } else {
+      cacheKey = `learning_guide:${topic || ''}:${content?.length || 0}`;
+    }
 
+    const cached = await this.getFromCache<LearningGuideResponse>(cacheKey);
     if (cached) {
-      this.logger.debug(`Cache hit for comprehensive guide`);
+      this.logger.debug(`Cache hit for learning guide: ${cacheKey}`);
       return cached;
     }
 
@@ -330,7 +472,13 @@ export class AiService {
         : ''
     );
 
-    const result = await this.generateWithGemini(prompt, fileReferences);
+    const model = this.getModelForTask('learning-guide');
+    const result = await this.generateWithGeminiModel(
+      model,
+      prompt,
+      fileReferences,
+      'learning-guide'
+    );
 
     try {
       const parsed = this.parseJsonResponse<LearningGuideResponse>(
@@ -347,7 +495,10 @@ export class AiService {
         // Fallback verification could go here, but for now we rely on the prompt instructions
       }
 
-      this.setCache(cacheKey, parsed).catch(() => {});
+      // Cache with learning guide-specific TTL (12 hours for comprehensive content)
+      this.setCache(cacheKey, parsed, this.CACHE_TTLS.LEARNING_GUIDE).catch(
+        () => {}
+      );
       return parsed;
     } catch (error) {
       this.logger.error('Failed to parse learning guide response', error.stack);
@@ -365,53 +516,39 @@ export class AiService {
     const promptHash = Buffer.from(prompt).toString('base64').substring(0, 50);
     const cacheKey = `content:${promptHash}`;
 
-    // Check cache in parallel with preparing generation config
+    // Check cache
     const cached = await this.getFromCache<string>(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit for content: ${cacheKey}`);
       return cached;
     }
 
+    // Get appropriate model for generic content
+    const model = this.getModelForTask('content');
+
     // Generate with optional token limit
     let result: { response: any };
     if (maxTokens) {
-      result = await this.model.generateContent({
+      result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           maxOutputTokens: maxTokens,
+          temperature: DEFAULT_TEMPERATURE,
         },
       });
     } else {
-      result = await this.model.generateContent(prompt);
+      result = await model.generateContent(prompt);
     }
 
     const response = await result.response;
     const text = response.text();
 
-    // Cache result (fire and forget)
-    this.setCache(cacheKey, text).catch(() => {});
+    // Cache result
+    this.setCache(cacheKey, text, this.CACHE_TTLS.GENERIC_CONTENT).catch(
+      () => {}
+    );
 
     return text;
-  }
-
-  /**
-   * Generate content with Gemini, optionally including file references
-   */
-  private async generateWithGemini(
-    prompt: string,
-    fileReferences?: FileReference[]
-  ): Promise<string> {
-    try {
-      const parts = this.buildGeminiRequestParts(fileReferences, prompt);
-      const result = await this.model.generateContent(parts);
-      const response = await result.response;
-      return response.text();
-    } catch (error) {
-      this.logger.error('Gemini API call failed:', error.stack);
-      throw new Error(
-        `AI generation failed: ${error.message || 'Unknown error'}`
-      );
-    }
   }
 
   /**
@@ -458,8 +595,16 @@ export class AiService {
   ): Promise<ExplanationResponse> {
     const { topic, context } = params;
     const prompt = AiPrompts.generateExplanation(topic, context);
-    const explanation = await this.generateContent({ prompt });
-    return { explanation };
+
+    const model = this.getModelForTask('explanation');
+    const result = await this.generateWithGeminiModel(
+      model,
+      prompt,
+      undefined,
+      'explanation'
+    );
+
+    return { explanation: result };
   }
 
   /**
@@ -468,8 +613,16 @@ export class AiService {
   async generateExample(params: ExplanationParams): Promise<ExampleResponse> {
     const { topic, context } = params;
     const prompt = AiPrompts.generateExample(topic, context);
-    const examples = await this.generateContent({ prompt });
-    return { examples };
+
+    const model = this.getModelForTask('example');
+    const result = await this.generateWithGeminiModel(
+      model,
+      prompt,
+      undefined,
+      'example'
+    );
+
+    return { examples: result };
   }
 
   /**
@@ -771,6 +924,44 @@ export class AiService {
   }
 
   /**
+   * Build cache key for file-based generation
+   */
+  private buildFileCacheKey(
+    fileReferences: FileReference[],
+    params: {
+      type: 'quiz' | 'flashcard' | 'learning_material';
+      numberOfItems: number;
+      difficulty?: string;
+      quizType?: string;
+    }
+  ): string {
+    // Sort file IDs for consistent hashing
+    const fileIds = fileReferences
+      .map((f) => f.googleFileId || f.googleFileUrl || f.originalname)
+      .filter(Boolean)
+      .sort()
+      .join(':');
+
+    // Create hash of file references
+    const fileHash = createHash('md5')
+      .update(fileIds)
+      .digest('hex')
+      .substring(0, 16); // First 16 chars
+
+    // Build cache key with file hash and params
+    const { type, numberOfItems, difficulty, quizType } = params;
+
+    if (type === 'quiz') {
+      return `quiz:file:${fileHash}:${numberOfItems}:${difficulty}:${quizType || 'standard'}`;
+    } else if (type === 'flashcard') {
+      return `flashcard:file:${fileHash}:${numberOfItems}`;
+    } else {
+      // learning_material
+      return `learning_guide:file:${fileHash}`;
+    }
+  }
+
+  /**
    * Build question type instructions for prompt
    */
   private buildQuestionTypeInstructions(questionTypes: string[]): string {
@@ -834,10 +1025,11 @@ export class AiService {
   /**
    * Set item in cache with error handling
    */
-  private async setCache(key: string, value: any): Promise<void> {
+  private async setCache(key: string, value: any, ttl?: number): Promise<void> {
     try {
-      await this.cacheManager.set(key, value, CACHE_TTL_MS);
-      this.logger.debug(`Cached result: ${key}`);
+      const cacheTTL = ttl || this.CACHE_TTLS.GENERIC_CONTENT; // Default to 1 hour
+      await this.cacheManager.set(key, value, cacheTTL);
+      this.logger.debug(`Cached result: ${key} (TTL: ${cacheTTL}ms)`);
     } catch (error) {
       this.logger.warn(`Cache storage failed for ${key}:`, error.message);
       // Non-critical error, continue execution

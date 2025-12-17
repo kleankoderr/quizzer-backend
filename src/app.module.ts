@@ -39,6 +39,7 @@ import { SseModule } from './sse/sse.module';
 import { EventsModule } from './events/events.module';
 import { UserDocumentModule } from './user-document/user-document.module';
 import { StudyPackModule } from './study-pack/study-pack.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -117,6 +118,7 @@ import { StudyPackModule } from './study-pack/study-pack.module';
     EventsModule,
     UserDocumentModule,
     StudyPackModule,
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [

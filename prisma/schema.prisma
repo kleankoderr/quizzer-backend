@@ -56,8 +56,35 @@ model User {
   reports       Report[]
   userDocuments UserDocument[]
   studyPacks    StudyPack[]
+  quota         UserQuota?
 
   @@map("users")
+}
+
+model UserQuota {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Premium status
+  isPremium               Boolean  @default(false)
+  
+  // Daily quotas
+  quotaResetAt            DateTime @default(now())
+  dailyQuizCount          Int      @default(0)
+  dailyFlashcardCount     Int      @default(0)
+  dailyLearningGuideCount Int      @default(0)
+  dailyExplanationCount   Int      @default(0)
+  
+  // Monthly quotas
+  monthlyTotalCount       Int      @default(0)
+  monthlyResetAt          DateTime @default(now())
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([userId])
+  @@map("user_quotas")
 }
 
 model Quiz {
