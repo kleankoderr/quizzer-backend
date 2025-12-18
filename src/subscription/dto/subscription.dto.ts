@@ -64,7 +64,7 @@ export class PlanDetailsDto {
 
   @ApiProperty({
     example: 2000,
-    description: 'Plan price in kobo (NGN)',
+    description: 'Plan price in Naira (NGN)',
   })
   price: number;
 

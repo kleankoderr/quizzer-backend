@@ -40,7 +40,7 @@ async function main() {
     create: {
       id: 'premium-plan-id',
       name: 'Premium',
-      price: 200000, // 200000 kobo = ₦2000
+      price: 2000, // ₦2000 per month
       interval: 'monthly',
       isActive: true,
       quotas: {

@@ -25,7 +25,7 @@ const webhookPayload = {
   event: 'charge.success',
   data: {
     reference: `SUB_test_${Date.now()}`,
-    amount: 200000, // 2000 NGN in kobo
+    amount: 200000, // Amount in kobo (₦2000) - Paystack requires kobo
     currency: 'NGN',
     status: 'success',
     paid_at: new Date().toISOString(),

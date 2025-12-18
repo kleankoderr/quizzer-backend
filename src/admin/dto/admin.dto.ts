@@ -6,7 +6,10 @@ import {
   IsNumber,
   IsArray,
   IsDateString,
+  IsObject,
+  Min,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { UserRole } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -23,8 +26,15 @@ export class UserFilterDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Filter by premium subscription status' })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  isPremium?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -165,4 +175,107 @@ export class CreateChallengeDto {
   @IsOptional()
   @IsArray()
   quizIds?: string[];
+}
+
+// Subscription Management DTOs
+
+export class SubscriptionFilterDto {
+  @ApiPropertyOptional({ description: 'Filter by subscription status' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by plan ID' })
+  @IsOptional()
+  @IsString()
+  planId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by start date' })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by end date' })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  page?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  limit?: string;
+}
+
+export class CreateSubscriptionPlanDto {
+  @ApiProperty({ description: 'Plan name' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ description: 'Price in Naira (e.g., 2000)' })
+  @IsNumber()
+  @Min(0)
+  price: number;
+
+  @ApiProperty({
+    description: 'Billing interval',
+    enum: ['month', 'year'],
+    default: 'month',
+  })
+  @IsEnum(['month', 'year'])
+  interval: string;
+
+  @ApiProperty({
+    description: 'Plan quotas (quizzes, flashcards, learningGuides, etc.)',
+    example: {
+      quizzes: 15,
+      flashcards: 15,
+      learningGuides: 10,
+      explanations: 20,
+      storageLimitMB: 1000,
+      filesPerMonth: 100,
+    },
+  })
+  @IsObject()
+  quotas: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Whether plan is active', default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateSubscriptionPlanDto {
+  @ApiPropertyOptional({ description: 'Plan name' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Price in Naira' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  price?: number;
+
+  @ApiPropertyOptional({
+    description: 'Billing interval',
+    enum: ['month', 'year'],
+  })
+  @IsOptional()
+  @IsEnum(['month', 'year'])
+  interval?: string;
+
+  @ApiPropertyOptional({ description: 'Plan quotas' })
+  @IsOptional()
+  @IsObject()
+  quotas?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Whether plan is active' })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { ChallengeService } from '../challenge/challenge.service';
+import { QuotaService } from '../common/services/quota.service';
 import { UserRole, Prisma } from '@prisma/client';
 import {
   UserFilterDto,
@@ -20,7 +21,8 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly challengeService: ChallengeService
+    private readonly challengeService: ChallengeService,
+    private readonly quotaService: QuotaService
   ) {}
 
   async deleteContent(contentId: string) {
@@ -95,7 +97,14 @@ export class AdminService {
   }
 
   async getUsers(filterDto: UserFilterDto) {
-    const { search, role, isActive, page = '1', limit = '10' } = filterDto;
+    const {
+      search,
+      role,
+      isActive,
+      isPremium,
+      page = '1',
+      limit = '10',
+    } = filterDto;
     const pageNum = Number.parseInt(page, 10);
     const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -103,10 +112,23 @@ export class AdminService {
     const where: Prisma.UserWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
+      // Admin search: Check if search is a UUID (exact ID match) or text search
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          search
+        );
+
+      if (isUUID) {
+        // Exact ID match for admin searching by user ID
+        where.id = search;
+      } else {
+        // Text-based search across name, email, and school name
+        where.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { schoolName: { contains: search, mode: 'insensitive' } },
+        ];
+      }
     }
 
     if (role) {
@@ -115,6 +137,28 @@ export class AdminService {
 
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+
+    // Filter by premium status (active subscription)
+    if (isPremium !== undefined) {
+      if (isPremium) {
+        where.subscription = {
+          status: 'ACTIVE',
+          currentPeriodEnd: { gte: new Date() },
+        };
+      } else {
+        where.OR = [
+          { subscription: null },
+          {
+            subscription: {
+              OR: [
+                { status: { not: 'ACTIVE' } },
+                { currentPeriodEnd: { lt: new Date() } },
+              ],
+            },
+          },
+        ];
+      }
     }
 
     const [users, total] = await Promise.all([
@@ -132,6 +176,17 @@ export class AdminService {
           schoolName: true,
           grade: true,
           createdAt: true,
+          subscription: {
+            select: {
+              status: true,
+              currentPeriodEnd: true,
+              plan: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
           _count: {
             select: {
               quizzes: true,
@@ -354,9 +409,12 @@ export class AdminService {
     const where: Prisma.QuizWhereInput = {};
 
     if (search) {
+      // Admin search: Search across content AND user information
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { topic: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
@@ -394,9 +452,12 @@ export class AdminService {
     const where: Prisma.FlashcardSetWhereInput = {};
 
     if (search) {
+      // Admin search: Search across content AND user information
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { topic: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
@@ -904,5 +965,388 @@ export class AdminService {
   async generateHotChallenges() {
     await this.challengeService.generateHotChallenges();
     return { success: true, message: 'Hot challenges generated successfully' };
+  }
+
+  // Subscription Management Methods
+
+  async getSubscriptionStats() {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date(now);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    // Get total users and user breakdown
+    const [
+      totalUsers,
+      totalSubscriptions,
+      activeSubscriptions,
+      canceledSubscriptions,
+      newSubscriptionsLast30Days,
+      previousMonthSubscriptions,
+      canceledLast30Days,
+    ] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.subscription.count(),
+      this.prisma.subscription.count({
+        where: {
+          status: 'ACTIVE',
+          currentPeriodEnd: { gte: now },
+        },
+      }),
+      this.prisma.subscription.count({
+        where: {
+          OR: [{ status: 'CANCELLED' }, { cancelAtPeriodEnd: true }],
+        },
+      }),
+      this.prisma.subscription.count({
+        where: { createdAt: { gte: thirtyDaysAgo } },
+      }),
+      this.prisma.subscription.count({
+        where: {
+          createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+        },
+      }),
+      this.prisma.subscription.count({
+        where: {
+          OR: [{ status: 'CANCELLED' }, { cancelAtPeriodEnd: true }],
+          updatedAt: { gte: thirtyDaysAgo },
+        },
+      }),
+    ]);
+
+    // Calculate user breakdown
+    const premiumUsers = activeSubscriptions; // Users with active subscriptions
+    const freeUsers = totalUsers - premiumUsers;
+
+    // Calculate MRR (Monthly Recurring Revenue) and Total Revenue
+    const activeSubs = await this.prisma.subscription.findMany({
+      where: {
+        status: 'ACTIVE',
+        currentPeriodEnd: { gte: now },
+      },
+      include: { plan: true },
+    });
+
+    // Get all historical subscriptions for total revenue
+    const allSubscriptions = await this.prisma.subscription.findMany({
+      include: { plan: true },
+    });
+
+    let mrr = 0;
+    let totalRevenue = 0;
+    const revenueByPlan = new Map<
+      string,
+      { planName: string; revenue: number; count: number }
+    >();
+
+    for (const sub of activeSubs) {
+      if (sub.plan.interval === 'month') {
+        mrr += sub.plan.price;
+      } else if (sub.plan.interval === 'year') {
+        mrr += sub.plan.price / 12; // Convert annual to monthly
+      }
+    }
+
+    // Calculate total revenue and revenue by plan
+    for (const sub of allSubscriptions) {
+      totalRevenue += sub.plan.price;
+
+      const planKey = sub.plan.id;
+      if (revenueByPlan.has(planKey)) {
+        const existing = revenueByPlan.get(planKey)!;
+        revenueByPlan.set(planKey, {
+          planName: sub.plan.name,
+          revenue: existing.revenue + sub.plan.price,
+          count: existing.count + 1,
+        });
+      } else {
+        revenueByPlan.set(planKey, {
+          planName: sub.plan.name,
+          revenue: sub.plan.price,
+          count: 1,
+        });
+      }
+    }
+
+    // Calculate churn rate (canceled in last 30 days / active at start of period)
+    const activeAtStartOfPeriod = activeSubscriptions + canceledLast30Days;
+    const churnRate =
+      activeAtStartOfPeriod > 0
+        ? (canceledLast30Days / activeAtStartOfPeriod) * 100
+        : 0;
+
+    // Calculate growth rate
+    const growthRate =
+      previousMonthSubscriptions > 0
+        ? ((newSubscriptionsLast30Days - previousMonthSubscriptions) /
+            previousMonthSubscriptions) *
+          100
+        : newSubscriptionsLast30Days > 0
+          ? 100
+          : 0;
+
+    // Get subscription growth data for chart
+    const growthData = await this.getSubscriptionGrowthData(thirtyDaysAgo, now);
+
+    return {
+      // User breakdown
+      totalUsers,
+      premiumUsers,
+      freeUsers,
+      premiumPercentage:
+        totalUsers > 0
+          ? Math.round((premiumUsers / totalUsers) * 100 * 100) / 100
+          : 0,
+
+      // Subscription counts
+      total: totalSubscriptions,
+      active: activeSubscriptions,
+      canceled: canceledSubscriptions,
+      newLast30Days: newSubscriptionsLast30Days,
+
+      // Revenue metrics
+      mrr: Math.round(mrr), // Monthly Recurring Revenue in Naira
+      totalRevenue: Math.round(totalRevenue), // All-time revenue in Naira
+      revenueByPlan: Array.from(revenueByPlan.values()),
+
+      // Performance metrics
+      growthRate: Math.round(growthRate * 100) / 100,
+      churnRate: Math.round(churnRate * 100) / 100,
+
+      // Chart data
+      growthData,
+    };
+  }
+
+  async getQuotaStats() {
+    // Get all user quotas
+    const quotas = await this.prisma.userQuota.findMany({
+      select: {
+        dailyQuizCount: true,
+        dailyFlashcardCount: true,
+        dailyLearningGuideCount: true,
+        dailyExplanationCount: true,
+        dailyFileUploadCount: true,
+        totalFileStorageMB: true,
+        monthlyTotalCount: true,
+        isPremium: true,
+      },
+    });
+
+    let totalQuizzes = 0;
+    let totalFlashcards = 0;
+    let totalLearningGuides = 0;
+    let totalExplanations = 0;
+    let totalFileUploads = 0;
+    let totalStorageUsed = 0;
+    let premiumUsers = 0;
+
+    for (const quota of quotas) {
+      totalQuizzes += quota.dailyQuizCount;
+      totalFlashcards += quota.dailyFlashcardCount;
+      totalLearningGuides += quota.dailyLearningGuideCount;
+      totalExplanations += quota.dailyExplanationCount;
+      totalFileUploads += quota.dailyFileUploadCount;
+      totalStorageUsed += quota.totalFileStorageMB;
+      if (quota.isPremium) premiumUsers++;
+    }
+
+    return {
+      totalQuizzesGenerated: totalQuizzes,
+      totalFlashcardsGenerated: totalFlashcards,
+      totalLearningGuidesGenerated: totalLearningGuides,
+      totalExplanationsGenerated: totalExplanations,
+      totalFileUploads,
+      totalStorageUsedMB: Math.round(totalStorageUsed),
+      totalStorageUsedGB: Math.round((totalStorageUsed / 1024) * 100) / 100,
+      premiumUsers,
+      freeUsers: quotas.length - premiumUsers,
+    };
+  }
+
+  async getAllSubscriptions(filterDto: any) {
+    const {
+      status,
+      planId,
+      startDate,
+      endDate,
+      page = '1',
+      limit = '10',
+    } = filterDto;
+    const pageNum = Number.parseInt(page, 10);
+    const limitNum = Number.parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (planId) {
+      where.planId = planId;
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+
+    const [subscriptions, total] = await Promise.all([
+      this.prisma.subscription.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+            },
+          },
+          plan: true,
+        },
+      }),
+      this.prisma.subscription.count({ where }),
+    ]);
+
+    return {
+      data: subscriptions,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    };
+  }
+
+  async getSubscriptionPlans() {
+    const plans = await this.prisma.subscriptionPlan.findMany({
+      orderBy: { price: 'asc' },
+      include: {
+        _count: {
+          select: {
+            subscriptions: {
+              where: {
+                status: 'ACTIVE',
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return plans.map((plan) => ({
+      ...plan,
+      subscriberCount: plan._count.subscriptions,
+    }));
+  }
+
+  async createSubscriptionPlan(dto: any) {
+    const plan = await this.prisma.subscriptionPlan.create({
+      data: {
+        name: dto.name,
+        price: dto.price,
+        interval: dto.interval,
+        quotas: dto.quotas,
+        isActive: dto.isActive !== false, // Default to true
+      },
+    });
+
+    return plan;
+  }
+
+  async updateSubscriptionPlan(id: string, dto: any) {
+    const plan = await this.prisma.subscriptionPlan.findUnique({
+      where: { id },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Subscription plan not found');
+    }
+
+    const updated = await this.prisma.subscriptionPlan.update({
+      where: { id },
+      data: dto,
+    });
+
+    // Note: Cache invalidation will be handled in the controller
+    return updated;
+  }
+
+  async deleteSubscriptionPlan(id: string) {
+    const plan = await this.prisma.subscriptionPlan.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { subscriptions: true },
+        },
+      },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Subscription plan not found');
+    }
+
+    // Check if plan has active subscriptions
+    const activeSubscriptions = await this.prisma.subscription.count({
+      where: {
+        planId: id,
+        status: 'ACTIVE',
+        currentPeriodEnd: { gte: new Date() },
+      },
+    });
+
+    if (activeSubscriptions > 0) {
+      // Soft delete: just set isActive to false
+      await this.prisma.subscriptionPlan.update({
+        where: { id },
+        data: { isActive: false },
+      });
+
+      return {
+        success: true,
+        message: `Plan deactivated. ${activeSubscriptions} active subscriptions will continue until their period ends.`,
+      };
+    } else {
+      // Hard delete if no active subscriptions
+      await this.prisma.subscriptionPlan.delete({ where: { id } });
+      return {
+        success: true,
+        message: 'Plan deleted successfully',
+      };
+    }
+  }
+
+  private async getSubscriptionGrowthData(startDate: Date, endDate: Date) {
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: { createdAt: true },
+    });
+
+    // Group by date
+    const growthMap = new Map<string, number>();
+    for (const sub of subscriptions) {
+      const date = sub.createdAt.toISOString().split('T')[0];
+      growthMap.set(date, (growthMap.get(date) || 0) + 1);
+    }
+
+    return Array.from(growthMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async getUserQuota(userId: string) {
+    return this.quotaService.getQuotaStatus(userId);
   }
 }

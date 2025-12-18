@@ -56,11 +56,11 @@ export class SubscriptionService {
     // Generate unique payment reference
     const reference = `SUB_${userId}_${Date.now()}`;
 
-    // Calculate amount in kobo (Paystack uses kobo for NGN)
+    // Convert price from Naira to Kobo for Paystack API (Paystack requires amount in kobo)
     const amountInKobo = Math.round(plan.price * 100);
 
     this.logger.log(
-      `Creating payment record for reference ${reference} - Amount: ${amountInKobo} kobo`
+      `Creating payment record for reference ${reference} - Amount: ${amountInKobo} kobo (₦${plan.price})`
     );
 
     // Create payment record and subscription placeholder in a transaction

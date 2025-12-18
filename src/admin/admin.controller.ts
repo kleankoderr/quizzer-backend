@@ -8,11 +8,15 @@ import {
   Delete,
   UseGuards,
   Query,
+  Inject,
+  Logger,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import {
   UserFilterDto,
   UpdateUserStatusDto,
@@ -29,7 +33,12 @@ import {
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  private readonly logger = new Logger(AdminController.name);
+
+  constructor(
+    private readonly adminService: AdminService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
+  ) {}
 
   @Delete('content/:id')
   @ApiOperation({ summary: 'Delete content (study material)' })
@@ -212,5 +221,83 @@ export class AdminController {
   @ApiOperation({ summary: 'Manually generate hot challenges' })
   async generateHotChallenges() {
     return this.adminService.generateHotChallenges();
+  }
+
+  @Get('subscription-stats')
+  @ApiOperation({ summary: 'Get subscription statistics' })
+  getSubscriptionStats() {
+    return this.adminService.getSubscriptionStats();
+  }
+
+  @Get('quota-stats')
+  @ApiOperation({ summary: 'Get quota usage statistics' })
+  getQuotaStats() {
+    return this.adminService.getQuotaStats();
+  }
+
+  @Get('subscriptions')
+  @ApiOperation({ summary: 'Get all user subscriptions' })
+  getAllSubscriptions(@Query() filterDto: any) {
+    return this.adminService.getAllSubscriptions(filterDto);
+  }
+
+  @Get('subscription-plans')
+  @ApiOperation({ summary: 'Get all subscription plans' })
+  getSubscriptionPlans() {
+    return this.adminService.getSubscriptionPlans();
+  }
+
+  @Post('subscription-plans')
+  @ApiOperation({ summary: 'Create subscription plan' })
+  async createSubscriptionPlan(@Body() createPlanDto: any) {
+    const result =
+      await this.adminService.createSubscriptionPlan(createPlanDto);
+    await this.clearPlansCache();
+    return result;
+  }
+
+  @Patch('subscription-plans/:id')
+  @ApiOperation({ summary: 'Update subscription plan' })
+  async updateSubscriptionPlan(
+    @Param('id') id: string,
+    @Body() updatePlanDto: any
+  ) {
+    const result = await this.adminService.updateSubscriptionPlan(
+      id,
+      updatePlanDto
+    );
+    await this.clearPlansCache();
+    return result;
+  }
+
+  @Delete('subscription-plans/:id')
+  @ApiOperation({ summary: 'Delete/deactivate subscription plan' })
+  async deleteSubscriptionPlan(@Param('id') id: string) {
+    const result = await this.adminService.deleteSubscriptionPlan(id);
+    await this.clearPlansCache();
+    return result;
+  }
+
+  @Get('users/:id/quota')
+  @ApiOperation({ summary: 'Get user quota status' })
+  getUserQuota(@Param('id') id: string) {
+    return this.adminService.getUserQuota(id);
+  }
+
+  /**
+   * Clear subscription plans cache
+   * Call this method when plans are created, updated, or deleted to ensure fresh data
+   * @private
+   */
+  private async clearPlansCache(): Promise<void> {
+    try {
+      await this.cacheManager.del('/subscription/plans');
+      this.logger.log('Subscription plans cache cleared');
+    } catch (error) {
+      this.logger.error(
+        `Error clearing plans cache: ${error.message}`,
+        error.stack
+      );
+    }
   }
 }
