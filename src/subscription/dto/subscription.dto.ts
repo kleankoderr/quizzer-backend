@@ -18,7 +18,7 @@ export class CheckoutDto {
     example: 'https://yourdomain.com/subscription/verify',
     description: 'Frontend callback URL for payment redirect',
   })
-  @IsUrl()
+  @IsUrl({ require_tld: false }) // Allow localhost URLs for development
   @IsNotEmpty()
   callbackUrl: string;
 }
@@ -187,15 +187,123 @@ export class WebhookEventDto {
  * DTO for subscription cancellation response
  */
 export class CancelSubscriptionResponseDto {
-  @ApiProperty({
-    example: 'Subscription will be cancelled at the end of the current period',
-    description: 'Success message',
-  })
+  @ApiProperty({ example: 'Subscription cancelled successfully' })
   message: string;
 
-  @ApiProperty({
-    type: SubscriptionResponseDto,
-    description: 'Updated subscription details',
-  })
+  @ApiProperty({ type: SubscriptionResponseDto })
   subscription: SubscriptionResponseDto;
+}
+
+/**
+ * DTO for verifying payment
+ */
+export class VerifyPaymentDto {
+  @ApiProperty({
+    example: 'ref_abc123xyz',
+    description: 'Payment reference to verify',
+  })
+  @IsString()
+  @IsNotEmpty()
+  reference: string;
+}
+
+/**
+ * DTO for quota usage information
+ */
+export class QuotaUsageDto {
+  @ApiProperty({ example: 1 })
+  used: number;
+
+  @ApiProperty({ example: 2 })
+  limit: number;
+
+  @ApiProperty({ example: 1 })
+  remaining: number;
+}
+
+/**
+ * DTO for file upload quota information
+ */
+export class FileUploadQuotaDto {
+  @ApiProperty({ example: 0 })
+  dailyUsed: number;
+
+  @ApiProperty({ example: 5 })
+  dailyLimit: number;
+
+  @ApiProperty({ example: 5 })
+  dailyRemaining: number;
+
+  @ApiProperty({ example: 0 })
+  monthlyUsed: number;
+
+  @ApiProperty({ example: 5 })
+  monthlyLimit: number;
+
+  @ApiProperty({ example: 5 })
+  monthlyRemaining: number;
+}
+
+/**
+ * DTO for file storage quota information
+ */
+export class FileStorageQuotaDto {
+  @ApiProperty({ example: 16 })
+  used: number;
+
+  @ApiProperty({ example: 50 })
+  limit: number;
+
+  @ApiProperty({ example: 34 })
+  remaining: number;
+}
+
+/**
+ * DTO for current plan response with all quota information
+ */
+export class CurrentPlanResponseDto {
+  @ApiProperty({ example: 'Free Plan' })
+  planName: string;
+
+  @ApiProperty({ example: 0 })
+  price: number;
+
+  @ApiProperty({ example: 'monthly' })
+  interval: string;
+
+  @ApiProperty({ example: 'ACTIVE' })
+  status: string;
+
+  @ApiProperty({ example: '2025-12-18T09:00:00.000Z' })
+  currentPeriodEnd: Date;
+
+  @ApiProperty({ example: false })
+  cancelAtPeriodEnd: boolean;
+
+  @ApiProperty({ example: false })
+  isPremium: boolean;
+
+  @ApiProperty({ type: QuotaUsageDto })
+  quiz: QuotaUsageDto;
+
+  @ApiProperty({ type: QuotaUsageDto })
+  flashcard: QuotaUsageDto;
+
+  @ApiProperty({ type: QuotaUsageDto })
+  explanation: QuotaUsageDto;
+
+  @ApiProperty({ type: QuotaUsageDto })
+  learningGuide: QuotaUsageDto;
+
+  @ApiProperty({ type: FileUploadQuotaDto })
+  fileUpload: FileUploadQuotaDto;
+
+  @ApiProperty({ type: FileStorageQuotaDto })
+  fileStorage: FileStorageQuotaDto;
+
+  @ApiProperty({ example: '2025-12-19T00:00:00.000Z' })
+  resetAt: Date;
+
+  @ApiProperty({ example: '2026-01-01T00:00:00.000Z' })
+  monthlyResetAt: Date;
 }

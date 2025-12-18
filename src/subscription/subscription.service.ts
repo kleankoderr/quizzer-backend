@@ -102,12 +102,13 @@ export class SubscriptionService {
 
     this.logger.log(`Payment record created with ID: ${payment.id}`);
 
-    // Initialize Paystack transaction
+    // Initialize Paystack transaction with bank transfer support
     const paystackResponse = await this.paystackService.initializeTransaction({
       email: user.email,
       amount: amountInKobo,
       reference,
       callback_url: callbackUrl,
+      channels: ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer'], // Enable all payment channels including bank transfer
     });
 
     this.logger.log(
@@ -128,18 +129,8 @@ export class SubscriptionService {
   async verifyAndActivate(reference: string) {
     this.logger.log(`Verifying payment with reference: ${reference}`);
 
-    // Verify payment with Paystack
-    const paystackData =
-      await this.paystackService.verifyTransaction(reference);
-
-    if (paystackData.status !== 'success') {
-      throw new BadRequestException(
-        `Payment verification failed. Status: ${paystackData.status}`
-      );
-    }
-
-    // Fetch payment record
-    const payment = await this.prisma.payment.findUnique({
+    // Early idempotency check - fetch payment record first
+    const existingPayment = await this.prisma.payment.findUnique({
       where: { paystackReference: reference },
       include: {
         subscription: {
@@ -151,55 +142,128 @@ export class SubscriptionService {
       },
     });
 
-    if (!payment) {
+    if (!existingPayment) {
       throw new NotFoundException('Payment record not found');
     }
 
-    // Idempotency check - if payment already successful, return existing subscription
-    if (payment.status === PaymentStatus.SUCCESS) {
+    // If payment already successful, return existing subscription immediately
+    if (existingPayment.status === PaymentStatus.SUCCESS) {
       this.logger.log(
         `Payment ${reference} already processed. Returning existing subscription.`
       );
-      return payment.subscription;
+      return existingPayment.subscription;
     }
 
-    this.logger.log(`Activating subscription for user ${payment.userId}`);
+    // Verify payment with Paystack only if not already processed
+    const paystackData =
+      await this.paystackService.verifyTransaction(reference);
 
-    // Update payment and activate subscription in a transaction
-    const subscription = await this.prisma.$transaction(async (tx) => {
-      // Update payment status
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: PaymentStatus.SUCCESS,
-          paidAt: new Date(paystackData.paid_at),
-        },
-      });
-
-      // Activate subscription
-      const activatedSubscription = await this.activateSubscription(
-        payment.userId,
-        payment.subscription.planId,
-        tx
+    if (paystackData.status !== 'success') {
+      throw new BadRequestException(
+        `Payment verification failed. Status: ${paystackData.status}`
       );
-
-      // Update user quota to premium
-      await tx.userQuota.upsert({
-        where: { userId: payment.userId },
-        create: {
-          userId: payment.userId,
-          isPremium: true,
-        },
-        update: {
-          isPremium: true,
-        },
-      });
-
-      return activatedSubscription;
-    });
+    }
 
     this.logger.log(
-      `Subscription activated successfully for user ${payment.userId}`
+      `Activating subscription for user ${existingPayment.userId}`
+    );
+
+    // Fetch plan outside transaction to reduce transaction time
+    const plan = await this.prisma.subscriptionPlan.findUnique({
+      where: { id: existingPayment.subscription.planId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Subscription plan not found');
+    }
+
+    // Calculate period end date outside transaction
+    const now = new Date();
+    const periodEnd = new Date(now);
+
+    if (plan.interval === 'monthly') {
+      periodEnd.setDate(periodEnd.getDate() + 30);
+    } else if (plan.interval === 'yearly') {
+      periodEnd.setDate(periodEnd.getDate() + 365);
+    } else {
+      throw new BadRequestException(`Invalid plan interval: ${plan.interval}`);
+    }
+
+    this.logger.log(
+      `Calculated period end: ${periodEnd.toISOString()} for interval: ${plan.interval}`
+    );
+
+    // Update payment and activate subscription in a transaction with increased timeout
+    const subscription = await this.prisma.$transaction(
+      async (tx) => {
+        // Double-check payment status within transaction to prevent race conditions
+        const payment = await tx.payment.findUnique({
+          where: { id: existingPayment.id },
+        });
+
+        if (payment?.status === PaymentStatus.SUCCESS) {
+          this.logger.log(
+            `Payment ${reference} was already processed by another request. Skipping.`
+          );
+          // Fetch and return the subscription
+          return await tx.subscription.findUnique({
+            where: { userId: existingPayment.userId },
+            include: { plan: true },
+          });
+        }
+
+        // Update payment status
+        await tx.payment.update({
+          where: { id: existingPayment.id },
+          data: {
+            status: PaymentStatus.SUCCESS,
+            paidAt: new Date(paystackData.paid_at),
+          },
+        });
+
+        // Upsert subscription with pre-calculated values
+        const activatedSubscription = await tx.subscription.upsert({
+          where: { userId: existingPayment.userId },
+          create: {
+            userId: existingPayment.userId,
+            planId: existingPayment.subscription.planId,
+            status: SubscriptionStatus.ACTIVE,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: false,
+          },
+          update: {
+            planId: existingPayment.subscription.planId,
+            status: SubscriptionStatus.ACTIVE,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: false,
+          },
+          include: {
+            plan: true,
+          },
+        });
+
+        // Update user quota to premium
+        await tx.userQuota.upsert({
+          where: { userId: existingPayment.userId },
+          create: {
+            userId: existingPayment.userId,
+            isPremium: true,
+          },
+          update: {
+            isPremium: true,
+          },
+        });
+
+        return activatedSubscription;
+      },
+      {
+        maxWait: 10000, // Maximum time to wait for a transaction slot (10s)
+        timeout: 15000, // Maximum time for the transaction to complete (15s)
+      }
+    );
+
+    this.logger.log(
+      `Subscription activated successfully for user ${existingPayment.userId}`
     );
 
     return subscription;
@@ -322,6 +386,77 @@ export class SubscriptionService {
     });
 
     return subscription;
+  }
+
+  /**
+   * Get user's current plan with all quota information
+   * Creates a free tier plan if user has no subscription
+   * @param userId User ID
+   * @returns Current plan details with quota usage
+   */
+  async getCurrentPlan(userId: string) {
+    this.logger.log(`Fetching current plan for user ${userId}`);
+
+    // Get or create subscription
+    let subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+      include: { plan: true },
+    });
+
+    // If no subscription exists, create a free tier subscription
+    if (!subscription) {
+      this.logger.log(
+        `No subscription found for user ${userId}, creating free tier`
+      );
+
+      // Find the free tier plan
+      const freePlan = await this.prisma.subscriptionPlan.findFirst({
+        where: {
+          price: 0,
+          isActive: true,
+        },
+      });
+
+      if (!freePlan) {
+        throw new NotFoundException('Free tier plan not found in database');
+      }
+
+      // Create free tier subscription with EXPIRED status (no active period)
+      subscription = await this.prisma.subscription.create({
+        data: {
+          userId,
+          planId: freePlan.id,
+          status: SubscriptionStatus.EXPIRED,
+          currentPeriodEnd: new Date(), // Already expired
+          cancelAtPeriodEnd: false,
+        },
+        include: { plan: true },
+      });
+
+      this.logger.log(`Created free tier subscription for user ${userId}`);
+    }
+
+    // Get quota status from quota service
+    const quotaStatus = await this.quotaService.getQuotaStatus(userId);
+
+    // Build response
+    return {
+      planName: subscription.plan.name,
+      price: subscription.plan.price,
+      interval: subscription.plan.interval,
+      status: subscription.status,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      isPremium: quotaStatus.isPremium,
+      quiz: quotaStatus.quiz,
+      flashcard: quotaStatus.flashcard,
+      explanation: quotaStatus.explanation,
+      learningGuide: quotaStatus.learningGuide,
+      fileUpload: quotaStatus.fileUpload,
+      fileStorage: quotaStatus.fileStorage,
+      resetAt: quotaStatus.resetAt,
+      monthlyResetAt: quotaStatus.monthlyResetAt,
+    };
   }
 
   /**

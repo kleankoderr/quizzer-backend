@@ -9,7 +9,11 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER, CacheInterceptor } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import {
   ApiTags,
   ApiOperation,
@@ -29,6 +33,8 @@ import {
   SubscriptionResponseDto,
   CancelSubscriptionResponseDto,
   PlanDetailsDto,
+  VerifyPaymentDto,
+  CurrentPlanResponseDto,
 } from './dto/subscription.dto';
 
 @ApiTags('Subscription')
@@ -39,7 +45,8 @@ export class SubscriptionController {
 
   constructor(
     private readonly subscriptionService: SubscriptionService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {
     this.paystackSecretKey = this.configService.get<string>(
       'PAYSTACK_SECRET_KEY'
@@ -54,8 +61,10 @@ export class SubscriptionController {
   /**
    * Get all active subscription plans
    * Public endpoint - no authentication required
+   * Cached for 1 hour to improve performance
    */
   @Get('plans')
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get all active subscription plans' })
   @ApiResponse({
     status: 200,
@@ -124,6 +133,46 @@ export class SubscriptionController {
       );
       throw error;
     }
+  }
+
+  /**
+   * Verify Paystack payment
+   * Protected endpoint - requires authentication
+   */
+  @Post('verify')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify Paystack payment' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment verified and subscription activated',
+    type: SubscriptionResponseDto,
+  })
+  async verifyPayment(
+    @Body() verifyPaymentDto: VerifyPaymentDto
+  ): Promise<SubscriptionResponseDto> {
+    this.logger.log(`Verifying payment: ${verifyPaymentDto.reference}`);
+    const subscription = await this.subscriptionService.verifyAndActivate(
+      verifyPaymentDto.reference
+    );
+
+    return {
+      id: subscription.id,
+      userId: subscription.userId,
+      status: subscription.status,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      createdAt: subscription.createdAt,
+      updatedAt: subscription.updatedAt,
+      plan: {
+        id: subscription.plan.id,
+        name: subscription.plan.name,
+        price: subscription.plan.price,
+        interval: subscription.plan.interval,
+        quotas: subscription.plan.quotas as Record<string, any>,
+        isActive: subscription.plan.isActive,
+      },
+    };
   }
 
   /**
@@ -230,6 +279,28 @@ export class SubscriptionController {
   }
 
   /**
+   * Get current user's plan with all quota information
+   * Protected endpoint - requires authentication
+   * Creates a free tier plan if user has no subscription
+   */
+  @Get('current-plan')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current plan with quota information' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current plan details with quota usage',
+    type: CurrentPlanResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getCurrentPlan(
+    @CurrentUser('sub') userId: string
+  ): Promise<CurrentPlanResponseDto> {
+    this.logger.log(`Fetching current plan for user ${userId}`);
+    return this.subscriptionService.getCurrentPlan(userId);
+  }
+
+  /**
    * Cancel user's subscription
    * Protected endpoint - requires authentication
    */
@@ -299,6 +370,23 @@ export class SubscriptionController {
         error.stack
       );
       return false;
+    }
+  }
+
+  /**
+   * Clear subscription plans cache
+   * Call this method when plans are updated to ensure fresh data
+   * @private
+   */
+  private async clearPlansCache(): Promise<void> {
+    try {
+      await this.cacheManager.del('/subscription/plans');
+      this.logger.log('Subscription plans cache cleared');
+    } catch (error) {
+      this.logger.error(
+        `Error clearing plans cache: ${error.message}`,
+        error.stack
+      );
     }
   }
 }

@@ -9,6 +9,7 @@ export interface InitializeTransactionDto {
   amount: number;
   reference: string;
   callback_url: string;
+  channels?: string[]; // Optional: Specify payment channels (e.g., ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer'])
 }
 
 export interface InitializeTransactionResponse {
@@ -68,6 +69,7 @@ export class PaystackService {
             amount: data.amount,
             reference: data.reference,
             callback_url: data.callback_url,
+            ...(data.channels && { channels: data.channels }),
           },
           {
             headers: {

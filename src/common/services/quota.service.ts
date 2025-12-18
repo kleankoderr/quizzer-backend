@@ -179,7 +179,7 @@ export class QuotaService {
       : this.FREE_TIER_FILES_PER_MONTH;
 
     return {
-      isPremium: hasActiveSubscription || userQuota.isPremium,
+      isPremium: hasActiveSubscription, // Only check active subscription, not stale userQuota.isPremium
       resetAt: userQuota.quotaResetAt,
       monthlyResetAt: userQuota.monthlyResetAt,
       quiz: {
@@ -226,9 +226,12 @@ export class QuotaService {
         ),
       },
       fileStorage: {
-        used: userQuota.totalFileStorageMB,
+        used: Math.ceil(userQuota.totalFileStorageMB),
         limit: storageLimitMB,
-        remaining: Math.max(0, storageLimitMB - userQuota.totalFileStorageMB),
+        remaining: Math.max(
+          0,
+          storageLimitMB - Math.ceil(userQuota.totalFileStorageMB)
+        ),
       },
     };
   }
