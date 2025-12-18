@@ -43,7 +43,7 @@ export class CompanionController {
   @Get('statistics')
   async getStatistics(@Req() req: any, @Query('days') days?: string) {
     const userId = req.user.userId;
-    const daysNum = days ? parseInt(days, 10) : 7;
+    const daysNum = days ? Number.parseInt(days, 10) : 7;
     this.logger.log(
       `GET /companion/statistics?days=${daysNum} - User: ${userId}`
     );
