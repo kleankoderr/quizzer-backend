@@ -109,7 +109,7 @@ export class ContentProcessor extends WorkerHost {
         },
       });
 
-      await this.quotaService.incrementQuota(userId, 'learningGuide');
+      await this.quotaService.incrementQuota(userId, 'studyMaterial');
 
       await job.updateProgress(100);
       this.logger.log(

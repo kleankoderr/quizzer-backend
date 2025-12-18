@@ -34,9 +34,20 @@ export class UserDocumentService {
   }
 
   /**
-   * Get all documents for a user with file details
+   * Get all documents for a user with file details (paginated)
    */
-  async getUserDocuments(userId: string): Promise<UserDocumentDto[]> {
+  async getUserDocuments(userId: string, page: number = 1, limit: number = 20) {
+    // Ensure page and limit are valid numbers
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(Math.max(1, limit), 100); // Max 100 items per page
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count
+    const total = await this.prisma.userDocument.count({
+      where: { userId },
+    });
+
+    // Get paginated results
     const userDocuments = await this.prisma.userDocument.findMany({
       where: { userId },
       include: {
@@ -52,14 +63,27 @@ export class UserDocumentService {
         },
       },
       orderBy: { uploadedAt: 'desc' },
+      skip,
+      take: limitNum,
     });
 
-    return userDocuments.map((ud) => ({
+    const data = userDocuments.map((ud) => ({
       id: ud.id,
       displayName: this.sanitizeDisplayName(ud.displayName),
       uploadedAt: ud.uploadedAt,
       document: ud.document,
     }));
+
+    return {
+      data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+        hasMore: skip + userDocuments.length < total,
+      },
+    };
   }
 
   /**

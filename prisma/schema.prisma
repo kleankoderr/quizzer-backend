@@ -61,7 +61,6 @@ model User {
   streak        Streak?
   leaderboard   LeaderboardEntry[]
   contents      Content[]
-  highlights    Highlight[]
   tasks         Task[]
   topicProgress TopicProgress[]
   fcmTokens     String[]           @default([])
@@ -76,31 +75,28 @@ model User {
 }
 
 model UserQuota {
-  id                      String   @id @default(uuid())
-  userId                  String   @unique
-  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                              String   @id @default(uuid())
+  userId                          String   @unique
+  user                            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   // Premium status
-  isPremium               Boolean  @default(false)
-  
-  // Daily quotas
-  quotaResetAt            DateTime @default(now())
-  dailyQuizCount          Int      @default(0)
-  dailyFlashcardCount     Int      @default(0)
-  dailyLearningGuideCount Int      @default(0)
-  dailyExplanationCount   Int      @default(0)
+  isPremium                       Boolean  @default(false)
   
   // Monthly quotas
-  monthlyTotalCount       Int      @default(0)
-  monthlyResetAt          DateTime @default(now())
+  monthlyResetAt                  DateTime @default(now())
+  monthlyQuizCount                Int      @default(0)
+  monthlyFlashcardCount           Int      @default(0)
+  monthlyStudyMaterialCount       Int      @default(0)
+  monthlyConceptExplanationCount  Int      @default(0)
+  monthlySmartRecommendationCount Int      @default(0)
+  monthlySmartCompanionCount      Int      @default(0)
   
   // File upload and storage quotas
-  dailyFileUploadCount    Int      @default(0)
-  monthlyFileUploadCount  Int      @default(0)
-  totalFileStorageMB      Float    @default(0)
+  monthlyFileUploadCount          Int      @default(0)
+  totalFileStorageMB              Float    @default(0)
   
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
 
   @@index([userId])
   @@map("user_quotas")
@@ -322,7 +318,6 @@ model Content {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  highlights       Highlight[]
   quiz             Quiz?
   flashcardSet     FlashcardSet?
   quizId           String?
@@ -338,30 +333,7 @@ model Content {
   @@map("contents")
 }
 
-model Highlight {
-  id           String   @id @default(uuid())
-  contentId    String
-  content      Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  text         String
-  color        String   @default("yellow")
-  startOffset  Int
-  endOffset    Int
-  note         String?
-  sectionIndex Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 
-  @@index([contentId])
-  @@index([userId])
-  @@index([contentId, userId])
-  @@index([contentId, sectionIndex])
-  @@index([userId, createdAt])
-  @@index([contentId, text])
-  @@index([contentId, color])
-  @@map("highlights")
-}
 
 enum TaskStatus {
   PENDING

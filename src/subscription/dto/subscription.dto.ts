@@ -76,14 +76,14 @@ export class PlanDetailsDto {
 
   @ApiProperty({
     example: {
-      dailyQuizCount: 50,
-      dailyFlashcardCount: 50,
-      dailyLearningGuideCount: 20,
-      dailyExplanationCount: 100,
-      monthlyTotalCount: 1000,
-      dailyFileUploadCount: 20,
-      monthlyFileUploadCount: 500,
-      maxFileStorageMB: 1000,
+      quizzes: 15,
+      flashcards: 15,
+      studyMaterials: 10,
+      conceptExplanations: 20,
+      smartRecommendations: 20,
+      smartCompanions: 20,
+      filesPerMonth: 100,
+      storageLimitMB: 1000,
     },
     description: 'Quota limits for this plan',
   })
@@ -290,19 +290,22 @@ export class CurrentPlanResponseDto {
   flashcard: QuotaUsageDto;
 
   @ApiProperty({ type: QuotaUsageDto })
-  explanation: QuotaUsageDto;
+  studyMaterial: QuotaUsageDto;
 
   @ApiProperty({ type: QuotaUsageDto })
-  learningGuide: QuotaUsageDto;
+  conceptExplanation: QuotaUsageDto;
 
-  @ApiProperty({ type: FileUploadQuotaDto })
-  fileUpload: FileUploadQuotaDto;
+  @ApiProperty({ type: QuotaUsageDto })
+  smartRecommendation: QuotaUsageDto;
+
+  @ApiProperty({ type: QuotaUsageDto })
+  smartCompanion: QuotaUsageDto;
+
+  @ApiProperty({ type: QuotaUsageDto })
+  fileUpload: QuotaUsageDto;
 
   @ApiProperty({ type: FileStorageQuotaDto })
   fileStorage: FileStorageQuotaDto;
-
-  @ApiProperty({ example: '2025-12-19T00:00:00.000Z' })
-  resetAt: Date;
 
   @ApiProperty({ example: '2026-01-01T00:00:00.000Z' })
   monthlyResetAt: Date;

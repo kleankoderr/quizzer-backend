@@ -1123,13 +1123,12 @@ export class AdminService {
     // Get all user quotas
     const quotas = await this.prisma.userQuota.findMany({
       select: {
-        dailyQuizCount: true,
-        dailyFlashcardCount: true,
-        dailyLearningGuideCount: true,
-        dailyExplanationCount: true,
-        dailyFileUploadCount: true,
+        monthlyQuizCount: true,
+        monthlyFlashcardCount: true,
+        monthlyStudyMaterialCount: true,
+        monthlyConceptExplanationCount: true,
+        monthlyFileUploadCount: true,
         totalFileStorageMB: true,
-        monthlyTotalCount: true,
         isPremium: true,
       },
     });
@@ -1143,11 +1142,11 @@ export class AdminService {
     let premiumUsers = 0;
 
     for (const quota of quotas) {
-      totalQuizzes += quota.dailyQuizCount;
-      totalFlashcards += quota.dailyFlashcardCount;
-      totalLearningGuides += quota.dailyLearningGuideCount;
-      totalExplanations += quota.dailyExplanationCount;
-      totalFileUploads += quota.dailyFileUploadCount;
+      totalQuizzes += quota.monthlyQuizCount;
+      totalFlashcards += quota.monthlyFlashcardCount;
+      totalLearningGuides += quota.monthlyStudyMaterialCount;
+      totalExplanations += quota.monthlyConceptExplanationCount;
+      totalFileUploads += quota.monthlyFileUploadCount;
       totalStorageUsed += quota.totalFileStorageMB;
       if (quota.isPremium) premiumUsers++;
     }

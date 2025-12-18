@@ -9,11 +9,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
-import {
-  CreateContentDto,
-  CreateHighlightDto,
-  UpdateContentDto,
-} from './dto/content.dto';
+import { CreateContentDto, UpdateContentDto } from './dto/content.dto';
 import { QuizService } from '../quiz/quiz.service';
 import { FlashcardService } from '../flashcard/flashcard.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -226,7 +222,6 @@ export class ContentService {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },
       include: {
-        highlights: true,
         quiz: {
           select: { id: true },
         },
@@ -330,173 +325,6 @@ export class ContentService {
     return deleted;
   }
 
-  // ==================== HIGHLIGHTS ====================
-
-  /**
-   * Add a highlight to content
-   */
-  async addHighlight(
-    userId: string,
-    contentId: string,
-    createHighlightDto: CreateHighlightDto
-  ) {
-    // Check for duplicate highlight (same text in same section)
-    const existingHighlight = await this.prisma.highlight.findFirst({
-      where: {
-        contentId,
-        text: {
-          equals: createHighlightDto.text,
-          mode: 'insensitive',
-        },
-        sectionIndex: createHighlightDto.sectionIndex ?? null,
-      },
-    });
-
-    if (existingHighlight) {
-      // Return existing highlight instead of creating duplicate
-      return existingHighlight;
-    }
-
-    return this.prisma.highlight.create({
-      data: {
-        ...createHighlightDto,
-        contentId,
-        userId,
-      },
-    });
-  }
-
-  /**
-   * Delete a highlight
-   */
-  async deleteHighlight(userId: string, highlightId: string) {
-    const highlight = await this.prisma.highlight.findUnique({
-      where: { id: highlightId },
-    });
-
-    if (highlight?.userId !== userId) {
-      throw new NotFoundException('Highlight not found');
-    }
-
-    return this.prisma.highlight.delete({
-      where: { id: highlightId },
-    });
-  }
-
-  /**
-   * Add multiple highlights in batch
-   */
-  async addHighlightsBatch(
-    userId: string,
-    contentId: string,
-    highlights: CreateHighlightDto[]
-  ) {
-    // Use transaction for atomicity
-    return this.prisma.$transaction(async (tx) => {
-      const createdHighlights = [];
-
-      for (const highlightDto of highlights) {
-        // Check for duplicate
-        const existing = await tx.highlight.findFirst({
-          where: {
-            contentId,
-            text: {
-              equals: highlightDto.text,
-              mode: 'insensitive',
-            },
-            sectionIndex: highlightDto.sectionIndex ?? null,
-          },
-        });
-
-        if (existing) {
-          createdHighlights.push(existing);
-        } else {
-          const created = await tx.highlight.create({
-            data: {
-              ...highlightDto,
-              contentId,
-              userId,
-            },
-          });
-          createdHighlights.push(created);
-        }
-      }
-
-      return createdHighlights;
-    });
-  }
-
-  /**
-   * Delete multiple highlights in batch
-   */
-  async deleteHighlightsBatch(userId: string, highlightIds: string[]) {
-    // Verify ownership for all highlights in single query
-    const highlights = await this.prisma.highlight.findMany({
-      where: {
-        id: { in: highlightIds },
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (highlights.length !== highlightIds.length) {
-      throw new NotFoundException(
-        'One or more highlights not found or unauthorized'
-      );
-    }
-
-    // Bulk delete
-    const result = await this.prisma.highlight.deleteMany({
-      where: {
-        id: { in: highlightIds },
-        userId,
-      },
-    });
-
-    return { deleted: result.count };
-  }
-
-  /**
-   * Get highlights with optional filters
-   */
-  async getHighlights(
-    userId: string,
-    contentId: string,
-    filters?: {
-      color?: string;
-      sectionIndex?: number;
-      hasNote?: boolean;
-    }
-  ) {
-    const where: any = {
-      contentId,
-      userId,
-    };
-
-    if (filters?.color) {
-      where.color = filters.color;
-    }
-
-    if (filters?.sectionIndex !== undefined) {
-      where.sectionIndex = filters.sectionIndex;
-    }
-
-    if (filters?.hasNote !== undefined) {
-      if (filters.hasNote) {
-        where.note = { not: null };
-      } else {
-        where.note = null;
-      }
-    }
-
-    return this.prisma.highlight.findMany({
-      where,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  }
-
   // ==================== AI FEATURES ====================
 
   /**
@@ -523,7 +351,7 @@ export class ContentService {
       context: sectionContent,
     });
 
-    await this.quotaService.incrementQuota(userId, 'explanation');
+    await this.quotaService.incrementQuota(userId, 'conceptExplanation');
 
     await this.cacheManager.set(cacheKey, result, 43200000);
 
@@ -554,7 +382,7 @@ export class ContentService {
       context: sectionContent,
     });
 
-    await this.quotaService.incrementQuota(userId, 'explanation');
+    await this.quotaService.incrementQuota(userId, 'conceptExplanation');
 
     await this.cacheManager.set(cacheKey, result, 43200000);
 

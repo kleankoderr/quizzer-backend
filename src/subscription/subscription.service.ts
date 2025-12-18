@@ -450,11 +450,12 @@ export class SubscriptionService {
       isPremium: quotaStatus.isPremium,
       quiz: quotaStatus.quiz,
       flashcard: quotaStatus.flashcard,
-      explanation: quotaStatus.explanation,
-      learningGuide: quotaStatus.learningGuide,
+      studyMaterial: quotaStatus.studyMaterial,
+      conceptExplanation: quotaStatus.conceptExplanation,
+      smartRecommendation: quotaStatus.smartRecommendation,
+      smartCompanion: quotaStatus.smartCompanion,
       fileUpload: quotaStatus.fileUpload,
       fileStorage: quotaStatus.fileStorage,
-      resetAt: quotaStatus.resetAt,
       monthlyResetAt: quotaStatus.monthlyResetAt,
     };
   }

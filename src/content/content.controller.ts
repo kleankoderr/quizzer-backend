@@ -24,11 +24,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { ContentService } from './content.service';
-import {
-  CreateContentDto,
-  CreateHighlightDto,
-  UpdateContentDto,
-} from './dto/content.dto';
+import { CreateContentDto, UpdateContentDto } from './dto/content.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { QuotaGuard } from '../common/guards/quota.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -41,7 +37,7 @@ import { CheckQuota } from '../common/decorators/check-quota.decorator';
 export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 
-  @CheckQuota('learningGuide')
+  @CheckQuota('studyMaterial')
   @Post('generate')
   @Throttle({ default: { limit: 5, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate a new content' })
@@ -172,85 +168,7 @@ export class ContentController {
     return this.contentService.deleteContent(userId, contentId);
   }
 
-  @Post(':id/highlights')
-  @ApiOperation({ summary: 'Add highlight to content' })
-  @ApiResponse({ status: 201, description: 'Highlight added successfully' })
-  async addHighlight(
-    @CurrentUser('sub') userId: string,
-    @Param('id') contentId: string,
-    @Body() createHighlightDto: CreateHighlightDto
-  ) {
-    return this.contentService.addHighlight(
-      userId,
-      contentId,
-      createHighlightDto
-    );
-  }
-
-  @Delete('highlights/:id')
-  @ApiOperation({ summary: 'Delete highlight' })
-  @ApiResponse({ status: 200, description: 'Highlight deleted successfully' })
-  async deleteHighlight(
-    @CurrentUser('sub') userId: string,
-    @Param('id') highlightId: string
-  ) {
-    return this.contentService.deleteHighlight(userId, highlightId);
-  }
-
-  @Post(':id/highlights/batch')
-  @ApiOperation({ summary: 'Add multiple highlights in batch' })
-  @ApiResponse({ status: 201, description: 'Highlights added successfully' })
-  async addHighlightsBatch(
-    @CurrentUser('sub') userId: string,
-    @Param('id') contentId: string,
-    @Body() dto: { highlights: CreateHighlightDto[] }
-  ) {
-    return this.contentService.addHighlightsBatch(
-      userId,
-      contentId,
-      dto.highlights
-    );
-  }
-
-  @Delete('highlights/batch')
-  @ApiOperation({ summary: 'Delete multiple highlights' })
-  @ApiResponse({ status: 200, description: 'Highlights deleted successfully' })
-  async deleteHighlightsBatch(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: { highlightIds: string[] }
-  ) {
-    return this.contentService.deleteHighlightsBatch(userId, dto.highlightIds);
-  }
-
-  @Get(':id/highlights')
-  @ApiOperation({ summary: 'Get highlights with optional filters' })
-  @ApiQuery({
-    name: 'color',
-    required: false,
-    enum: ['yellow', 'green', 'pink'],
-  })
-  @ApiQuery({ name: 'sectionIndex', required: false, type: Number })
-  @ApiQuery({ name: 'hasNote', required: false, type: Boolean })
-  @ApiResponse({
-    status: 200,
-    description: 'Highlights retrieved successfully',
-  })
-  async getHighlights(
-    @CurrentUser('sub') userId: string,
-    @Param('id') contentId: string,
-    @Query('color') color?: string,
-    @Query('sectionIndex') sectionIndex?: string,
-    @Query('hasNote') hasNote?: string
-  ) {
-    return this.contentService.getHighlights(userId, contentId, {
-      color,
-      sectionIndex: sectionIndex ? parseInt(sectionIndex, 10) : undefined,
-      hasNote:
-        hasNote === 'true' ? true : hasNote === 'false' ? false : undefined,
-    });
-  }
-
-  @CheckQuota('explanation')
+  @CheckQuota('conceptExplanation')
   @Post(':id/explain')
   @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate explanation for a section' })
@@ -271,7 +189,7 @@ export class ContentController {
     );
   }
 
-  @CheckQuota('explanation')
+  @CheckQuota('conceptExplanation')
   @Post(':id/example')
   @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate examples for a section' })

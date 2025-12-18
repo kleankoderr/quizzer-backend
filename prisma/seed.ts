@@ -8,7 +8,22 @@ async function main() {
   // Define Free Plan
   const freePlan = await prisma.subscriptionPlan.upsert({
     where: { id: 'free-plan-id' },
-    update: {},
+    update: {
+      name: 'Free',
+      price: 0,
+      interval: 'monthly',
+      isActive: true,
+      quotas: {
+        quizzes: 5,
+        flashcards: 5,
+        studyMaterials: 2,
+        conceptExplanations: 5,
+        smartRecommendations: 5,
+        smartCompanions: 5,
+        filesPerMonth: 10,
+        storageLimitMB: 20,
+      },
+    },
     create: {
       id: 'free-plan-id',
       name: 'Free',
@@ -16,12 +31,14 @@ async function main() {
       interval: 'monthly',
       isActive: true,
       quotas: {
-        quizzes: 2,
-        flashcards: 2,
-        learningGuides: 1,
-        explanations: 5,
-        filesPerMonth: 5,
-        storageLimitMB: 50,
+        quizzes: 5,
+        flashcards: 5,
+        studyMaterials: 2,
+        conceptExplanations: 5,
+        smartRecommendations: 5,
+        smartCompanions: 5,
+        filesPerMonth: 10,
+        storageLimitMB: 20,
       },
     },
   });
@@ -36,7 +53,22 @@ async function main() {
   // Define Premium Plan
   const premiumPlan = await prisma.subscriptionPlan.upsert({
     where: { id: 'premium-plan-id' },
-    update: {},
+    update: {
+      name: 'Premium',
+      price: 2000,
+      interval: 'monthly',
+      isActive: true,
+      quotas: {
+        quizzes: 15,
+        flashcards: 15,
+        studyMaterials: 10,
+        conceptExplanations: 20,
+        smartRecommendations: 20,
+        smartCompanions: 20,
+        filesPerMonth: 100,
+        storageLimitMB: 1000,
+      },
+    },
     create: {
       id: 'premium-plan-id',
       name: 'Premium',
@@ -46,8 +78,10 @@ async function main() {
       quotas: {
         quizzes: 15,
         flashcards: 15,
-        learningGuides: 10,
-        explanations: 20,
+        studyMaterials: 10,
+        conceptExplanations: 20,
+        smartRecommendations: 20,
+        smartCompanions: 20,
         filesPerMonth: 100,
         storageLimitMB: 1000,
       },

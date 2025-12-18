@@ -1,85 +1,21 @@
 import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SubscriptionStatus } from '@prisma/client';
 
 export type QuotaFeature =
   | 'quiz'
   | 'flashcard'
-  | 'learningGuide'
-  | 'explanation'
+  | 'studyMaterial'
+  | 'conceptExplanation'
+  | 'smartRecommendation'
+  | 'smartCompanion'
   | 'fileUpload';
 
 @Injectable()
 export class QuotaService {
   private readonly logger = new Logger(QuotaService.name);
 
-  // Free tier limits (configurable via environment variables)
-  private readonly FREE_TIER_LIMITS: Record<QuotaFeature, number>;
-
-  // Premium tier limits (configurable via environment variables)
-  private readonly PREMIUM_TIER_LIMITS: Record<QuotaFeature, number>;
-
-  // File storage limits (in MB)
-  private readonly FREE_TIER_STORAGE_LIMIT: number;
-  private readonly PREMIUM_TIER_STORAGE_LIMIT: number;
-
-  // Monthly file upload limits
-  private readonly FREE_TIER_FILES_PER_MONTH: number;
-  private readonly PREMIUM_TIER_FILES_PER_MONTH: number;
-
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly configService: ConfigService
-  ) {
-    // Initialize free tier limits with env vars or defaults
-    this.FREE_TIER_LIMITS = {
-      quiz: this.configService.get<number>('QUOTA_FREE_QUIZ', 2),
-      flashcard: this.configService.get<number>('QUOTA_FREE_FLASHCARD', 2),
-      learningGuide: this.configService.get<number>(
-        'QUOTA_FREE_LEARNING_GUIDE',
-        1
-      ),
-      explanation: this.configService.get<number>('QUOTA_FREE_EXPLANATION', 5),
-      fileUpload: this.configService.get<number>('QUOTA_FREE_FILE_UPLOAD', 5),
-    };
-
-    this.FREE_TIER_STORAGE_LIMIT = this.configService.get<number>(
-      'QUOTA_FREE_STORAGE_MB',
-      50
-    );
-    this.FREE_TIER_FILES_PER_MONTH = this.configService.get<number>(
-      'QUOTA_FREE_FILES_PER_MONTH',
-      5
-    );
-
-    // Initialize premium tier limits with env vars or defaults
-    this.PREMIUM_TIER_LIMITS = {
-      quiz: this.configService.get<number>('QUOTA_PREMIUM_QUIZ', 15),
-      flashcard: this.configService.get<number>('QUOTA_PREMIUM_FLASHCARD', 15),
-      learningGuide: this.configService.get<number>(
-        'QUOTA_PREMIUM_LEARNING_GUIDE',
-        10
-      ),
-      explanation: this.configService.get<number>(
-        'QUOTA_PREMIUM_EXPLANATION',
-        20
-      ),
-      fileUpload: this.configService.get<number>(
-        'QUOTA_PREMIUM_FILE_UPLOAD',
-        100
-      ),
-    };
-
-    this.PREMIUM_TIER_STORAGE_LIMIT = this.configService.get<number>(
-      'QUOTA_PREMIUM_STORAGE_MB',
-      1000
-    );
-    this.PREMIUM_TIER_FILES_PER_MONTH = this.configService.get<number>(
-      'QUOTA_PREMIUM_FILES_PER_MONTH',
-      100
-    );
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Check if user has quota available for feature
@@ -99,12 +35,6 @@ export class QuotaService {
       });
     }
 
-    if (this.shouldResetQuota(userQuota.quotaResetAt)) {
-      await this.resetDailyQuota(userId);
-      const limit = await this.getLimit(userId, feature);
-      return { allowed: true, remaining: limit };
-    }
-
     // Check if monthly quota needs reset
     if (this.shouldResetMonthlyQuota(userQuota.monthlyResetAt)) {
       await this.resetMonthlyQuota(userId);
@@ -115,10 +45,10 @@ export class QuotaService {
 
     if (currentUsage >= limit) {
       const tierMessage = userQuota.isPremium
-        ? 'Try again tomorrow.'
+        ? 'Try again next month.'
         : 'Upgrade to premium for higher limits.';
       throw new ForbiddenException(
-        `Daily ${feature} generation limit reached (${limit}/${limit}). ${tierMessage}`
+        `Monthly ${feature} generation limit reached (${currentUsage}/${limit}). ${tierMessage}`
       );
     }
 
@@ -164,63 +94,82 @@ export class QuotaService {
       subscription?.status === SubscriptionStatus.ACTIVE &&
       subscription.currentPeriodEnd > new Date();
 
-    const limits = hasActiveSubscription
-      ? this.PREMIUM_TIER_LIMITS
-      : this.FREE_TIER_LIMITS;
+    // Get plan quotas from subscription or Free plan
+    let planQuotas: any;
+    if (hasActiveSubscription && subscription.plan.quotas) {
+      planQuotas = subscription.plan.quotas;
+    } else {
+      // Fallback to Free plan from database
+      const freePlan = await this.prisma.subscriptionPlan.findFirst({
+        where: { name: 'Free', isActive: true },
+      });
+      if (!freePlan) {
+        throw new Error('Free subscription plan not found in database');
+      }
+      planQuotas = freePlan.quotas;
+    }
 
-    const storageLimitMB = hasActiveSubscription
-      ? (subscription.plan.quotas as any)?.storageLimitMB ||
-        this.PREMIUM_TIER_STORAGE_LIMIT
-      : this.FREE_TIER_STORAGE_LIMIT;
-
-    const filesPerMonth = hasActiveSubscription
-      ? (subscription.plan.quotas as any)?.filesPerMonth ||
-        this.PREMIUM_TIER_FILES_PER_MONTH
-      : this.FREE_TIER_FILES_PER_MONTH;
+    const storageLimitMB = planQuotas?.storageLimitMB || 0;
+    const filesPerMonth = planQuotas?.filesPerMonth || 0;
 
     return {
       isPremium: hasActiveSubscription, // Only check active subscription, not stale userQuota.isPremium
-      resetAt: userQuota.quotaResetAt,
       monthlyResetAt: userQuota.monthlyResetAt,
       quiz: {
-        used: userQuota.dailyQuizCount,
-        limit: limits.quiz,
-        remaining: Math.max(0, limits.quiz - userQuota.dailyQuizCount),
+        used: userQuota.monthlyQuizCount,
+        limit: planQuotas.quizzes || 0,
+        remaining: Math.max(
+          0,
+          (planQuotas.quizzes || 0) - userQuota.monthlyQuizCount
+        ),
       },
       flashcard: {
-        used: userQuota.dailyFlashcardCount,
-        limit: limits.flashcard,
+        used: userQuota.monthlyFlashcardCount,
+        limit: planQuotas.flashcards || 0,
         remaining: Math.max(
           0,
-          limits.flashcard - userQuota.dailyFlashcardCount
+          (planQuotas.flashcards || 0) - userQuota.monthlyFlashcardCount
         ),
       },
-      learningGuide: {
-        used: userQuota.dailyLearningGuideCount,
-        limit: limits.learningGuide,
+      studyMaterial: {
+        used: userQuota.monthlyStudyMaterialCount,
+        limit: planQuotas.studyMaterials || 0,
         remaining: Math.max(
           0,
-          limits.learningGuide - userQuota.dailyLearningGuideCount
+          (planQuotas.studyMaterials || 0) - userQuota.monthlyStudyMaterialCount
         ),
       },
-      explanation: {
-        used: userQuota.dailyExplanationCount,
-        limit: limits.explanation,
+      conceptExplanation: {
+        used: userQuota.monthlyConceptExplanationCount,
+        limit: planQuotas.conceptExplanations || 0,
         remaining: Math.max(
           0,
-          limits.explanation - userQuota.dailyExplanationCount
+          (planQuotas.conceptExplanations || 0) -
+            userQuota.monthlyConceptExplanationCount
+        ),
+      },
+      smartRecommendation: {
+        used: userQuota.monthlySmartRecommendationCount,
+        limit: planQuotas.smartRecommendations || 0,
+        remaining: Math.max(
+          0,
+          (planQuotas.smartRecommendations || 0) -
+            userQuota.monthlySmartRecommendationCount
+        ),
+      },
+      smartCompanion: {
+        used: userQuota.monthlySmartCompanionCount,
+        limit: planQuotas.smartCompanions || 0,
+        remaining: Math.max(
+          0,
+          (planQuotas.smartCompanions || 0) -
+            userQuota.monthlySmartCompanionCount
         ),
       },
       fileUpload: {
-        dailyUsed: userQuota.dailyFileUploadCount,
-        dailyLimit: limits.fileUpload,
-        dailyRemaining: Math.max(
-          0,
-          limits.fileUpload - userQuota.dailyFileUploadCount
-        ),
-        monthlyUsed: userQuota.monthlyFileUploadCount,
-        monthlyLimit: filesPerMonth,
-        monthlyRemaining: Math.max(
+        used: userQuota.monthlyFileUploadCount,
+        limit: filesPerMonth,
+        remaining: Math.max(
           0,
           filesPerMonth - userQuota.monthlyFileUploadCount
         ),
@@ -234,33 +183,6 @@ export class QuotaService {
         ),
       },
     };
-  }
-
-  private shouldResetQuota(resetAt: Date): boolean {
-    const now = new Date();
-    const lastReset = new Date(resetAt);
-
-    // Reset if it's a new day
-    return (
-      now.getDate() !== lastReset.getDate() ||
-      now.getMonth() !== lastReset.getMonth() ||
-      now.getFullYear() !== lastReset.getFullYear()
-    );
-  }
-
-  private async resetDailyQuota(userId: string): Promise<void> {
-    this.logger.log(`Resetting daily quota for user ${userId}`);
-    await this.prisma.userQuota.update({
-      where: { userId },
-      data: {
-        dailyQuizCount: 0,
-        dailyFlashcardCount: 0,
-        dailyLearningGuideCount: 0,
-        dailyExplanationCount: 0,
-        dailyFileUploadCount: 0,
-        quotaResetAt: new Date(),
-      },
-    });
   }
 
   private shouldResetMonthlyQuota(resetAt: Date): boolean {
@@ -279,7 +201,12 @@ export class QuotaService {
     await this.prisma.userQuota.update({
       where: { userId },
       data: {
-        monthlyTotalCount: 0,
+        monthlyQuizCount: 0,
+        monthlyFlashcardCount: 0,
+        monthlyStudyMaterialCount: 0,
+        monthlyConceptExplanationCount: 0,
+        monthlySmartRecommendationCount: 0,
+        monthlySmartCompanionCount: 0,
         monthlyFileUploadCount: 0,
         monthlyResetAt: new Date(),
       },
@@ -291,29 +218,32 @@ export class QuotaService {
     feature: QuotaFeature
   ): Promise<void> {
     const fieldMap: Record<QuotaFeature, string> = {
-      quiz: 'dailyQuizCount',
-      flashcard: 'dailyFlashcardCount',
-      learningGuide: 'dailyLearningGuideCount',
-      explanation: 'dailyExplanationCount',
-      fileUpload: 'dailyFileUploadCount',
+      quiz: 'monthlyQuizCount',
+      flashcard: 'monthlyFlashcardCount',
+      studyMaterial: 'monthlyStudyMaterialCount',
+      conceptExplanation: 'monthlyConceptExplanationCount',
+      smartRecommendation: 'monthlySmartRecommendationCount',
+      smartCompanion: 'monthlySmartCompanionCount',
+      fileUpload: 'monthlyFileUploadCount',
     };
 
     await this.prisma.userQuota.update({
       where: { userId },
       data: {
         [fieldMap[feature]]: { increment: 1 },
-        monthlyTotalCount: { increment: 1 },
       },
     });
   }
 
   private getCurrentUsage(userQuota: any, feature: QuotaFeature): number {
     const usageMap: Record<QuotaFeature, number> = {
-      quiz: userQuota.dailyQuizCount,
-      flashcard: userQuota.dailyFlashcardCount,
-      learningGuide: userQuota.dailyLearningGuideCount,
-      explanation: userQuota.dailyExplanationCount,
-      fileUpload: userQuota.dailyFileUploadCount,
+      quiz: userQuota.monthlyQuizCount,
+      flashcard: userQuota.monthlyFlashcardCount,
+      studyMaterial: userQuota.monthlyStudyMaterialCount,
+      conceptExplanation: userQuota.monthlyConceptExplanationCount,
+      smartRecommendation: userQuota.monthlySmartRecommendationCount,
+      smartCompanion: userQuota.monthlySmartCompanionCount,
+      fileUpload: userQuota.monthlyFileUploadCount,
     };
     return usageMap[feature];
   }
@@ -338,25 +268,44 @@ export class QuotaService {
       subscription?.status === SubscriptionStatus.ACTIVE &&
       subscription.currentPeriodEnd > new Date();
 
-    if (hasActiveSubscription && subscription.plan.quotas) {
-      // Map QuotaFeature to plan quota property names
-      const planQuotas = subscription.plan.quotas as any;
-      const featureMap: Record<QuotaFeature, string> = {
-        quiz: 'quizzes',
-        flashcard: 'flashcards',
-        learningGuide: 'learningGuides',
-        explanation: 'explanations',
-        fileUpload: 'filesPerMonth',
-      };
+    // Map QuotaFeature to plan quota property names
+    const featureMap: Record<QuotaFeature, string> = {
+      quiz: 'quizzes',
+      flashcard: 'flashcards',
+      studyMaterial: 'studyMaterials',
+      conceptExplanation: 'conceptExplanations',
+      smartRecommendation: 'smartRecommendations',
+      smartCompanion: 'smartCompanions',
+      fileUpload: 'filesPerMonth',
+    };
 
-      const quotaKey = featureMap[feature];
+    const quotaKey = featureMap[feature];
+
+    // If user has active subscription, use their plan quotas
+    if (hasActiveSubscription && subscription.plan.quotas) {
+      const planQuotas = subscription.plan.quotas as any;
       if (planQuotas[quotaKey] !== undefined) {
         return planQuotas[quotaKey];
       }
     }
 
-    // Fallback to free tier limits
-    return this.FREE_TIER_LIMITS[feature];
+    // Fallback to Free plan from database for non-subscribers
+    const freePlan = await this.prisma.subscriptionPlan.findFirst({
+      where: { name: 'Free', isActive: true },
+    });
+
+    if (!freePlan) {
+      throw new Error('Free subscription plan not found in database');
+    }
+
+    const freePlanQuotas = freePlan.quotas as any;
+    if (freePlanQuotas[quotaKey] === undefined) {
+      throw new Error(
+        `Quota '${quotaKey}' not found in Free plan for feature '${feature}'`
+      );
+    }
+
+    return freePlanQuotas[quotaKey];
   }
 
   /**
@@ -395,10 +344,20 @@ export class QuotaService {
       subscription?.status === SubscriptionStatus.ACTIVE &&
       subscription.currentPeriodEnd > new Date();
 
-    const storageLimitMB = hasActiveSubscription
-      ? (subscription.plan.quotas as any)?.storageLimitMB ||
-        this.PREMIUM_TIER_STORAGE_LIMIT
-      : this.FREE_TIER_STORAGE_LIMIT;
+    // Get storage limit from plan quotas
+    let storageLimitMB: number;
+    if (hasActiveSubscription && subscription.plan.quotas) {
+      storageLimitMB = (subscription.plan.quotas as any)?.storageLimitMB || 0;
+    } else {
+      // Fallback to Free plan from database
+      const freePlan = await this.prisma.subscriptionPlan.findFirst({
+        where: { name: 'Free', isActive: true },
+      });
+      if (!freePlan) {
+        throw new Error('Free subscription plan not found in database');
+      }
+      storageLimitMB = (freePlan.quotas as any)?.storageLimitMB || 0;
+    }
 
     const currentUsage = userQuota.totalFileStorageMB;
     const newTotal = currentUsage + fileSizeMB;
@@ -429,7 +388,6 @@ export class QuotaService {
     await this.prisma.userQuota.update({
       where: { userId },
       data: {
-        dailyFileUploadCount: { increment: 1 },
         monthlyFileUploadCount: { increment: 1 },
         totalFileStorageMB: { increment: fileSizeMB },
       },

@@ -5,6 +5,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -12,6 +13,7 @@ import {
   UploadedFiles,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '@prisma/client';
@@ -21,16 +23,36 @@ import {
   CreateUserDocumentDto,
 } from './dto/user-document.dto';
 
+@ApiTags('User Documents')
+@ApiBearerAuth()
 @Controller('user-documents')
 @UseGuards(JwtAuthGuard)
 export class UserDocumentController {
   constructor(private readonly userDocumentService: UserDocumentService) {}
 
   @Get()
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20)',
+  })
   async getUserDocuments(
-    @CurrentUser() user: User
-  ): Promise<UserDocumentDto[]> {
-    return this.userDocumentService.getUserDocuments(user.id);
+    @CurrentUser() user: User,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20
+  ) {
+    return this.userDocumentService.getUserDocuments(
+      user.id,
+      Number(page),
+      Number(limit)
+    );
   }
 
   @Get(':id')
