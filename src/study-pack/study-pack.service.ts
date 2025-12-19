@@ -183,7 +183,7 @@ export class StudyPackService {
       throw new NotFoundException('Study Pack not found');
     }
 
-    // Transform to StudyPackDetailDto format with counts
+    // Transform to StudyPackDetailDto format with counts, excluding arrays
     const transformedPack = {
       ...studyPack,
       quizzes: studyPack.quizzes.map((quiz) => {
@@ -199,7 +199,9 @@ export class StudyPackService {
           createdAt: quiz.createdAt,
           updatedAt: quiz.updatedAt,
           tags: quiz.tags,
-          questionCount: questions.length,
+          _count: {
+            questions: questions.length,
+          },
         };
       }),
       flashcardSets: studyPack.flashcardSets.map((set) => {
@@ -213,7 +215,9 @@ export class StudyPackService {
           topic: set.topic,
           createdAt: set.createdAt,
           updatedAt: set.updatedAt,
-          cardCount: cards.length,
+          _count: {
+            cards: cards.length,
+          },
         };
       }),
     };

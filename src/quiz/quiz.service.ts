@@ -463,6 +463,12 @@ export class QuizService {
             questions: true,
             quizType: true,
             timeLimit: true,
+            studyPack: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
           },
         },
       },
@@ -502,6 +508,7 @@ export class QuizService {
         id: attempt.quiz.id,
         title: attempt.quiz.title,
         topic: attempt.quiz.topic,
+        studyPack: attempt.quiz.studyPack,
       },
     };
   }
@@ -809,11 +816,6 @@ export class QuizService {
       this.logger.warn(
         `Failed to fetch selected files for user ${userId}: ${error.message}`
       );
-      // Return empty array instead of failing, to matching ContentService behavior validation
-      // or should we fail? ContentService warns and continues loop.
-      // Since we do batch, if it fails, it fails for all.
-      // But getUserDocumentsByIds likely won't fail unless DB error.
-      // If some IDs are not found, it just returns what is found.
       return [];
     }
   }
@@ -860,6 +862,27 @@ export class QuizService {
   private async findAccessibleQuiz(quizId: string, userId: string) {
     let quiz = await this.prisma.quiz.findFirst({
       where: { id: quizId, userId },
+      include: {
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        attempts: {
+          select: {
+            id: true,
+            score: true,
+            totalQuestions: true,
+            completedAt: true,
+            timeSpent: true,
+          },
+          orderBy: {
+            completedAt: 'desc',
+          },
+          take: 10,
+        },
+      },
     });
 
     if (!quiz) {
@@ -872,6 +895,30 @@ export class QuizService {
       if (challenge) {
         quiz = await this.prisma.quiz.findUnique({
           where: { id: quizId },
+          include: {
+            studyPack: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+            attempts: {
+              where: {
+                userId: userId,
+              },
+              select: {
+                id: true,
+                score: true,
+                totalQuestions: true,
+                completedAt: true,
+                timeSpent: true,
+              },
+              orderBy: {
+                completedAt: 'desc',
+              },
+              take: 10,
+            },
+          },
         });
       }
     }
@@ -887,8 +934,9 @@ export class QuizService {
   }
 
   private sanitizeQuizForDisplay(quiz: any) {
+    const { _studyPackId, ...quizWithoutStudyPackId } = quiz;
     return {
-      ...quiz,
+      ...quizWithoutStudyPackId,
       quizType: this.transformQuizType(quiz.quizType),
       questions: (quiz.questions as any[]).map((q) => {
         const { _correctAnswer, _explanation, ...sanitizedQuestion } = q;
