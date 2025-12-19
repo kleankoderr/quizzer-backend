@@ -164,6 +164,11 @@ export class FlashcardService {
           topic: true,
           createdAt: true,
           cards: true, // Get JSON to count
+          _count: {
+            select: {
+              attempts: true,
+            },
+          },
           studyPack: {
             select: {
               id: true,
@@ -188,6 +193,7 @@ export class FlashcardService {
         topic: set.topic,
         createdAt: set.createdAt,
         cardCount: cards.length,
+        attemptCount: set._count.attempts,
         studyPack: set.studyPack,
       };
     });
@@ -366,6 +372,7 @@ export class FlashcardService {
       orderBy: { completedAt: 'desc' },
       select: {
         id: true,
+        flashcardSetId: true,
         score: true,
         totalQuestions: true,
         completedAt: true,

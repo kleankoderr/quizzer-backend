@@ -36,9 +36,10 @@ export class StudyPackController {
   findAll(
     @CurrentUser('sub') userId: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('search') search?: string
   ) {
-    return this.studyPackService.findAll(userId, page, limit);
+    return this.studyPackService.findAll(userId, page, limit, search);
   }
 
   @Get(':id')

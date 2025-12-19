@@ -68,19 +68,32 @@ export class StudyPackService {
     return created;
   }
 
-  async findAll(userId: string, page: number = 1, limit: number = 10) {
+  async findAll(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    search?: string
+  ) {
     const version = await this.getListVersion(userId);
-    const cacheKey = `study_packs:list:${userId}:${version}:${page}:${limit}`;
+    const cacheKey = `study_packs:list:${userId}:${version}:${page}:${limit}:${search || ''}`;
 
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) {
       return cached;
     }
 
+    const where: any = { userId };
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.prisma.studyPack.findMany({
-        where: { userId },
+        where,
         skip,
         take: limit,
         select: {
@@ -101,7 +114,7 @@ export class StudyPackService {
         },
         orderBy: { title: 'asc' },
       }),
-      this.prisma.studyPack.count({ where: { userId } }),
+      this.prisma.studyPack.count({ where }),
     ]);
 
     const result = {
@@ -143,6 +156,11 @@ export class StudyPackService {
             updatedAt: true,
             tags: true,
             questions: true, // Get JSON to count
+            _count: {
+              select: {
+                attempts: true,
+              },
+            },
           },
         },
         flashcardSets: {
@@ -153,6 +171,11 @@ export class StudyPackService {
             createdAt: true,
             updatedAt: true,
             cards: true, // Get JSON to count
+            _count: {
+              select: {
+                attempts: true,
+              },
+            },
           },
         },
         contents: {
@@ -201,6 +224,7 @@ export class StudyPackService {
           tags: quiz.tags,
           _count: {
             questions: questions.length,
+            attempts: quiz._count.attempts,
           },
         };
       }),
@@ -217,6 +241,7 @@ export class StudyPackService {
           updatedAt: set.updatedAt,
           _count: {
             cards: cards.length,
+            attempts: set._count.attempts,
           },
         };
       }),
