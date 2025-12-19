@@ -3,8 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import JSON5 from 'json5';
+import { JSONParser } from '@streamparser/json';
 import { AiPrompts } from './ai.prompts';
 import {
   QuizGenerationResponse,
@@ -293,7 +294,7 @@ export class AiService {
     );
 
     // Parse and validate
-    const parsed = this.parseJsonResponse<any>(result, 'quiz');
+    const parsed = await this.parseJsonResponse<any>(result, 'quiz');
     const finalResult = {
       title: parsed.title || `${topic || 'Quiz'} - ${difficulty}`,
       topic: parsed.topic || topic || 'General Knowledge',
@@ -357,7 +358,7 @@ export class AiService {
     );
 
     // Parse and validate
-    const parsed = this.parseJsonResponse<any>(result, 'flashcards');
+    const parsed = await this.parseJsonResponse<any>(result, 'flashcards');
     const finalResult = {
       title: parsed.title || `${topic || 'Flashcards'}`,
       topic: parsed.topic || topic || 'Study Cards',
@@ -410,7 +411,10 @@ export class AiService {
 
     // Parse response
     try {
-      const parsed = this.parseJsonResponse<any[]>(result, 'recommendations');
+      const parsed = await this.parseJsonResponse<any[]>(
+        result,
+        'recommendations'
+      );
       // Cache with recommendation-specific TTL (30 minutes for personalized content)
       this.setCache(cacheKey, parsed, this.CACHE_TTLS.RECOMMENDATION).catch(
         () => {}
@@ -481,7 +485,7 @@ export class AiService {
     );
 
     try {
-      const parsed = this.parseJsonResponse<LearningGuideResponse>(
+      const parsed = await this.parseJsonResponse<LearningGuideResponse>(
         result,
         'learning guide'
       );
@@ -680,7 +684,10 @@ export class AiService {
    * Uses multiple strategies to handle malformed JSON from AI responses
    */
 
-  private parseJsonResponse<T>(responseText: string, context: string): T {
+  private async parseJsonResponse<T>(
+    responseText: string,
+    context: string
+  ): Promise<T> {
     // Strategy 1: Attempt to extract JSON payload using brace matching (most robust)
     try {
       const extracted = this.extractJsonPayload(responseText);
@@ -724,7 +731,16 @@ export class AiService {
       );
     }
 
-    // Strategy 5: Last resort - try standard JSON.parse on cleaned response
+    // Strategy 5: Streaming Parser (handles large/partial JSON)
+    try {
+      return await this.parseStreamingJson<T>(responseText);
+    } catch (_error) {
+      this.logger.debug(
+        `Streaming parsing failed for ${context}, trying final strategy`
+      );
+    }
+
+    // Strategy 6: Last resort - try standard JSON.parse on cleaned response
     try {
       const cleaned = this.cleanJsonResponse(responseText);
       return JSON.parse(cleaned) as T;
@@ -741,6 +757,53 @@ export class AiService {
         `Failed to parse ${context} response after trying multiple strategies: ${error.message || 'Invalid JSON'}`
       );
     }
+  }
+
+  /**
+   * Parse potentially incomplete or streaming JSON using @streamparser/json
+   */
+  private async parseStreamingJson<T>(text: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const parser = new JSONParser();
+      let result: any = null;
+      let foundValue = false;
+
+      parser.onValue = ({ value, key }) => {
+        if (key === undefined) {
+          // Top-level value completed
+          result = value;
+          foundValue = true;
+        }
+      };
+
+      parser.onError = (error) => {
+        // If we found a value before error (e.g. trailing characters), resolve with it
+        if (foundValue && result !== null) {
+          resolve(result as T);
+        } else {
+          reject(error);
+        }
+      };
+
+      parser.onEnd = () => {
+        if (foundValue && result !== null) {
+          resolve(result as T);
+        } else {
+          reject(new Error('No valid JSON found in stream'));
+        }
+      };
+
+      try {
+        parser.write(text);
+        parser.end();
+      } catch (error) {
+        if (foundValue && result !== null) {
+          resolve(result as T);
+        } else {
+          reject(error);
+        }
+      }
+    });
   }
 
   /**

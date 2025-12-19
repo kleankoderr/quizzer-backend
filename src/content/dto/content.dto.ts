@@ -153,12 +153,3 @@ export class ContentListItemDto {
     title: string;
   };
 }
-
-export class ContentDetailDto extends ContentListItemDto {
-  content: string; // Full content text
-  userId: string;
-  learningGuide?: any;
-  highlights?: any[];
-  lastReadPosition?: number;
-  sourceFiles?: string[];
-}

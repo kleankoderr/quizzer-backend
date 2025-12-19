@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -75,13 +74,13 @@ model User {
 }
 
 model UserQuota {
-  id                              String   @id @default(uuid())
-  userId                          String   @unique
-  user                            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Premium status
-  isPremium                       Boolean  @default(false)
-  
+  isPremium Boolean @default(false)
+
   // Monthly quotas
   monthlyResetAt                  DateTime @default(now())
   monthlyQuizCount                Int      @default(0)
@@ -90,13 +89,13 @@ model UserQuota {
   monthlyConceptExplanationCount  Int      @default(0)
   monthlySmartRecommendationCount Int      @default(0)
   monthlySmartCompanionCount      Int      @default(0)
-  
+
   // File upload and storage quotas
-  monthlyFileUploadCount          Int      @default(0)
-  totalFileStorageMB              Float    @default(0)
-  
-  createdAt                       DateTime @default(now())
-  updatedAt                       DateTime @updatedAt
+  monthlyFileUploadCount Int   @default(0)
+  totalFileStorageMB     Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@map("user_quotas")
@@ -333,8 +332,6 @@ model Content {
   @@map("contents")
 }
 
-
-
 enum TaskStatus {
   PENDING
   COMPLETED
@@ -545,14 +542,14 @@ model StudyPack {
 }
 
 model SubscriptionPlan {
-  id            String         @id @default(uuid())
-  name          String
-  price         Float
-  interval      String // "monthly" or "yearly"
-  quotas        Json // Store quota limits as JSON
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  price     Float
+  interval  String // "monthly" or "yearly"
+  quotas    Json // Store quota limits as JSON
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   subscriptions Subscription[]
 
@@ -581,17 +578,17 @@ model Subscription {
 }
 
 model Payment {
-  id                 String        @id @default(uuid())
-  userId             String
-  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subscriptionId     String
-  subscription       Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  amount             Float
-  paystackReference  String        @unique
-  status             PaymentStatus @default(PENDING)
-  paidAt             DateTime?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId    String
+  subscription      Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount            Float
+  paystackReference String        @unique
+  status            PaymentStatus @default(PENDING)
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@index([userId])
   @@index([paystackReference])
