@@ -35,6 +35,7 @@ interface ContentWithRelations {
   flashcardSetId?: string | null;
   quiz?: { id: string } | null;
   flashcardSet?: { id: string } | null;
+  studyPack?: { id: string; title: string } | null;
 }
 
 @Injectable()
@@ -227,6 +228,12 @@ export class ContentService {
         },
         flashcardSet: {
           select: { id: true },
+        },
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
         },
       },
     });
