@@ -122,6 +122,17 @@ export class FlashcardController {
     );
   }
 
+  @Get(':id/attempts')
+  @ApiOperation({ summary: 'Get all attempts for a flashcard set' })
+  @ApiResponse({ status: 200, description: 'List of flashcard attempts' })
+  @ApiResponse({ status: 404, description: 'Flashcard set not found' })
+  async getFlashcardAttempts(
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string
+  ) {
+    return this.flashcardService.getFlashcardAttempts(id, userId);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete flashcard set' })
   @ApiResponse({

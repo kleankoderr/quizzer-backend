@@ -216,6 +216,19 @@ export class FlashcardService {
   async getFlashcardSetById(id: string, userId: string) {
     const flashcardSet = await this.prisma.flashcardSet.findFirst({
       where: { id, userId },
+      include: {
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        _count: {
+          select: {
+            attempts: true,
+          },
+        },
+      },
     });
 
     if (!flashcardSet) {
@@ -323,6 +336,48 @@ export class FlashcardService {
       ...attempt,
       ...metrics,
     };
+  }
+
+  /**
+   * Get all attempts for a specific flashcard set
+   */
+  async getFlashcardAttempts(flashcardSetId: string, userId: string) {
+    this.logger.log(
+      `Fetching attempts for flashcard set ${flashcardSetId}, user ${userId}`
+    );
+
+    // Verify flashcard set exists and belongs to user
+    const flashcardSet = await this.prisma.flashcardSet.findFirst({
+      where: { id: flashcardSetId, userId },
+      select: { id: true },
+    });
+
+    if (!flashcardSet) {
+      throw new NotFoundException('Flashcard set not found');
+    }
+
+    // Fetch all attempts for this flashcard set
+    const attempts = await this.prisma.attempt.findMany({
+      where: {
+        flashcardSetId,
+        userId,
+        type: 'flashcard',
+      },
+      orderBy: { completedAt: 'desc' },
+      select: {
+        id: true,
+        score: true,
+        totalQuestions: true,
+        completedAt: true,
+        answers: true,
+      },
+    });
+
+    this.logger.log(
+      `Found ${attempts.length} attempts for flashcard set ${flashcardSetId}`
+    );
+
+    return attempts;
   }
 
   /**
