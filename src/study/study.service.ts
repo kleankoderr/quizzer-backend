@@ -168,4 +168,151 @@ export class StudyService {
       suggestions,
     };
   }
+
+  /**
+   * Get items due for spaced repetition review
+   */
+  async getDueForReview(userId: string) {
+    this.logger.log(`Fetching due review items for user ${userId}`);
+
+    const now = new Date();
+
+    // Get all topics due for review
+    const dueTopics = await this.prisma.topicProgress.findMany({
+      where: {
+        userId,
+        nextReviewAt: { lte: now },
+      },
+      include: {
+        content: {
+          include: {
+            quiz: true,
+            flashcardSet: true,
+          },
+        },
+      },
+      orderBy: {
+        nextReviewAt: 'asc', // Most overdue first
+      },
+    });
+
+    // Get upcoming reviews for next 7 days (for calendar view)
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+    const upcomingTopics = await this.prisma.topicProgress.findMany({
+      where: {
+        userId,
+        nextReviewAt: {
+          gt: now,
+          lte: sevenDaysFromNow,
+        },
+      },
+    });
+
+    // Extract unique quizzes and flashcards from due topics
+    const dueQuizIds = new Set<string>();
+    const dueFlashcardIds = new Set<string>();
+
+    dueTopics.forEach((topic) => {
+      if (topic.content?.quiz?.id) {
+        dueQuizIds.add(topic.content.quiz.id);
+      }
+      if (topic.content?.flashcardSet?.id) {
+        dueFlashcardIds.add(topic.content.flashcardSet.id);
+      }
+    });
+
+    // Fetch full quiz and flashcard details
+    const dueQuizzes = await this.prisma.quiz.findMany({
+      where: {
+        id: { in: Array.from(dueQuizIds) },
+      },
+      select: {
+        id: true,
+        title: true,
+        topic: true,
+        difficulty: true,
+        createdAt: true,
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    const dueFlashcards = await this.prisma.flashcardSet.findMany({
+      where: {
+        id: { in: Array.from(dueFlashcardIds) },
+      },
+      select: {
+        id: true,
+        title: true,
+        topic: true,
+        createdAt: true,
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    // Generate calendar data (group by date)
+    const calendarMap = new Map<string, number>();
+
+    // Initialize next 7 days with 0
+    for (let i = 0; i < 7; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      calendarMap.set(dateStr, 0);
+    }
+
+    // Count upcoming reviews per day
+    upcomingTopics.forEach((topic) => {
+      const dateStr = new Date(topic.nextReviewAt).toISOString().split('T')[0];
+      if (calendarMap.has(dateStr)) {
+        calendarMap.set(dateStr, (calendarMap.get(dateStr) || 0) + 1);
+      }
+    });
+
+    const upcomingReviews = Array.from(calendarMap.entries()).map(
+      ([date, count]) => ({
+        date,
+        count,
+      })
+    );
+
+    // Calculate overdue count (items more than 2 days past due)
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+    const overdueCount = dueTopics.filter(
+      (topic) => new Date(topic.nextReviewAt) < twoDaysAgo
+    ).length;
+
+    // Calculate average retention strength
+    const totalStrength = dueTopics.reduce(
+      (sum, topic) => sum + topic.strength,
+      0
+    );
+    const avgRetentionStrength =
+      dueTopics.length > 0 ? Math.round(totalStrength / dueTopics.length) : 0;
+
+    return {
+      dueQuizzes,
+      dueFlashcards,
+      upcomingReviews,
+      totalDue: dueQuizzes.length + dueFlashcards.length,
+      overdueCount,
+      stats: {
+        totalTopics: dueTopics.length,
+        avgRetentionStrength,
+      },
+    };
+  }
 }

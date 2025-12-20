@@ -22,4 +22,11 @@ export class StudyController {
   async getInsights(@CurrentUser('sub') userId: string) {
     return this.studyService.getStudyInsights(userId);
   }
+
+  @Get('due-for-review')
+  @ApiOperation({ summary: 'Get items due for spaced repetition review' })
+  @ApiResponse({ status: 200, description: 'Due review items and calendar' })
+  async getDueForReview(@CurrentUser('sub') userId: string) {
+    return this.studyService.getDueForReview(userId);
+  }
 }
