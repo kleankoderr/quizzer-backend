@@ -20,7 +20,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('study-packs')
+@Controller('study-pack')
 @UseGuards(JwtAuthGuard)
 export class StudyPackController {
   constructor(private readonly studyPackService: StudyPackService) {}

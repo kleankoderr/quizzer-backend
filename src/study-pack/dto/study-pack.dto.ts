@@ -99,7 +99,7 @@ export class UserDocumentInPackDto {
 
 /**
  * DTO for study pack detail (full version)
- * Used by GET /study-packs/:id endpoint
+ * Used by GET /study-pack/:id endpoint
  */
 export class StudyPackDetailDto {
   id: string;
