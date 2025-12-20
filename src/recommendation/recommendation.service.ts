@@ -3,6 +3,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
+import { QuotaService } from '../common/services/quota.service';
 
 @Injectable()
 export class RecommendationService {
@@ -11,12 +12,15 @@ export class RecommendationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
+    private readonly quotaService: QuotaService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
   /**
    * Return recommendations already stored in the database for a user.
    * This is intentionally read-only and does NOT call the AI.
+   * Returns 3 recommendations for premium users, 1 for free users.
+   * Only returns visible recommendations (not dismissed by user).
    */
   async getRecommendations(userId: string) {
     this.logger.debug(`Fetching recommendations for user ${userId}`);
@@ -29,48 +33,90 @@ export class RecommendationService {
       return cached;
     }
 
+    // Get user's quota status to determine premium tier
+    const quotaStatus = await this.quotaService.getQuotaStatus(userId);
+    const isPremium = quotaStatus.isPremium;
+    const limit = isPremium ? 3 : 1;
+
     const stored = await this.prisma.recommendation.findMany({
-      where: { userId },
+      where: { userId, visible: true }, // Only fetch visible recommendations
       orderBy: { priority: 'asc' },
+      take: limit,
     });
 
     if (!stored || stored.length === 0) {
       this.logger.debug(
         `No recommendations found for user ${userId}, returning defaults`
       );
-      // Return sensible defaults for new users (frontend should call generation after attempts)
-      return [
+      // Return sensible defaults for new users
+      const defaults = [
         {
           topic: 'General Knowledge',
           reason: 'Great starting point for new learners',
-          priority: 'high',
+          priority: 'high' as const,
         },
         {
           topic: 'Science Basics',
           reason: 'Build fundamental knowledge',
-          priority: 'medium',
+          priority: 'medium' as const,
         },
         {
           topic: 'History',
           reason: 'Explore historical events',
-          priority: 'low',
+          priority: 'low' as const,
         },
       ];
+      return defaults.slice(0, limit);
     }
 
     this.logger.log(
-      `Returning ${stored.length} recommendations for user ${userId}`
+      `Returning ${stored.length} recommendations for user ${userId} (${isPremium ? 'premium' : 'free'} tier)`
     );
     const result = stored.map((s) => ({
+      id: s.id,
       topic: s.topic,
       reason: s.reason,
       priority: s.priority,
+      visible: s.visible,
     }));
 
     // Cache recommendations for 10 minutes
     await this.cacheManager.set(cacheKey, result, 600000);
 
     return result;
+  }
+
+  /**
+   * Dismiss a recommendation by setting visible to false
+   */
+  async dismissRecommendation(userId: string, recommendationId: string) {
+    this.logger.log(
+      `Dismissing recommendation ${recommendationId} for user ${userId}`
+    );
+
+    const recommendation = await this.prisma.recommendation.findFirst({
+      where: { id: recommendationId, userId },
+    });
+
+    if (!recommendation) {
+      this.logger.warn(
+        `Recommendation ${recommendationId} not found for user ${userId}`
+      );
+      return { success: false, message: 'Recommendation not found' };
+    }
+
+    await this.prisma.recommendation.update({
+      where: { id: recommendationId },
+      data: { visible: false },
+    });
+
+    // Invalidate cache after dismissing
+    await this.cacheManager.del(`recommendations:${userId}`);
+
+    this.logger.log(
+      `Successfully dismissed recommendation ${recommendationId} for user ${userId}`
+    );
+    return { success: true, message: 'Recommendation dismissed' };
   }
 
   /**
@@ -150,9 +196,16 @@ export class RecommendationService {
         }
       }
 
-      this.logger.debug(`Calling AI service to generate recommendations`);
+      // Get user's quota status to determine premium tier
+      const quotaStatus = await this.quotaService.getQuotaStatus(userId);
+      const isPremium = quotaStatus.isPremium;
+      const recommendationLimit = isPremium ? 3 : 1;
+
+      this.logger.debug(
+        `Calling AI service to generate ${recommendationLimit} recommendations for ${isPremium ? 'premium' : 'free'} user`
+      );
       const recommendations = await this.aiService.generateRecommendations({
-        weakTopics: weakTopics.slice(0, 1), // Focus on the most critical weak topic
+        weakTopics: weakTopics.slice(0, recommendationLimit), // Get topics based on tier
         recentAttempts: attempts.map((a) => ({
           topic: a.quiz?.topic,
           score: a.score,
@@ -160,15 +213,18 @@ export class RecommendationService {
         })),
       });
 
-      // Limit to 1 recommendation as requested
-      const singleRecommendation = recommendations.slice(0, 1);
+      // Limit recommendations based on user tier
+      const limitedRecommendations = recommendations.slice(
+        0,
+        recommendationLimit
+      );
 
       // Save recommendations to database
       this.logger.debug(
-        `Saving ${singleRecommendation.length} recommendation(s) to database`
+        `Saving ${limitedRecommendations.length} recommendation(s) to database`
       );
       await Promise.all(
-        singleRecommendation.map((rec) =>
+        limitedRecommendations.map((rec) =>
           this.prisma.recommendation.upsert({
             where: {
               userId_topic: {
@@ -190,13 +246,19 @@ export class RecommendationService {
         )
       );
 
+      // Track quota usage for smart recommendations
+      await this.quotaService.incrementQuota(userId, 'smartRecommendation');
+      this.logger.debug(
+        `Incremented smart recommendation quota for user ${userId}`
+      );
+
       // Invalidate cache after generating new recommendations
       await this.cacheManager.del(`recommendations:${userId}`);
 
       this.logger.log(
-        `Successfully generated and stored ${singleRecommendation.length} recommendations for user ${userId}`
+        `Successfully generated and stored ${limitedRecommendations.length} recommendations for user ${userId}`
       );
-      return singleRecommendation;
+      return limitedRecommendations;
     } catch (error) {
       this.logger.error(
         `Error generating recommendations for user ${userId}:`,
