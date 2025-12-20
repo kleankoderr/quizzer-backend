@@ -123,9 +123,17 @@ export class RecommendationService {
    * Analyze recent attempts for the user, generate recommendations using the AI,
    * and persist them to the database. This should be called after an attempt is
    * recorded (quiz or flashcard) rather than on every app load.
+   *
+   * SMART BEHAVIOR:
+   * - Only generates after every 3rd attempt (not every single one)
+   * - Requires latest score < 70% (stricter than before)
+   * - 24-hour cooldown between generations
    */
   async generateAndStoreRecommendations(userId: string) {
-    this.logger.log(`Generating recommendations for user ${userId}`);
+    this.logger.log(
+      `Checking if recommendations should be generated for user ${userId}`
+    );
+
     // Get user's recent attempts
     const attempts = await this.prisma.attempt.findMany({
       where: { userId },
@@ -141,6 +149,60 @@ export class RecommendationService {
     if (attempts.length === 0) {
       this.logger.debug(
         `No attempts found for user ${userId}, skipping recommendation generation`
+      );
+      return [];
+    }
+
+    // Check cooldown: Don't generate if we generated in the last 24 hours
+    const latestRecommendation = await this.prisma.recommendation.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      select: { updatedAt: true },
+    });
+
+    if (latestRecommendation) {
+      const hoursSinceLastGeneration =
+        (Date.now() - latestRecommendation.updatedAt.getTime()) /
+        (1000 * 60 * 60);
+
+      if (hoursSinceLastGeneration < 24) {
+        this.logger.debug(
+          `Skipping recommendations: Generated ${hoursSinceLastGeneration.toFixed(1)}h ago (cooldown: 24h)`
+        );
+        return [];
+      }
+    }
+
+    // Check if latest attempt performance warrants new recommendations
+    const latestAttempt = attempts[0];
+    if (
+      latestAttempt &&
+      latestAttempt.score != null &&
+      latestAttempt.totalQuestions
+    ) {
+      const latestPercentage =
+        (latestAttempt.score / latestAttempt.totalQuestions) * 100;
+
+      // Only generate if score is below 70% (stricter threshold)
+      if (latestPercentage >= 70) {
+        this.logger.debug(
+          `Latest attempt score (${latestPercentage.toFixed(1)}%) is good (>= 70%). Skipping recommendations.`
+        );
+        return [];
+      }
+    }
+
+    // Check attempt frequency: Only generate after every 3rd quiz attempt
+    const quizAttempts = await this.prisma.attempt.count({
+      where: {
+        userId,
+        type: 'quiz',
+      },
+    });
+
+    if (quizAttempts % 3 !== 0) {
+      this.logger.debug(
+        `Attempt count (${quizAttempts}) not at 3-attempt interval. Skipping recommendations.`
       );
       return [];
     }
@@ -166,35 +228,25 @@ export class RecommendationService {
       }
     }
 
-    // Find topics with average score < 70%
+    // Find topics with average score < 70% (stricter threshold)
     for (const [topic, stats] of topicScores.entries()) {
       const average = stats.total / stats.count;
-      if (average < 75) {
+      if (average < 70) {
         weakTopics.push(topic);
       }
     }
 
-    try {
+    if (weakTopics.length === 0) {
       this.logger.debug(
-        `Found ${weakTopics.length} weak topics for user ${userId}: ${weakTopics.join(', ')}`
+        `No weak topics found for user ${userId}. Skipping recommendations.`
       );
+      return [];
+    }
 
-      // Check if latest attempt was successful (>= 75%)
-      const latestAttempt = attempts[0];
-      if (
-        latestAttempt &&
-        latestAttempt.score != null &&
-        latestAttempt.totalQuestions
-      ) {
-        const latestPercentage =
-          (latestAttempt.score / latestAttempt.totalQuestions) * 100;
-        if (latestPercentage >= 75) {
-          this.logger.debug(
-            `Latest attempt score (${latestPercentage}%) is good (>= 75%). Skipping new recommendations.`
-          );
-          return [];
-        }
-      }
+    try {
+      this.logger.log(
+        `Generating recommendations for ${weakTopics.length} weak topics: ${weakTopics.join(', ')}`
+      );
 
       // Get user's quota status to determine premium tier
       const quotaStatus = await this.quotaService.getQuotaStatus(userId);
@@ -241,6 +293,8 @@ export class RecommendationService {
             update: {
               reason: rec.reason,
               priority: rec.priority,
+              visible: true, // Reset visibility when regenerating
+              updatedAt: new Date(), // Ensure updatedAt is refreshed for cooldown tracking
             },
           })
         )

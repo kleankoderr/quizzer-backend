@@ -90,6 +90,7 @@ model UserQuota {
   monthlyConceptExplanationCount  Int      @default(0)
   monthlySmartRecommendationCount Int      @default(0)
   monthlySmartCompanionCount      Int      @default(0)
+  monthlyWeakAreaAnalysisCount    Int      @default(0)
 
   // File upload and storage quotas
   monthlyFileUploadCount Int   @default(0)

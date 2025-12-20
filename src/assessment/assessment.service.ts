@@ -49,7 +49,7 @@ export class AssessmentService {
     const averageScore =
       quizAttempts.length > 0
         ? quizAttempts.reduce(
-            (sum, a) => sum + (a.score! / a.totalQuestions!) * 100,
+            (sum, a) => sum + (a.score / a.totalQuestions) * 100,
             0
           ) / quizAttempts.length
         : 0;
@@ -63,8 +63,8 @@ export class AssessmentService {
       if (!topicScores.has(topic)) {
         topicScores.set(topic, { total: 0, count: 0 });
       }
-      const stats = topicScores.get(topic)!;
-      stats.total += (attempt.score! / attempt.totalQuestions!) * 100;
+      const stats = topicScores.get(topic);
+      stats.total += (attempt.score / attempt.totalQuestions) * 100;
       stats.count += 1;
     });
 
@@ -93,12 +93,7 @@ export class AssessmentService {
       }
     });
 
-    const preferredTime =
-      preferredHour < 12
-        ? 'morning'
-        : preferredHour < 17
-          ? 'afternoon'
-          : 'evening';
+    const preferredTime = this.getTimeOfDay(preferredHour);
 
     // Build retention levels map
     const retentionLevels: Record<string, RetentionLevel> = {};
@@ -210,6 +205,16 @@ export class AssessmentService {
         new Date(tp.nextReviewAt) <= new Date(Date.now() + 24 * 60 * 60 * 1000)
     );
 
+    // Determine appropriate message based on topic status
+    let message: string;
+    if (dueTopics.length > 0) {
+      message = `You have ${dueTopics.length} topic(s) due for review now!`;
+    } else if (upcomingTopics.length > 0) {
+      message = `You have ${upcomingTopics.length} topic(s) coming up for review soon.`;
+    } else {
+      message = "Great job! You're all caught up with your reviews.";
+    }
+
     return {
       recommendNow: dueTopics.length > 0,
       dueTopics: dueTopics.map((tp) => ({
@@ -222,12 +227,7 @@ export class AssessmentService {
         dueAt: tp.nextReviewAt,
       })),
       preferredTime: performance.preferredTime,
-      message:
-        dueTopics.length > 0
-          ? `You have ${dueTopics.length} topic(s) due for review now!`
-          : upcomingTopics.length > 0
-            ? `You have ${upcomingTopics.length} topic(s) coming up for review soon.`
-            : "Great job! You're all caught up with your reviews.",
+      message,
     };
   }
 
@@ -251,7 +251,7 @@ export class AssessmentService {
 
     const avgScore =
       recentAttempts.reduce(
-        (sum, a) => sum + (a.score! / a.totalQuestions!) * 100,
+        (sum, a) => sum + (a.score / a.totalQuestions) * 100,
         0
       ) / recentAttempts.length;
 
@@ -261,7 +261,8 @@ export class AssessmentService {
   }
 
   /**
-   * Track weak areas from quiz attempts
+   * Track weak areas from quiz attempts using AI for concept extraction
+   * Instead of using first 100 chars, we extract the actual concept being tested
    */
   async trackWeakAreas(
     userId: string,
@@ -270,11 +271,28 @@ export class AssessmentService {
   ): Promise<void> {
     this.logger.log(`Tracking weak areas for user ${userId}, topic ${topic}`);
 
-    for (const answer of answers) {
-      if (!answer.correct) {
-        // Extract concept from question (simplified - could use AI)
-        const concept = answer.question.substring(0, 100);
+    // Find all incorrect answers
+    const incorrectAnswers = answers.filter((answer) => !answer.correct);
 
+    if (incorrectAnswers.length === 0) {
+      this.logger.debug(
+        `No incorrect answers for user ${userId}, skipping weak area tracking`
+      );
+      return;
+    }
+
+    // Batch extract concepts using AI for efficiency
+    const concepts = await this.extractConceptsFromQuestions(
+      incorrectAnswers.map((a) => a.question),
+      topic
+    );
+
+    // Track each weak area
+    for (let i = 0; i < incorrectAnswers.length; i++) {
+      const concept =
+        concepts[i] || incorrectAnswers[i].question.substring(0, 100); // Fallback to substring
+
+      try {
         await this.prisma.weakArea.upsert({
           where: {
             userId_topic_concept: {
@@ -296,7 +314,80 @@ export class AssessmentService {
             resolved: false,
           },
         });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to track weak area for concept "${concept}": ${error.message}`
+        );
       }
+    }
+
+    this.logger.log(
+      `Tracked ${incorrectAnswers.length} weak area(s) for user ${userId}`
+    );
+  }
+
+  /**
+   * Extract learning concepts from questions using AI
+   * Returns an array of concept strings, one for each question
+   */
+  private async extractConceptsFromQuestions(
+    questions: string[],
+    topic: string
+  ): Promise<string[]> {
+    if (questions.length === 0) {
+      return [];
+    }
+
+    try {
+      const prompt = `Extract the key learning concept being tested from each question.
+Return ONLY a JSON array of concept strings, one for each question.
+Keep each concept concise (max 50 characters).
+
+Topic: ${topic}
+
+Questions:
+${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+
+Example output format:
+["Photosynthesis process", "Newton's laws of motion", "French verb conjugation"]`;
+
+      const response = await this.aiService.generateContent({
+        prompt,
+        maxTokens: 500,
+      });
+
+      // Parse the AI response
+      const parsed = JSON.parse(response);
+
+      if (Array.isArray(parsed) && parsed.length === questions.length) {
+        // Truncate concepts to 100 chars to fit schema
+        return parsed.map((concept: string) =>
+          concept.substring(0, 100).trim()
+        );
+      }
+
+      this.logger.warn(
+        `AI returned invalid concept array, falling back to substring method`
+      );
+      return questions.map((q) => q.substring(0, 100));
+    } catch (error) {
+      this.logger.warn(
+        `Failed to extract concepts using AI: ${error.message}. Using fallback.`
+      );
+      return questions.map((q) => q.substring(0, 100));
+    }
+  }
+
+  /**
+   * Helper method to determine time of day from hour
+   */
+  private getTimeOfDay(hour: number): string {
+    if (hour < 12) {
+      return 'morning';
+    } else if (hour < 17) {
+      return 'afternoon';
+    } else {
+      return 'evening';
     }
   }
 
