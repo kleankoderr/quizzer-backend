@@ -162,6 +162,7 @@ export class StudyPackService {
               },
             },
           },
+          orderBy: { createdAt: 'desc' },
         },
         flashcardSets: {
           select: {
@@ -177,6 +178,7 @@ export class StudyPackService {
               },
             },
           },
+          orderBy: { createdAt: 'desc' },
         },
         contents: {
           select: {
@@ -186,6 +188,7 @@ export class StudyPackService {
             createdAt: true,
             updatedAt: true,
           },
+          orderBy: { createdAt: 'desc' },
         },
         userDocuments: {
           select: {
@@ -194,6 +197,7 @@ export class StudyPackService {
             uploadedAt: true,
             createdAt: true,
           },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
