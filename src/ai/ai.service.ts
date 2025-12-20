@@ -220,8 +220,9 @@ export class AiService {
         `Gemini API call failed for task type "${taskType}":`,
         error.stack
       );
+      // Throw a user-friendly error without exposing technical details
       throw new Error(
-        `AI generation failed: ${error.message || 'Unknown error'}`
+        'Intelligent system is temporarily unavailable. Please try again later in a few minutes.'
       );
     }
   }
