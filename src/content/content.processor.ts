@@ -1,12 +1,13 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { EventFactory, EVENTS } from '../events/events.types';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
+import { UserPlan } from '@prisma/client';
 
 export interface ContentJobData {
   userId: string;
@@ -35,7 +36,9 @@ export class ContentProcessor extends WorkerHost {
     private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userDocumentService: UserDocumentService,
-    private readonly quotaService: QuotaService
+    private readonly quotaService: QuotaService,
+    @InjectQueue('summary-generation')
+    private readonly summaryQueue: Queue
   ) {
     super();
   }
@@ -67,9 +70,6 @@ export class ContentProcessor extends WorkerHost {
       this.logger.debug(
         `Job ${jobId}: Using ${fileReferences.length} pre-uploaded file(s)`
       );
-
-      if (fileReferences.length > 0) {
-      }
 
       await job.updateProgress(20);
 
@@ -111,6 +111,9 @@ export class ContentProcessor extends WorkerHost {
 
       await this.quotaService.incrementQuota(userId, 'studyMaterial');
 
+      // Auto-generate summary for premium users
+      await this.queueSummaryForPremiumUser(userId, content.id, jobId);
+
       await job.updateProgress(100);
       this.logger.log(
         `Job ${jobId}: Successfully completed (Content ID: ${content.id})`
@@ -138,6 +141,47 @@ export class ContentProcessor extends WorkerHost {
         EventFactory.contentFailed(userId, jobId, error.message)
       );
       throw error;
+    }
+  }
+
+  /**
+   * Queue summary generation for premium users
+   */
+  private async queueSummaryForPremiumUser(
+    userId: string,
+    studyMaterialId: string,
+    jobId: string
+  ): Promise<void> {
+    try {
+      // Check if user is premium
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { plan: true },
+      });
+
+      if (user?.plan === UserPlan.PREMIUM) {
+        await this.summaryQueue.add(
+          'generate-summary',
+          { studyMaterialId, userId },
+          {
+            priority: 2, // Medium priority
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 },
+          }
+        );
+        this.logger.log(
+          `Job ${jobId}: Queued summary generation for premium user (Content ID: ${studyMaterialId})`
+        );
+      } else {
+        this.logger.debug(
+          `Job ${jobId}: User is not premium, skipping summary generation`
+        );
+      }
+    } catch (error) {
+      // Log error but don't fail content creation
+      this.logger.warn(
+        `Job ${jobId}: Failed to queue summary generation: ${error.message}`
+      );
     }
   }
 

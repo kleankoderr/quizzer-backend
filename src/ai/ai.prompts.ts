@@ -371,7 +371,7 @@ Return ONLY valid JSON (no markdown, no code fences, no preamble):
 
 {
   "title": "Specific, descriptive title reflecting the actual content",
-  "topic": "${topic || 'Comprehensive Study Guide'}",
+  "topic": "${topic || 'Comprehensive Summary'}",
   "description": "Clear, outcome-focused summary (2-4 sentences)",
   "learningGuide": {
     "sections": [
@@ -572,6 +572,91 @@ EXAMPLE QUALITY CRITERIA:
 
 OUTPUT:
 Return 2-3 examples in Markdown format. No preamble, no code fences wrapping the markdown, start directly with the first example.`;
+  }
+
+  static generateSummary(
+    title: string,
+    topic: string,
+    content: string,
+    learningGuide: any
+  ) {
+    return `You are an expert content summarizer specializing in creating high-quality, professional summaries of educational materials.
+
+TASK: Create a highly structured, concise, and professional summary of the study material provided below.
+
+INPUT MATERIAL:
+- Title: ${title}
+- Topic: ${topic}
+- Content: ${content || 'Not provided'}
+${learningGuide ? `- Learning Guide: ${JSON.stringify(learningGuide)}` : ''}
+
+CRITICAL REQUIREMENTS:
+1. ACCURACY: Every statement must be factually correct and derived from the source material.
+2. COMPLETENESS: Capture the MOST IMPORTANT concepts. Avoid minor details.
+3. CONCISENESS: Aim for 400-800 words total. Do not exceed 1000 words. Be punchy and direct.
+4. NO UNNECESSARY HYPHENS: Do NOT use hyphens for prefix/word combinations unless linguistically required (e.g., use "incorporated" instead of "in-corporated", "reorganized" instead of "re-organized"). Only use hyphens when standard English grammar dictates (like "long-term" or "self-contained").
+5. CLARITY: Use clear, academic, yet accessible language. Avoid fluffy or overly "AI-sounding" filler.
+6. STRUCTURE: Use a clear hierarchy with logical flow.
+7. NO HALLUCINATION: Include ONLY information present in the source material.
+8. NO INTERACTIVE ELEMENTS: Remove all knowledge checks, exercises, quizzes, practice questions, and assessments.
+9. SHAREABILITY: Provide a standalone, comprehensive summary.
+
+SUMMARY DESIGN PRINCIPLES:
+- TL;DR: Start with a 3-4 bullet point "Executive Summary" or "Quick Takeaways".
+- INVERTED PYRAMID: Most important information first.
+- SCANNABILITY: Use headers, bold text, and lists effectively.
+- PROFESSIONALISM: Do NOT use emojis under any circumstances. The tone must be scholarly and clean.
+- SPACING: Ensure sections are well-spaced and not jammed packed. Use empty lines between bullet points and paragraphs for maximum readability.
+- STANDALONE: Readable and useful without the full material.
+
+FORMATTING REQUIREMENTS (Markdown):
+- Use ## headers for sections. Ensure they are clear and descriptive.
+- **Bold** key terms and important concepts.
+- Use bullet points (•) for lists.
+- Use > blockquotes for "Golden Nuggets" or critical insights.
+- Use \`inline code\` for essential technical terms and keywords (these will be rendered as sleek tags).
+- Use \`inline code\` for brief, essential code snippets (max 10 lines).
+- Ensure all Markdown elements are well-aligned.
+
+STRUCTURE TEMPLATE:
+
+# ${title}
+
+> [One sentence high-level summary of the entire topic]
+
+## Quick Takeaways
+• [Key Point 1]
+
+• [Key Point 2]
+
+• [Key Point 3]
+
+## Detailed Overview
+[1-2 paragraphs synthesizing the core concepts. Use clear, well-structured sentences.]
+
+## Key Concepts & Definitions
+• **Concept 1**: Impactful definition/explanation.
+
+• **Concept 2**: Impactful definition/explanation.
+
+## Critical Insights
+> [Most important takeaway or practical application]
+
+## Conclusion
+[Brief final synthesis or next steps]
+
+QUALITY CRITERIA:
+✓ TL;DR section provided at the start.
+✓ 400-800 words total (concise and professional).
+✓ No emojis under any circumstances.
+✓ No unnecessary hyphens (looks more natural).
+✓ Well-structured and perfectly aligned Markdown.
+✓ Content is well-spaced and readable (not jammed packed).
+✓ All interactive elements removed.
+✓ No invented information.
+
+OUTPUT:
+Return the summary in plain Markdown text format. Start directly with the markdown content.`;
   }
 
   static scoreTheoryQuestion(

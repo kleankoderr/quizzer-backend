@@ -206,6 +206,7 @@ export class AuthService {
         schoolName: user.schoolName,
         grade: user.grade,
         role: user.role,
+        plan: user.plan,
         onboardingCompleted: user.onboardingCompleted,
         assessmentPopupShown: user.assessmentPopupShown,
         createdAt: user.createdAt,
@@ -225,6 +226,7 @@ export class AuthService {
         schoolName: true,
         grade: true,
         role: true,
+        plan: true,
         onboardingCompleted: true,
         assessmentPopupShown: true,
         createdAt: true,
@@ -246,16 +248,16 @@ export class AuthService {
   async calculateTokenRemainingTime(token: string): Promise<number> {
     try {
       // Decode JWT without verification to get expiration
-      const decoded = this.jwtService.decode(token) as { exp?: number };
+      const decoded = this.jwtService.decode(token);
 
-      if (!decoded || !decoded.exp) {
+      if (!decoded?.exp) {
         return 0; // Invalid token, no need to blacklist
       }
 
       const now = Math.floor(Date.now() / 1000); // Current time in seconds
       const remainingTime = decoded.exp - now;
 
-      return remainingTime > 0 ? remainingTime : 0;
+      return Math.max(remainingTime, 0);
     } catch (_error) {
       // If decoding fails, return 0 (don't blacklist)
       return 0;

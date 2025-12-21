@@ -182,6 +182,24 @@ export interface UserLevelUpEvent extends BaseEvent {
   rewardsUnlocked?: string[];
 }
 
+// ==================== SUMMARY EVENTS ====================
+
+export interface SummaryProgressEvent extends ProgressEvent {
+  eventType: typeof EVENTS.SUMMARY.PROGRESS;
+}
+
+export interface SummaryCompletedEvent extends CompletionEvent {
+  eventType: typeof EVENTS.SUMMARY.COMPLETED;
+  resourceType: 'summary';
+  summaryId: string;
+  shortCode: string;
+}
+
+export interface SummaryFailedEvent extends ErrorEvent {
+  eventType: typeof EVENTS.SUMMARY.FAILED;
+  studyMaterialId: string;
+}
+
 // ==================== UNION TYPE ====================
 
 /**
@@ -213,7 +231,11 @@ export type AppEvent =
   // User events
   | UserStreakUpdatedEvent
   | UserAchievementUnlockedEvent
-  | UserLevelUpEvent;
+  | UserLevelUpEvent
+  // Summary events
+  | SummaryProgressEvent
+  | SummaryCompletedEvent
+  | SummaryFailedEvent;
 
 // ==================== EVENT FACTORIES ====================
 
@@ -441,6 +463,51 @@ export const EventFactory = {
     totalXp,
     xpToNextLevel,
     rewardsUnlocked,
+    timestamp: Date.now(),
+  }),
+
+  summaryProgress: (
+    userId: string,
+    jobId: string,
+    step: string,
+    percentage: number,
+    message?: string
+  ): SummaryProgressEvent => ({
+    eventType: EVENTS.SUMMARY.PROGRESS,
+    userId,
+    jobId,
+    step,
+    percentage,
+    message,
+    timestamp: Date.now(),
+  }),
+
+  summaryCompleted: (
+    userId: string,
+    summaryId: string,
+    metadata?: Record<string, any>
+  ): SummaryCompletedEvent => ({
+    eventType: EVENTS.SUMMARY.COMPLETED,
+    userId,
+    resourceId: summaryId,
+    resourceType: 'summary',
+    summaryId,
+    shortCode: metadata?.shortCode || '',
+    metadata,
+    timestamp: Date.now(),
+  }),
+
+  summaryFailed: (
+    userId: string,
+    studyMaterialId: string,
+    error: string,
+    details?: string
+  ): SummaryFailedEvent => ({
+    eventType: EVENTS.SUMMARY.FAILED,
+    userId,
+    studyMaterialId,
+    error,
+    details,
     timestamp: Date.now(),
   }),
 };

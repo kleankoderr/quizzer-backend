@@ -59,6 +59,8 @@ export class AuthResponseDto {
     avatar?: string;
     schoolName?: string;
     grade?: string;
+    role: string;
+    plan: 'FREE' | 'PREMIUM';
     createdAt: Date;
   };
 

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   UnauthorizedException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -18,6 +19,7 @@ import { SchoolService } from '../school/school.service';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
   constructor(
     private readonly prisma: PrismaService,
     @Inject(FILE_STORAGE_SERVICE)
@@ -35,8 +37,11 @@ export class UserService {
         avatar: true,
         schoolName: true,
         grade: true,
+        role: true,
+        plan: true,
         preferences: true,
         assessmentPopupShown: true,
+        onboardingCompleted: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -100,7 +105,10 @@ export class UserService {
         schoolName: true,
         schoolId: true,
         grade: true,
+        role: true,
+        plan: true,
         preferences: true,
+        onboardingCompleted: true,
         assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
@@ -131,7 +139,10 @@ export class UserService {
         avatar: true,
         schoolName: true,
         grade: true,
+        role: true,
+        plan: true,
         preferences: true,
+        onboardingCompleted: true,
         assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
@@ -146,7 +157,7 @@ export class UserService {
       where: { id: userId },
     });
 
-    if (!user || !user.password) {
+    if (!user?.password) {
       throw new NotFoundException('User not found');
     }
 
@@ -188,7 +199,7 @@ export class UserService {
     });
 
     // Delete old avatar if it exists and is from Cloudinary
-    if (user.avatar && user.avatar.includes('cloudinary')) {
+    if (user.avatar?.includes('cloudinary')) {
       try {
         // Extract public_id from Cloudinary URL
         const urlParts = user.avatar.split('/');
@@ -197,7 +208,7 @@ export class UserService {
         const publicId = `${folder}/${filename}`;
         await this.fileStorageService.deleteFile(publicId);
       } catch (_error) {
-        // Log but don't fail if old avatar deletion fails
+        this.logger.error('Failed to delete old avatar', _error);
       }
     }
 
@@ -212,7 +223,10 @@ export class UserService {
         avatar: true,
         schoolName: true,
         grade: true,
+        role: true,
+        plan: true,
         preferences: true,
+        onboardingCompleted: true,
         assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,

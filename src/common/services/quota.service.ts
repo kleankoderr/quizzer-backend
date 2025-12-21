@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SubscriptionStatus } from '@prisma/client';
+import { SubscriptionStatus, UserPlan } from '@prisma/client';
 
 export type QuotaFeature =
   | 'quiz'
@@ -418,11 +418,19 @@ export class QuotaService {
    */
   async resetToFreeTier(userId: string): Promise<void> {
     this.logger.log(`Resetting user ${userId} to free tier`);
-    await this.prisma.userQuota.update({
-      where: { userId },
-      data: {
-        isPremium: false,
-      },
-    });
+
+    // Use transaction to ensure both updates happen atomically
+    await this.prisma.$transaction([
+      this.prisma.userQuota.update({
+        where: { userId },
+        data: {
+          isPremium: false,
+        },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { plan: UserPlan.FREE },
+      }),
+    ]);
   }
 }

@@ -33,6 +33,11 @@ enum PaymentStatus {
   FAILED
 }
 
+enum UserPlan {
+  FREE
+  PREMIUM
+}
+
 model User {
   id                            String   @id @default(uuid())
   email                         String   @unique
@@ -47,6 +52,7 @@ model User {
   school                        School?  @relation(fields: [schoolId], references: [id])
   grade                         String?
   role                          UserRole @default(USER)
+  plan                          UserPlan @default(FREE)
   isActive                      Boolean  @default(true)
   onboardingCompleted           Boolean  @default(false)
   onboardingAssessmentCompleted Boolean  @default(false)
@@ -55,21 +61,22 @@ model User {
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
-  quizzes       Quiz[]
-  flashcardSets FlashcardSet[]
-  attempts      Attempt[]
-  streak        Streak?
-  leaderboard   LeaderboardEntry[]
-  contents      Content[]
-  tasks         Task[]
-  topicProgress TopicProgress[]
-  fcmTokens     String[]           @default([])
-  reports       Report[]
-  userDocuments UserDocument[]
-  studyPacks    StudyPack[]
-  quota         UserQuota?
-  subscription  Subscription?
-  payments      Payment[]
+  quizzes          Quiz[]
+  flashcardSets    FlashcardSet[]
+  attempts         Attempt[]
+  streak           Streak?
+  leaderboard      LeaderboardEntry[]
+  contents         Content[]
+  tasks            Task[]
+  topicProgress    TopicProgress[]
+  fcmTokens        String[]           @default([])
+  reports          Report[]
+  userDocuments    UserDocument[]
+  studyPacks       StudyPack[]
+  quota            UserQuota?
+  subscription     Subscription?
+  payments         Payment[]
+  summaryReactions SummaryReaction[]
 
   @@map("users")
 }
@@ -329,6 +336,7 @@ model Content {
   reports          Report[]
   studyPackId      String?
   studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id], onDelete: SetNull)
+  summary          Summary?
 
   @@index([studyPackId])
   @@index([userId])
@@ -597,4 +605,40 @@ model Payment {
   @@index([paystackReference])
   @@index([subscriptionId])
   @@map("payments")
+}
+
+model Summary {
+  id              String   @id @default(uuid())
+  shortCode       String   @unique
+  studyMaterialId String   @unique
+  studyMaterial   Content  @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
+  content         String   @db.Text
+  viewCount       Int      @default(0)
+  isPublic        Boolean  @default(true)
+  failedAttempts  Int      @default(0)
+  generatedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  reactions SummaryReaction[]
+
+  @@index([shortCode])
+  @@index([studyMaterialId])
+  @@index([isPublic])
+  @@map("summaries")
+}
+
+model SummaryReaction {
+  id        String   @id @default(uuid())
+  summaryId String
+  summary   Summary  @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // "like", "love", etc.
+  createdAt DateTime @default(now())
+
+  @@unique([summaryId, userId, type])
+  @@index([summaryId])
+  @@index([userId])
+  @@map("summary_reactions")
 }

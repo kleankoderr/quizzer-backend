@@ -34,6 +34,11 @@ export const EVENTS = {
     ACHIEVEMENT_UNLOCKED: 'user.achievement.unlocked',
     LEVEL_UP: 'user.level.up',
   },
+  SUMMARY: {
+    PROGRESS: 'summary.progress',
+    COMPLETED: 'summary.completed',
+    FAILED: 'summary.failed',
+  },
 } as const;
 
 /**
@@ -45,4 +50,5 @@ export type EventType =
   | (typeof EVENTS.CONTENT)[keyof typeof EVENTS.CONTENT]
   | (typeof EVENTS.NOTIFICATION)[keyof typeof EVENTS.NOTIFICATION]
   | (typeof EVENTS.STUDY)[keyof typeof EVENTS.STUDY]
-  | (typeof EVENTS.USER)[keyof typeof EVENTS.USER];
+  | (typeof EVENTS.USER)[keyof typeof EVENTS.USER]
+  | (typeof EVENTS.SUMMARY)[keyof typeof EVENTS.SUMMARY];

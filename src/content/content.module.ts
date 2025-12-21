@@ -12,9 +12,10 @@ import { UserDocumentModule } from '../user-document/user-document.module';
 
 @Module({
   imports: [
-    BullModule.registerQueue({
-      name: 'content-generation',
-    }),
+    BullModule.registerQueue(
+      { name: 'content-generation' },
+      { name: 'summary-generation' }
+    ),
     PrismaModule,
     AiModule,
     QuizModule,

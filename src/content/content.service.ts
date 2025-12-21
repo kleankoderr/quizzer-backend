@@ -235,10 +235,16 @@ export class ContentService {
             title: true,
           },
         },
+        summary: {
+          select: {
+            id: true,
+            shortCode: true,
+          },
+        },
       },
     });
 
-    if (!content || content.userId !== userId) {
+    if (content?.userId !== userId) {
       throw new NotFoundException('Content not found');
     }
 

@@ -41,6 +41,7 @@ import { CommonModule } from './common/common.module';
 import { SessionModule } from './session/session.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { WeakAreaModule } from './weak-area/weak-area.module';
+import { SummaryModule } from './summary/summary.module';
 
 @Module({
   imports: [
@@ -122,6 +123,7 @@ import { WeakAreaModule } from './weak-area/weak-area.module';
     CommonModule,
     SubscriptionModule,
     WeakAreaModule,
+    SummaryModule,
   ],
   controllers: [AppController],
   providers: [

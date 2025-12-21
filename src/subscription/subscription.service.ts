@@ -254,6 +254,12 @@ export class SubscriptionService {
           },
         });
 
+        // Update user plan to PREMIUM
+        await tx.user.update({
+          where: { id: existingPayment.userId },
+          data: { plan: 'PREMIUM' },
+        });
+
         return activatedSubscription;
       },
       {
@@ -323,6 +329,12 @@ export class SubscriptionService {
       include: {
         plan: true,
       },
+    });
+
+    // Update user plan to PREMIUM
+    await prismaClient.user.update({
+      where: { id: userId },
+      data: { plan: 'PREMIUM' },
     });
 
     return subscription;
@@ -505,6 +517,12 @@ export class SubscriptionService {
             data: {
               status: SubscriptionStatus.EXPIRED,
             },
+          });
+
+          // Update user plan to FREE
+          await tx.user.update({
+            where: { id: subscription.userId },
+            data: { plan: 'FREE' },
           });
 
           this.logger.log(

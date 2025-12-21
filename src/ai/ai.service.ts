@@ -630,6 +630,119 @@ export class AiService {
   }
 
   /**
+   * Generate a concise summary of study material
+   */
+  async generateSummary(params: {
+    title: string;
+    topic: string;
+    content: string;
+    learningGuide?: any;
+  }): Promise<string> {
+    const { title, topic, content, learningGuide } = params;
+
+    // Build cache key
+    const cacheKey = `summary:${title}:${topic}`;
+
+    // Check cache
+    const cached = await this.getFromCache<string>(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for summary: ${cacheKey}`);
+      return cached;
+    }
+
+    // Generate summary using AI
+    const prompt = AiPrompts.generateSummary(
+      title,
+      topic,
+      content,
+      learningGuide
+    );
+
+    const model = this.getModelForTask('content'); // Use content model for summaries
+    const result = await this.generateWithGeminiModel(
+      model,
+      prompt,
+      undefined,
+      'summary'
+    );
+
+    // Cache result (12 hours TTL for summaries)
+    await this.setCache(cacheKey, result, this.CACHE_TTLS.LEARNING_GUIDE).catch(
+      () => {}
+    );
+
+    return result;
+  }
+
+  /**
+   * Generate a concise, shareable markdown summary from study material
+   * This method is specifically designed for creating summaries that:
+   * - Are 500-1500 words in length
+   * - Remove all interactive elements (knowledge checks, exercises, quizzes)
+   * - Use proper markdown formatting with headers
+   * - Focus on key concepts and explanations
+   * - Are shareable and self-contained
+   */
+  async generateStudyMaterialSummary(
+    learningGuide: any,
+    studyMaterialTitle: string,
+    studyMaterialTopic: string
+  ): Promise<string> {
+    this.logger.log(
+      `Generating study material summary for: ${studyMaterialTitle}`
+    );
+
+    // Clean the learning guide: remove knowledge checks and other interactive elements
+    const cleanedLearningGuide =
+      this.cleanLearningGuideForSummary(learningGuide);
+
+    // Delegate to the existing generateSummary method
+    // The learningGuide contains all the structured content needed
+    return this.generateSummary({
+      title: studyMaterialTitle,
+      topic: studyMaterialTopic,
+      content: '', // Learning guide contains the content
+      learningGuide: cleanedLearningGuide,
+    });
+  }
+
+  /**
+   * Clean learning guide by removing interactive elements
+   * Removes: knowledge checks, exercises, quizzes, and other unnecessary fields
+   */
+  private cleanLearningGuideForSummary(learningGuide: any): any {
+    if (!learningGuide) {
+      return learningGuide;
+    }
+
+    // If it's not an object, return as is
+    if (typeof learningGuide !== 'object') {
+      return learningGuide;
+    }
+
+    // Create a deep copy to avoid mutating the original
+    const cleaned = structuredClone(learningGuide);
+
+    // Remove knowledge checks from sections if they exist
+    if (cleaned.sections && Array.isArray(cleaned.sections)) {
+      cleaned.sections = cleaned.sections.map((section: any) => {
+        const cleanedSection = { ...section };
+
+        // Remove knowledgeCheck field
+        delete cleanedSection.knowledgeCheck;
+
+        // Remove other interactive elements
+        delete cleanedSection.completed;
+        delete cleanedSection.example;
+
+        return cleanedSection;
+      });
+    }
+
+    return cleaned;
+  }
+
+  /**
    * Extract a concise title from content
    */
   private extractFileUri(fileRef: FileReference): string | null {
