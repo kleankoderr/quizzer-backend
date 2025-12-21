@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Ip,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { SummaryService } from './summary.service';
@@ -44,6 +45,18 @@ export class SummaryController {
     @Param('id') studyMaterialId: string
   ) {
     return this.summaryService.queueSummaryGeneration(studyMaterialId, userId);
+  }
+
+  /**
+   * Check status of a summary generation job
+   */
+  @Get('job/:jobId')
+  @UseGuards(JwtAuthGuard)
+  async getJobStatus(
+    @CurrentUser('sub') userId: string,
+    @Param('jobId') jobId: string
+  ) {
+    return this.summaryService.getJobStatus(jobId, userId);
   }
 
   /**
@@ -130,10 +143,15 @@ export class SummaryController {
    * Rate limit: 10 requests per minute per IP
    */
   @Post(':shortCode/view')
+  @UseGuards(OptionalJwtAuthGuard)
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
   @HttpCode(HttpStatus.OK)
-  async trackView(@Param('shortCode') shortCode: string) {
-    await this.summaryService.incrementViewCount(shortCode);
+  async trackView(
+    @Param('shortCode') shortCode: string,
+    @Ip() ip: string,
+    @CurrentUser('sub') userId?: string
+  ) {
+    await this.summaryService.incrementViewCount(shortCode, ip, userId);
     return { message: 'View tracked successfully' };
   }
 }

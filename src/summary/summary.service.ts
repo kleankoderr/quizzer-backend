@@ -107,6 +107,35 @@ export class SummaryService {
   }
 
   /**
+   * Get the status of a summary generation job
+   */
+  async getJobStatus(jobId: string, userId: string) {
+    const job = await this.summaryQueue.getJob(jobId);
+
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    if (job.data.userId !== userId) {
+      throw new ForbiddenException(
+        'You do not have permission to view this job'
+      );
+    }
+
+    const state = await job.getState();
+    const result = job.returnvalue;
+    const failedReason = job.failedReason;
+
+    return {
+      id: job.id,
+      state,
+      progress: job.progress,
+      result,
+      failedReason,
+    };
+  }
+
+  /**
    * Generate a unique short code with advanced caching strategy
    * Pre-generates a pool of 5 codes, refills when 80% consumed
    * Thread-safe with lock mechanism
@@ -392,18 +421,67 @@ export class SummaryService {
    * Increment view count atomically
    * Also invalidates cache
    */
-  async incrementViewCount(shortCode: string): Promise<void> {
-    await this.prisma.summary.update({
+  async incrementViewCount(
+    shortCode: string,
+    ip: string,
+    userId?: string
+  ): Promise<void> {
+    const summary = await this.prisma.summary.findUnique({
       where: { shortCode },
-      data: {
-        viewCount: {
-          increment: 1,
-        },
-      },
+      select: { id: true },
     });
 
-    // Invalidate cache to reflect new view count
-    await this.invalidateSummaryCache(shortCode);
+    if (!summary) {
+      throw new NotFoundException('Summary not found');
+    }
+
+    // Check for existing view
+    let hasViewed = false;
+
+    if (userId) {
+      // Check if user has viewed
+      const existingView = await this.prisma.summaryView.findFirst({
+        where: {
+          summaryId: summary.id,
+          userId,
+        },
+      });
+      hasViewed = !!existingView;
+    } else {
+      // Check if IP has viewed (for guests)
+      const existingView = await this.prisma.summaryView.findFirst({
+        where: {
+          summaryId: summary.id,
+          ip,
+          userId: null, // Only check views where user was NOT logged in
+        },
+      });
+      hasViewed = !!existingView;
+    }
+
+    if (!hasViewed) {
+      // Create view record
+      await this.prisma.summaryView.create({
+        data: {
+          summaryId: summary.id,
+          userId: userId || null,
+          ip,
+        },
+      });
+
+      // Increment aggregate count
+      await this.prisma.summary.update({
+        where: { shortCode },
+        data: {
+          viewCount: {
+            increment: 1,
+          },
+        },
+      });
+
+      // Invalidate cache to reflect new view count
+      await this.invalidateSummaryCache(shortCode);
+    }
   }
 
   /**

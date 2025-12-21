@@ -621,6 +621,7 @@ model Summary {
   updatedAt       DateTime @updatedAt
 
   reactions SummaryReaction[]
+  views     SummaryView[]
 
   @@index([shortCode])
   @@index([studyMaterialId])
@@ -641,4 +642,19 @@ model SummaryReaction {
   @@index([summaryId])
   @@index([userId])
   @@map("summary_reactions")
+}
+
+model SummaryView {
+  id        String   @id @default(uuid())
+  summaryId String
+  summary   Summary  @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  userId    String? // Optional, for logged-in users
+  ip        String? // For guest users
+  userAgent String? // Optional additional fingerprinting
+  viewedAt  DateTime @default(now())
+
+  @@index([summaryId])
+  @@index([userId])
+  @@index([ip])
+  @@map("summary_views")
 }
