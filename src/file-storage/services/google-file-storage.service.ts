@@ -10,6 +10,7 @@ import {
   UploadResult,
   TransformOptions,
 } from '../interfaces/file-storage.interface';
+import { FileCompressionService } from './file-compression.service';
 
 /**
  * Google File API implementation of the file storage service
@@ -23,6 +24,7 @@ export class GoogleFileStorageService implements IFileStorageService {
 
   constructor(
     private readonly configService: ConfigService,
+    private readonly fileCompressionService: FileCompressionService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {
     const apiKey = this.configService.get<string>('GOOGLE_API_KEY');
@@ -46,8 +48,40 @@ export class GoogleFileStorageService implements IFileStorageService {
     options?: UploadOptions
   ): Promise<UploadResult> {
     try {
-      // Calculate file hash for deduplication
-      const fileHash = this.calculateFileHash(file.buffer);
+      let processedBuffer = file.buffer;
+      let processedMimetype = file.mimetype;
+      const originalSize = file.buffer.length;
+
+      this.logger.log(
+        `Starting upload for ${file.originalname} (${originalSize} bytes, ${file.mimetype})`
+      );
+
+      // Apply aggressive local compression
+      if (file.mimetype.startsWith('image/')) {
+        this.logger.debug(`Applying maximum image compression...`);
+        processedBuffer = await this.fileCompressionService.compressImage(
+          file.buffer
+        );
+        processedMimetype = 'image/webp';
+      } else if (file.mimetype === 'application/pdf') {
+        this.logger.debug(
+          `Applying maximum PDF compression with Ghostscript...`
+        );
+        processedBuffer = await this.fileCompressionService.compressPDF(
+          file.buffer
+        );
+      }
+
+      const compressionRatio = (
+        ((originalSize - processedBuffer.length) / originalSize) *
+        100
+      ).toFixed(2);
+      this.logger.log(
+        `Local compression: ${originalSize} → ${processedBuffer.length} bytes (${compressionRatio}% reduction)`
+      );
+
+      // Calculate file hash for deduplication using the COMPRESSED buffer
+      const fileHash = this.calculateFileHash(processedBuffer);
       const cacheKey = `google-file:${fileHash}`;
 
       // Check if file already uploaded (cached by hash)
@@ -60,18 +94,19 @@ export class GoogleFileStorageService implements IFileStorageService {
       }
 
       this.logger.debug(
-        `Uploading file: ${file.originalname} (${file.size} bytes) to Google File API`
+        `Uploading file: ${file.originalname} (${processedBuffer.length} bytes) to Google File API`
       );
 
       // Create a Blob from the buffer (convert Buffer to Uint8Array first)
-      const uint8Array = new Uint8Array(file.buffer);
-      const fileBlob = new Blob([uint8Array], { type: file.mimetype });
+      const uint8Array = new Uint8Array(processedBuffer);
+      const fileBlob = new Blob([uint8Array], { type: processedMimetype });
 
       // Upload using the SDK
       const uploadedFile = await this.genAI.files.upload({
         file: fileBlob,
         config: {
           displayName: options?.publicId || file.originalname,
+          mimeType: processedMimetype,
         },
       });
 
@@ -102,13 +137,13 @@ export class GoogleFileStorageService implements IFileStorageService {
         publicId: fileStatus.name, // e.g., "files/abc123"
         url: fileStatus.uri, // Google File URI
         secureUrl: fileStatus.uri, // Same as url for Google Files
-        format: file.mimetype.split('/')[1] || 'unknown',
+        format: processedMimetype.split('/')[1] || 'unknown',
         bytes: fileStatus.sizeBytes
           ? Number.parseInt(fileStatus.sizeBytes)
-          : file.size,
-        resourceType: file.mimetype.startsWith('image/')
+          : processedBuffer.length,
+        resourceType: processedMimetype.startsWith('image/')
           ? 'image'
-          : file.mimetype.startsWith('video/')
+          : processedMimetype.startsWith('video/')
             ? 'video'
             : 'raw',
       };

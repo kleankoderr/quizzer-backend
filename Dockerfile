@@ -3,6 +3,11 @@ FROM node:20-alpine AS base
 
 WORKDIR /app
 
+# Install Ghostscript and required dependencies
+RUN apk add --no-cache \
+    ghostscript \
+    ghostscript-fonts
+
 # Copy package files first for caching
 COPY package*.json ./
 
@@ -23,6 +28,11 @@ RUN npm run build
 FROM node:20-alpine
 
 WORKDIR /app
+
+# Install Ghostscript in production image (IMPORTANT!)
+RUN apk add --no-cache \
+    ghostscript \
+    ghostscript-fonts
 
 # Copy build artifacts and node_modules from the build stage
 COPY --from=base /app/dist ./dist

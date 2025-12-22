@@ -7,76 +7,128 @@ import {
   UploadResult,
   TransformOptions,
 } from '../interfaces/file-storage.interface';
+import { FileCompressionService } from './file-compression.service';
 
 /**
- * Cloudinary implementation of the file storage service
- * This can be easily swapped with S3, DigitalOcean, or any other provider
+ * Cloudinary implementation with aggressive compression via FileCompressionService
  */
 @Injectable()
 export class CloudinaryFileStorageService implements IFileStorageService {
   private readonly logger = new Logger(CloudinaryFileStorageService.name);
 
-  constructor(private readonly configService: ConfigService) {
-    // Configure Cloudinary with environment variables
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly fileCompressionService: FileCompressionService
+  ) {
     cloudinary.config({
       cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
       api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
       api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
-      secure: true, // Always use HTTPS
+      secure: true,
     });
-
     this.logger.log('Cloudinary configured successfully');
   }
 
   /**
-   * Upload a file to Cloudinary with public access
+   * Upload a file with aggressive local compression
    */
   async uploadFile(
     file: Express.Multer.File,
     options?: UploadOptions
   ): Promise<UploadResult> {
     try {
-      const uploadOptions = {
+      let processedBuffer = file.buffer;
+      let processedMimetype = file.mimetype;
+      const originalSize = file.buffer.length;
+
+      this.logger.log(
+        `Starting upload for ${file.originalname} (${originalSize} bytes, ${file.mimetype})`
+      );
+
+      // Apply aggressive local compression
+      if (file.mimetype.startsWith('image/')) {
+        this.logger.debug(`Applying maximum image compression...`);
+        processedBuffer = await this.fileCompressionService.compressImage(
+          file.buffer
+        );
+        processedMimetype = 'image/webp';
+      } else if (file.mimetype === 'application/pdf') {
+        this.logger.debug(
+          `Applying maximum PDF compression with Ghostscript...`
+        );
+        processedBuffer = await this.fileCompressionService.compressPDF(
+          file.buffer
+        );
+      }
+
+      const localCompressionRatio = (
+        ((originalSize - processedBuffer.length) / originalSize) *
+        100
+      ).toFixed(2);
+      this.logger.log(
+        `Local compression: ${originalSize} → ${processedBuffer.length} bytes (${localCompressionRatio}% reduction)`
+      );
+
+      // Determine resource type
+      const isImageOrPdf =
+        processedMimetype.startsWith('image/') ||
+        processedMimetype === 'application/pdf';
+      const resourceType =
+        options?.resourceType || (isImageOrPdf ? 'image' : 'auto');
+
+      // Upload options
+      const uploadOptions: any = {
         folder:
           options?.folder ||
           this.configService.get<string>('CLOUDINARY_UPLOAD_FOLDER', 'quizzer'),
-        resource_type: options?.resourceType || 'auto',
-        type: 'upload', // Use 'upload' type for publicly accessible URLs
-        access_mode: 'public', // Explicitly set public access
-        invalidate: true, // Invalidate CDN cache if updating existing file
+        resource_type: resourceType,
+        type: 'upload',
+        access_mode: 'public',
+        invalidate: true,
         public_id: options?.publicId,
         overwrite: options?.overwrite ?? false,
         tags: options?.tags,
-        // Additional settings to ensure public access
         use_filename: false,
-        unique_filename: !options?.publicId, // Only use unique filename if publicId not provided
+        unique_filename: !options?.publicId,
       };
 
+      if (resourceType === 'image') {
+        uploadOptions.quality = 'auto:good';
+        uploadOptions.fetch_format = 'auto';
+      }
+
       this.logger.debug(
-        `Uploading file: ${file.originalname} to folder: ${uploadOptions.folder} with public access`
+        `Uploading to Cloudinary: ${file.originalname} (${processedBuffer.length} bytes)`
       );
 
-      // Upload to Cloudinary using buffer
+      // Upload to Cloudinary
       const result = await new Promise<any>((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
-          uploadOptions as any,
+          uploadOptions,
           (error, result) => {
             if (error) {
-              reject(error);
+              reject(
+                error instanceof Error
+                  ? error
+                  : new Error((error as any).message || JSON.stringify(error))
+              );
             } else {
               resolve(result);
             }
           }
         );
-
-        uploadStream.end(file.buffer);
+        uploadStream.end(processedBuffer);
       });
 
+      const finalCompressionRatio = (
+        ((originalSize - result.bytes) / originalSize) *
+        100
+      ).toFixed(2);
+      this.logger.log(`Upload successful: ${result.public_id}`);
       this.logger.log(
-        `File uploaded successfully: ${result.public_id} - URL: ${result.secure_url}`
+        `Final size: ${result.bytes} bytes (${finalCompressionRatio}% total reduction from ${originalSize} bytes)`
       );
 
-      // Return the secure URL which should be publicly accessible
       return {
         publicId: result.public_id,
         url: result.url,
@@ -93,15 +145,11 @@ export class CloudinaryFileStorageService implements IFileStorageService {
     }
   }
 
-  /**
-   * Delete a file from Cloudinary
-   */
   async deleteFile(publicId: string): Promise<void> {
     try {
       this.logger.debug(`Deleting file: ${publicId}`);
-
       const result = await cloudinary.uploader.destroy(publicId, {
-        invalidate: true, // Invalidate CDN cache
+        invalidate: true,
       });
 
       if (result.result === 'ok' || result.result === 'not found') {
@@ -116,34 +164,28 @@ export class CloudinaryFileStorageService implements IFileStorageService {
         `Failed to delete file ${publicId}: ${error.message}`,
         error.stack
       );
-      // Don't throw error for delete failures - log and continue
-      // This prevents cascading failures when cleaning up
     }
   }
 
-  /**
-   * Get the URL of a file with optional transformations
-   * Always returns public, secure URLs
-   */
   getFileUrl(publicId: string, options?: TransformOptions): string {
     try {
-      const transformation: any = {};
+      const transformation: any = {
+        quality: options?.quality || 'auto:good',
+        fetch_format: options?.format || 'auto',
+      };
 
       if (options) {
         if (options.width) transformation.width = options.width;
         if (options.height) transformation.height = options.height;
         if (options.crop) transformation.crop = options.crop;
-        if (options.quality) transformation.quality = options.quality;
-        if (options.format) transformation.fetch_format = options.format;
         if (options.gravity) transformation.gravity = options.gravity;
       }
 
       const url = cloudinary.url(publicId, {
-        secure: true, // Always use HTTPS
-        type: 'upload', // Use 'upload' type for public access
+        secure: true,
+        type: 'upload',
         resource_type: 'auto',
-        transformation:
-          Object.keys(transformation).length > 0 ? transformation : undefined,
+        transformation: transformation,
       });
 
       return url;

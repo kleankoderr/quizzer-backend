@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { CloudinaryFileStorageService } from './services/cloudinary-file-storage.service';
 import { GoogleFileStorageService } from './services/google-file-storage.service';
 import { DocumentHashService } from './services/document-hash.service';
+import { FileCompressionService } from './services/file-compression.service';
 import { FILE_STORAGE_SERVICE } from './interfaces/file-storage.interface';
 import { PrismaModule } from '../prisma/prisma.module';
 
@@ -19,11 +20,13 @@ import { PrismaModule } from '../prisma/prisma.module';
       useClass: GoogleFileStorageService,
     },
     DocumentHashService,
+    FileCompressionService,
   ],
   exports: [
     FILE_STORAGE_SERVICE,
     'GOOGLE_FILE_STORAGE_SERVICE',
     DocumentHashService,
+    FileCompressionService,
   ],
 })
 export class FileStorageModule {}
