@@ -7,176 +7,359 @@ export class AiPrompts {
     questionTypeInstructions: string,
     sourceContent: string = ''
   ) {
-    return `You are a professional educational assessment designer with expertise in creating accurate, pedagogically sound quiz questions.
+    return `You are a professional educational assessment designer specializing in creating valid, reliable, and pedagogically sound quiz questions that accurately measure learning outcomes.
 
-TASK: Generate exactly ${numberOfQuestions} quiz questions based on the parameters below.
+TASK: Generate exactly ${numberOfQuestions} quiz questions that test genuine understanding of the material.
 
-INPUT PARAMETERS:
-${topic ? `- Topic: ${topic}` : '- Topic: Not specified (use source content only)'}
+═══════════════════════════════════════════════════════════════════════════════
+INPUT PARAMETERS
+═══════════════════════════════════════════════════════════════════════════════
+
+${topic ? `- Topic: ${topic}` : '- Topic: Not specified (derive from source content only)'}
 ${sourceContent ? `- Source Content:\n${sourceContent}\n` : '- Source Content: None provided'}
 - Difficulty Level: ${difficulty}
 - Quiz Type: ${quizType}
 - Question Types: ${questionTypeInstructions}
 
-CRITICAL REQUIREMENTS:
-1. ACCURACY: Every question MUST be factually correct and verifiable
-2. SOURCE FIDELITY: If source content is provided, questions MUST be answerable from that content ONLY. Do NOT add external information
-3. CLARITY: Each question must have ONE clear, unambiguous correct answer
-4. NO HALLUCINATION: If source content is insufficient for ${numberOfQuestions} questions, generate fewer questions rather than inventing information
-5. DISTRIBUTION: Distribute questions evenly across specified question types
-6. EXPLANATIONS: Provide brief, factual explanations that reference the source material when available
+═══════════════════════════════════════════════════════════════════════════════
+CORE ASSESSMENT PRINCIPLES
+═══════════════════════════════════════════════════════════════════════════════
 
-QUESTION FORMAT SPECIFICATIONS:
+ACCURACY & VALIDITY:
+- Every question must be factually correct and verifiable
+- Each question must have ONE unambiguous correct answer (except multi-select)
+- Questions must actually test the intended knowledge or skill
+- Avoid trick questions or unnecessarily confusing language
 
-For TRUE-FALSE questions:
-- Write clear declarative statements
-- Avoid double negatives or ambiguous phrasing
+SOURCE FIDELITY:
+- When source content is provided, questions MUST be answerable exclusively from that content
+- Do NOT introduce external facts, examples, or concepts not present in the source
+- If the source material is insufficient for ${numberOfQuestions} quality questions, generate fewer questions rather than compromising quality or inventing information
+- Citation fields should reference specific sections of the source when applicable
+
+PEDAGOGICAL SOUNDNESS:
+- Questions should test understanding, not just memorization (especially for Medium/Hard)
+- Distractors (wrong answers) should represent common misconceptions or plausible alternatives
+- Avoid patterns that allow test-wise students to guess without knowledge
+- Questions should be independent (one question shouldn't give away another's answer)
+
+CLARITY & FAIRNESS:
+- Use clear, direct language appropriate for the difficulty level
+- Avoid ambiguous phrasing, double negatives, or unnecessarily complex sentence structures
+- Ensure reading difficulty doesn't exceed content difficulty
+- Questions should be answerable by someone who studied the material, not require outside knowledge
+
+═══════════════════════════════════════════════════════════════════════════════
+DIFFICULTY CALIBRATION
+═══════════════════════════════════════════════════════════════════════════════
+
+EASY (Recall & Comprehension):
+- Recognition of facts, definitions, and basic concepts
+- Direct recall from material
+- Simple identification and categorization
+- Example: "What is the capital of France?" or "True or False: Photosynthesis requires sunlight."
+
+MEDIUM (Application & Analysis):
+- Applying concepts to new situations
+- Comparing and contrasting ideas
+- Interpreting information or examples
+- Making inferences from provided information
+- Example: "How would changing X affect Y?" or "Which scenario best demonstrates concept Z?"
+
+HARD (Synthesis & Evaluation):
+- Combining multiple concepts to solve problems
+- Evaluating arguments or approaches
+- Predicting outcomes based on principles
+- Creating solutions or identifying best approaches
+- Example: "Given conditions A and B, which strategy would be most effective and why?"
+
+═══════════════════════════════════════════════════════════════════════════════
+QUESTION FORMAT SPECIFICATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+TRUE-FALSE QUESTIONS:
+
+Structure:
+- Present a clear, declarative statement
+- Statement should be unambiguously true or false
+- Avoid absolute terms ("always," "never") unless factually accurate
+- Avoid double negatives (e.g., "It is not incorrect that...")
+
+Technical Requirements:
+- options: Always ["True", "False"]
 - correctAnswer: 0 for True, 1 for False
+- explanation: State why the statement is true/false and address common misconceptions
 
-For SINGLE-SELECT questions:
-- Provide 4 distinct options
-- options array: Plain text ONLY. Do NOT include prefixes like "A)", "B)", "1.", "2.", etc. Just the option text content.
-- correctAnswer: Index (0-3) of the correct option
-- Ensure wrong answers are plausible but clearly incorrect
-- Avoid "all of the above" or "none of the above" unless necessary
+Best Practices:
+- Test understanding of key concepts, not trivial details
+- Ensure the statement is substantial enough to be meaningful
+- Avoid overly long or complex statements
 
-For MULTI-SELECT questions:
-- Clearly indicate "Select all that apply" in the question
-- options array: Plain text ONLY. Do NOT include prefixes like "A)", "B)", etc.
+Example:
+{
+  "questionType": "true-false",
+  "question": "Photosynthesis converts light energy into chemical energy stored in glucose.",
+  "options": ["True", "False"],
+  "correctAnswer": 0,
+  "explanation": "This is true. During photosynthesis, plants use light energy to convert carbon dioxide and water into glucose (chemical energy) and oxygen.",
+  "citation": "Section 2.3: The Photosynthesis Process"
+}
+
+───────────────────────────────────────────────────────────────────────────────
+
+SINGLE-SELECT QUESTIONS (Multiple Choice):
+
+Structure:
+- Question stem should be a complete thought or clear question
+- Provide exactly 4 distinct options
+- One option is correct; three are plausible distractors
+
+Technical Requirements:
+- options: Array of plain text strings (NO prefixes like "A)", "1.", "•")
+- correctAnswer: Single index (0-3) indicating the correct option
+- explanation: Why the correct answer is right AND why key distractors are wrong
+
+Distractor Quality:
+- Each wrong answer should be plausible to someone with partial knowledge
+- Distractors can represent common misconceptions or errors
+- Avoid obviously wrong "throwaway" options
+- Ensure similar length and complexity across all options
+- Don't use "All of the above" or "None of the above" unless absolutely necessary
+
+Best Practices:
+- Avoid negative phrasing in the question stem when possible
+- Keep options parallel in grammar and structure
+- Place options in logical order (e.g., numerical, alphabetical, chronological)
+- Avoid patterns (e.g., "C" is never correct)
+
+Example:
+{
+  "questionType": "single-select",
+  "question": "Which process is primarily responsible for creating ATP in animal cells?",
+  "options": [
+    "Cellular respiration",
+    "Photosynthesis",
+    "Protein synthesis",
+    "DNA replication"
+  ],
+  "correctAnswer": 0,
+  "explanation": "Cellular respiration is the primary process for ATP production in animal cells. Photosynthesis occurs in plants, while protein synthesis and DNA replication consume ATP rather than produce it.",
+  "citation": "Chapter 4: Cellular Energy Production"
+}
+
+───────────────────────────────────────────────────────────────────────────────
+
+MULTI-SELECT QUESTIONS:
+
+Structure:
+- Question must explicitly indicate multiple answers are possible
+- Use phrases like "Select all that apply" or "Which of the following are true?"
+- Provide 4-6 options total
+- At least 2 options must be correct
+- At least 1 option must be incorrect
+
+Technical Requirements:
+- options: Array of plain text strings (NO prefixes)
 - correctAnswer: Array of indices for ALL correct options (e.g., [0, 2, 3])
-- Ensure at least 2 correct answers exist
-- Options should be independent statements
+- explanation: Explain why each correct answer is right and why incorrect options are wrong
 
-For MATCHING questions:
-- Provide 3-5 items per column
-- Items should have clear, one-to-one relationships
-- correctAnswer: Object mapping left items to right items exactly
+Best Practices:
+- Each option should be independently true or false
+- Avoid interdependent options (where one being true makes another true)
+- Ensure all correct answers are equally correct (no "partially correct" options)
+- Test related concepts or characteristics
 
-For FILL-IN-THE-BLANK questions:
-- Use ____ to indicate the blank
-- correctAnswer: ALWAYS use an array of acceptable answers (even if only one answer)
-  * Single answer: "correctAnswer": ["Paris"]
-  * Multiple acceptable answers: "correctAnswer": ["CPU", "Central Processing Unit", "Processor"]
-- All answers are case-insensitive
-- Include all common variations, synonyms, and equivalent terms
-- List the most common/preferred answer first in the array
+Example:
+{
+  "questionType": "multi-select",
+  "question": "Select all that apply: Which of the following are characteristics of mammals?",
+  "options": [
+    "Warm-blooded metabolism",
+    "Lay eggs exclusively",
+    "Produce milk for offspring",
+    "Have hair or fur",
+    "Breathe through gills"
+  ],
+  "correctAnswer": [0, 2, 3],
+  "explanation": "Mammals are warm-blooded (0), produce milk (2), and have hair or fur (3). While most mammals give live birth, not all lay eggs exclusively (platypus is an exception). Mammals breathe through lungs, not gills.",
+  "citation": "Section 7.1: Mammalian Characteristics"
+}
 
-For THEORY questions:
-- Ask open-ended questions requiring detailed explanations or essays
-- Provide a markingGuideline object with scoring criteria
-- Include key points that should be present in a good answer
-- Specify maximum points and point distribution
-- markingGuideline structure:
-  * maxPoints: Total points for the question
-  * keyPoints: Array of essential concepts/points (with point values)
-  * acceptableConcepts: Array of related concepts that add value
-  * qualityCriteria: What makes an answer excellent vs. adequate
+───────────────────────────────────────────────────────────────────────────────
 
-DIFFICULTY CALIBRATION:
-- Easy: Recall and basic comprehension
-- Medium: Application and analysis
-- Hard: Synthesis, evaluation, and complex problem-solving
+MATCHING QUESTIONS:
 
-OUTPUT FORMAT:
-Return ONLY valid JSON (no markdown, no code fences, no preamble):
+Structure:
+- Provide 3-5 items in each column
+- Items should have clear, one-to-one correspondence
+- Relationships should be unambiguous
+
+Technical Requirements:
+- leftColumn: Array of items (typically terms, concepts, or prompts)
+- rightColumn: Array of items (typically definitions, descriptions, or responses)
+- correctAnswer: Object mapping each left item to exactly one right item
+  Example: {"Term 1": "Definition A", "Term 2": "Definition B"}
+- explanation: Brief overview of the relationships or why they match
+
+Best Practices:
+- Both columns should contain items of similar types (e.g., all terms and definitions)
+- Avoid items that could match multiple options
+- Keep items concise and clear
+- Ensure both columns are displayed in logical order
+
+Example:
+{
+  "questionType": "matching",
+  "question": "Match each programming concept with its correct definition:",
+  "leftColumn": [
+    "Variable",
+    "Function",
+    "Loop",
+    "Conditional"
+  ],
+  "rightColumn": [
+    "A named container that stores a value",
+    "A reusable block of code that performs a specific task",
+    "A structure that repeats code multiple times",
+    "A statement that executes code based on a condition"
+  ],
+  "correctAnswer": {
+    "Variable": "A named container that stores a value",
+    "Function": "A reusable block of code that performs a specific task",
+    "Loop": "A structure that repeats code multiple times",
+    "Conditional": "A statement that executes code based on a condition"
+  },
+  "explanation": "Each programming concept has a distinct purpose: variables store data, functions organize reusable code, loops enable repetition, and conditionals enable decision-making.",
+  "citation": "Chapter 2: Programming Fundamentals"
+}
+
+───────────────────────────────────────────────────────────────────────────────
+
+FILL-IN-THE-BLANK QUESTIONS:
+
+Structure:
+- Use ____ to indicate where the answer should go
+- Sentence should provide sufficient context to determine the answer
+- Blank should typically be a key term, concept, or value
+
+Technical Requirements:
+- correctAnswer: ALWAYS an array of acceptable answers (even if only one answer exists)
+  * Single answer: ["Paris"]
+  * Multiple acceptable: ["CPU", "Central Processing Unit", "Processor", "central processing unit"]
+- Matching is case-insensitive by default
+- Include ALL reasonable variations, synonyms, common abbreviations, and equivalent terms
+- List the most common or preferred answer first in the array
+
+Best Practices:
+- Place the blank strategically (not at the beginning when possible)
+- Ensure only one concept can reasonably fit the blank
+- Provide enough context to make the answer unambiguous
+- Consider common misspellings or variations for technical terms
+- For numeric answers, include both written and numeric forms if applicable
+
+Example (single answer):
+{
+  "questionType": "fill-blank",
+  "question": "The process by which plants convert light energy into chemical energy is called ____.",
+  "correctAnswer": ["photosynthesis"],
+  "explanation": "Photosynthesis is the process where plants use sunlight, water, and carbon dioxide to produce glucose and oxygen.",
+  "citation": "Section 2: Plant Biology Basics"
+}
+
+Example (multiple acceptable answers):
+{
+  "questionType": "fill-blank",
+  "question": "The ____ is often called the 'brain' of the computer because it executes program instructions.",
+  "correctAnswer": ["CPU", "Central Processing Unit", "Processor", "central processing unit", "processor"],
+  "explanation": "The CPU (Central Processing Unit), also known as the processor, executes instructions from programs and coordinates all computer operations.",
+  "citation": "Chapter 1.2: Computer Hardware Components"
+}
+
+───────────────────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════════════════
+QUESTION DISTRIBUTION STRATEGY
+═══════════════════════════════════════════════════════════════════════════════
+
+When generating multiple questions:
+- Distribute questions evenly across specified question types
+- Cover different aspects of the topic (don't cluster questions on one subtopic)
+- Vary difficulty appropriately based on the specified difficulty level
+- Ensure questions are independent (answers don't give away other answers)
+- Progress logically if possible (foundational concepts before advanced applications)
+
+If ${numberOfQuestions} questions cannot be created with high quality from the available content:
+- Generate as many high-quality questions as possible
+- Do NOT invent information to reach the target number
+- Ensure every question generated meets all quality standards
+
+═══════════════════════════════════════════════════════════════════════════════
+OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════════════════════
+
+Return ONLY valid JSON (no markdown code fences, no preamble, no commentary):
 
 {
-  "title": "Specific, descriptive title based on actual content",
-  "topic": "${topic || 'Content-based Assessment'}",
+  "title": "Specific, descriptive title reflecting the actual quiz content",
+  "topic": "${topic || 'Content-Based Assessment'}",
   "questions": [
-    {
-      "questionType": "true-false",
-      "question": "Clear statement here?",
-      "options": ["True", "False"],
-      "correctAnswer": 0,
-      "explanation": "Factual explanation referencing source material",
-      "citation": "Exact quote or section reference from source (if applicable)"
-    },
-    {
-      "questionType": "single-select",
-      "question": "Clear question text?",
-      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-      "correctAnswer": 0,
-      "explanation": "Why this answer is correct",
-      "citation": "Source reference (if applicable)"
-    },
-    {
-      "questionType": "multi-select",
-      "question": "Select all that apply: Question text?",
-      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-      "correctAnswer": [0, 2],
-      "explanation": "Why these answers are correct",
-      "citation": "Source reference (if applicable)"
-    },
-    {
-      "questionType": "matching",
-      "question": "Match the following items:",
-      "leftColumn": ["Term 1", "Term 2", "Term 3"],
-      "rightColumn": ["Definition A", "Definition B", "Definition C"],
-      "correctAnswer": {"Term 1": "Definition A", "Term 2": "Definition B", "Term 3": "Definition C"},
-      "explanation": "Brief explanation of relationships",
-      "citation": "Source reference (if applicable)"
-    },
-    {
-      "questionType": "fill-blank",
-      "question": "Complete the sentence: The capital of France is ____.",
-      "correctAnswer": ["Paris"],
-      "explanation": "Paris is the capital and largest city of France",
-      "citation": "Source reference (if applicable)"
-    },
-    // Example with multiple acceptable answers:
-    {
-      "questionType": "fill-blank",
-      "question": "The ____ is the brain of the computer.",
-      "correctAnswer": ["CPU", "Central Processing Unit", "Processor"],
-      "explanation": "The CPU (Central Processing Unit), also called processor, is the primary component that executes instructions",
-      "citation": "Source reference (if applicable)"
-    },
-    // For theory questions:
-    {
-      "questionType": "theory",
-      "question": "Explain the process of photosynthesis and its importance to life on Earth.",
-      "markingGuideline": {
-        "maxPoints": 10,
-        "keyPoints": [
-          {"point": "Definition: Process where plants convert light energy to chemical energy", "value": 2},
-          {"point": "Location: Takes place in chloroplasts using chlorophyll", "value": 1},
-          {"point": "Inputs: Carbon dioxide, water, and sunlight", "value": 1},
-          {"point": "Outputs: Glucose (sugar) and oxygen", "value": 2},
-          {"point": "Equation: 6CO2 + 6H2O + light → C6H12O6 + 6O2", "value": 1},
-          {"point": "Importance: Produces oxygen for respiration", "value": 1},
-          {"point": "Importance: Forms base of food chain/energy for ecosystems", "value": 2}
-        ],
-        "acceptableConcepts": [
-          "Light-dependent and light-independent reactions",
-          "Role of ATP and NADPH",
-          "Calvin cycle",
-          "Stomata function",
-          "Environmental factors affecting rate"
-        ],
-        "qualityCriteria": {
-          "excellent": "Covers all key points with clear explanations, uses scientific terminology correctly, provides examples, shows deep understanding",
-          "good": "Covers most key points, generally accurate, may lack some detail or examples",
-          "adequate": "Covers basic process and importance, may have minor inaccuracies or missing details",
-          "poor": "Missing major concepts, significant inaccuracies, or incomplete explanation"
-        }
-      },
-      "sampleAnswer": "Photosynthesis is the process by which plants convert light energy into chemical energy. It occurs in the chloroplasts of plant cells, where chlorophyll captures sunlight. The plant takes in carbon dioxide from the air and water from the soil, then uses light energy to convert these into glucose (a sugar) and oxygen. The equation is 6CO2 + 6H2O + light → C6H12O6 + 6O2. This process is crucial for life on Earth because it produces the oxygen we breathe and forms the foundation of the food chain by creating energy-rich glucose that sustains plant growth and, indirectly, all other organisms.",
-      "explanation": "This comprehensive answer covers the process, location, inputs, outputs, and importance of photosynthesis",
-      "citation": "Source reference (if applicable)"
-    }
+    // Array of question objects following the specifications above
+    // Each question must include all required fields for its type
   ]
 }
 
-VALIDATION CHECKLIST (verify before responding):
-✓ All questions are factually accurate
-✓ Questions are answerable from provided content (if content given)
-✓ No invented or assumed information
-✓ Correct answer indices match the options array
+═══════════════════════════════════════════════════════════════════════════════
+QUALITY ASSURANCE CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+Before finalizing, verify each question:
+
+Content Quality:
+✓ Factually accurate and verifiable
+✓ Answerable exclusively from source content (if provided)
+✓ No hallucinated information or external facts
+✓ Tests understanding at appropriate difficulty level
+✓ Has one clear correct answer (or set of answers for multi-select)
+
+Question Design:
+✓ Clear, unambiguous wording
+✓ No trick questions or unfair complexity
+✓ Appropriate reading level for content difficulty
+✓ Free from bias or cultural assumptions
+✓ Independent from other questions
+
+Options & Answers:
+✓ All options are plausible and parallel in structure
+✓ No obvious "throwaway" wrong answers
+✓ Distractors represent realistic misconceptions
+✓ Similar length and complexity across options
+✓ Options contain NO prefixes (A, B, 1, 2, etc.)
+
+Technical Requirements:
+✓ correctAnswer uses correct format for question type:
+  - True-false: 0 or 1
+  - Single-select: Single index (0-3)
+  - Multi-select: Array of indices [0, 2, 3]
+  - Fill-blank: Array of strings ["answer1", "answer2"]
+  - Matching: Object with key-value pairs
 ✓ All required fields present for each question type
-✓ JSON is valid and parseable
-✓ Options do not contain prefixes (A), 1., etc.)
-✓ No markdown formatting or code fences in output`;
+✓ Citations included when referencing source material
+✓ Explanations are clear and instructive
+
+Format Requirements:
+✓ Valid JSON structure (parseable)
+✓ No markdown code fences around output
+✓ No preamble or commentary
+✓ Proper escaping of special characters in strings
+✓ Consistent formatting throughout
+
+Pedagogical Standards:
+✓ Questions test meaningful understanding
+✓ Appropriate cognitive level for difficulty rating
+✓ Fair and answerable by someone who studied the material
+✓ Explanations enhance learning (not just confirm answers)
+
+Begin your response with the JSON object directly.`;
   }
 
   static generateFlashcards(
@@ -184,68 +367,287 @@ VALIDATION CHECKLIST (verify before responding):
     numberOfCards: number,
     sourceContent: string = ''
   ) {
-    return `You are an expert in spaced repetition learning and flashcard design, specializing in creating memorable, accurate educational content.
+    return `You are an expert in spaced repetition learning and flashcard design, specializing in creating memorable, effective study materials that optimize long-term retention.
 
-TASK: Generate exactly ${numberOfCards} flashcards based on the inputs below.
+TASK: Generate exactly ${numberOfCards} flashcards that facilitate deep understanding and efficient recall.
 
-INPUT PARAMETERS:
-${topic ? `- Topic: ${topic}` : '- Topic: Not specified (use source content only)'}
+═══════════════════════════════════════════════════════════════════════════════
+INPUT PARAMETERS
+═══════════════════════════════════════════════════════════════════════════════
+
+${topic ? `- Topic: ${topic}` : '- Topic: Not specified (derive from source content only)'}
 ${sourceContent ? `- Source Content:\n${sourceContent}\n` : '- Source Content: None provided'}
 
-CRITICAL REQUIREMENTS:
-1. ACCURACY: Every flashcard MUST contain factually correct information
-2. SOURCE FIDELITY: If source content is provided, derive cards ONLY from that content. Do NOT add external facts
-3. ATOMICITY: Each card should test ONE concept or fact
-4. CLARITY: Front and back must be clear and unambiguous
-5. NO HALLUCINATION: If source is insufficient for ${numberOfCards} cards, create fewer cards rather than inventing content
-6. PEDAGOGICAL VALUE: Focus on concepts worth remembering, not trivial details
+═══════════════════════════════════════════════════════════════════════════════
+CORE FLASHCARD PRINCIPLES
+═══════════════════════════════════════════════════════════════════════════════
 
-FLASHCARD DESIGN PRINCIPLES:
-- FRONT: Concise question, term, or prompt (5-15 words ideal)
-- BACK: Clear, complete answer or definition (1-3 sentences)
-- EXPLANATION: Additional context, mnemonics, or examples to aid retention (optional but recommended)
+ACCURACY & SOURCE FIDELITY:
+- Every flashcard must contain factually correct, verifiable information
+- When source content is provided, derive cards EXCLUSIVELY from that material
+- Do NOT introduce external facts, examples, or concepts not present in the source
+- If source material is insufficient for ${numberOfCards} quality cards, generate fewer cards rather than compromising accuracy or inventing content
 
-CONTENT HIERARCHY (prioritize in order):
-1. Core concepts and definitions
-2. Key relationships and processes
-3. Important facts and figures
-4. Supporting details and examples
+ATOMICITY (One Card = One Concept):
+- Each flashcard should test exactly ONE discrete piece of knowledge
+- Break complex concepts into multiple focused cards
+- Avoid multi-part questions that test several unrelated facts
+- The learner should be able to recall the answer confidently or not at all
 
-AVOID:
-- Yes/no questions without context
-- Overly complex multi-part questions
-- Ambiguous or trick questions
-- Trivial or obvious information
-- Verbatim copying of long text passages
+CLARITY & PRECISION:
+- Questions and answers must be unambiguous
+- Avoid vague language that could have multiple interpretations
+- Use specific, concrete language
+- Ensure the answer directly addresses the question
 
-OUTPUT FORMAT:
-Return ONLY valid JSON (no markdown, no code fences, no preamble):
+PEDAGOGICAL VALUE:
+- Prioritize concepts worth remembering over trivial details
+- Focus on understanding relationships, not just isolated facts
+- Include context that aids meaningful learning
+- Support transfer of knowledge to new situations
+
+═══════════════════════════════════════════════════════════════════════════════
+FLASHCARD STRUCTURE
+═══════════════════════════════════════════════════════════════════════════════
+
+FRONT (The Prompt):
+- Length: 5-15 words ideal; maximum 25 words
+- Format options:
+  * Direct question: "What is photosynthesis?"
+  * Term to define: "Photosynthesis"
+  * Fill-in-the-blank: "The process by which plants convert light into chemical energy is called ____"
+  * Relationship prompt: "How does X affect Y?"
+
+Best Practices:
+- Be specific and concrete
+- Provide sufficient context (avoid "What is it?" without specifying "it")
+- Use consistent phrasing for similar card types
+- Start with question words when appropriate (What, How, Why, When, Where)
+
+Examples:
+✓ Good: "What are the three main stages of cellular respiration?"
+✓ Good: "Mitochondria"
+✗ Poor: "What about the cell thing?" (too vague)
+✗ Poor: "Describe everything about the process of photosynthesis and its role in ecosystems" (too broad)
+
+BACK (The Answer):
+- Length: 1-3 sentences ideal; maximum 5 sentences
+- Should be complete enough to stand alone
+- Include essential details without overwhelming
+- Use clear, straightforward language
+
+Best Practices:
+- Answer the question directly and completely
+- Include key details that differentiate this concept from related ones
+- Use parallel structure for similar cards
+- Define technical terms if they're essential to the answer
+
+Examples:
+✓ Good: "The three main stages are glycolysis (glucose breakdown), the Krebs cycle (energy extraction), and the electron transport chain (ATP production)."
+✗ Poor: "There are stages" (incomplete)
+✗ Poor: "Glycolysis is the first of several stages in cellular respiration, which is a metabolic process..." (too verbose)
+
+EXPLANATION (Optional but Recommended):
+- Length: 1-4 sentences
+- Provides additional context that aids retention and understanding
+- Should enhance learning without being essential to answer the question
+
+Useful Explanation Types:
+- Examples: "For instance, during exercise, your muscles use cellular respiration to convert glucose into ATP for energy."
+- Mnemonics: "Remember OIL RIG: Oxidation Is Loss (of electrons), Reduction Is Gain."
+- Context: "This process occurs in the mitochondria, which is why they're called the 'powerhouses' of the cell."
+- Connections: "This relates to photosynthesis, which produces the glucose that cellular respiration consumes."
+- Common misconceptions: "Note that fermentation is not the same as cellular respiration, though both involve breaking down glucose."
+
+When to Include Explanation:
+✓ When additional context significantly aids understanding
+✓ When a mnemonic or memory aid is helpful
+✓ When distinguishing from commonly confused concepts
+✓ When providing a relevant example clarifies the concept
+✗ When simply rephrasing the answer
+✗ When adding tangential information
+
+═══════════════════════════════════════════════════════════════════════════════
+CONTENT HIERARCHY & CARD DISTRIBUTION
+═══════════════════════════════════════════════════════════════════════════════
+
+When generating multiple cards, prioritize content in this order:
+
+PRIORITY 1 - Core Concepts (40-50% of cards):
+- Fundamental definitions and principles
+- Essential terminology
+- Central ideas that other concepts build upon
+Example: "What is natural selection?" or "Define homeostasis"
+
+PRIORITY 2 - Key Relationships (25-35% of cards):
+- How concepts connect or interact
+- Cause-and-effect relationships
+- Processes and mechanisms
+Example: "How does temperature affect enzyme activity?" or "What is the relationship between supply and demand?"
+
+PRIORITY 3 - Important Facts (15-25% of cards):
+- Significant data points, dates, or figures
+- Classifications and categories
+- Characteristics and features
+Example: "What is the speed of light?" or "Name the four types of biological macromolecules"
+
+PRIORITY 4 - Applications & Examples (10-20% of cards):
+- Real-world applications
+- Notable examples or case studies
+- Problem-solving scenarios
+Example: "Give an example of natural selection in action" or "How is Python used in data science?"
+
+Distribution Strategy:
+- Cover different aspects of the topic rather than clustering on one area
+- Progress from foundational to more complex concepts when possible
+- Ensure cards complement each other without redundancy
+- Balance different types of knowledge (definitions, processes, applications)
+
+═══════════════════════════════════════════════════════════════════════════════
+QUESTION TYPES & FORMATS
+═══════════════════════════════════════════════════════════════════════════════
+
+DEFINITION CARDS:
+Front: "What is [term]?" or simply "[Term]"
+Back: Clear, concise definition with key characteristics
+Use for: Core concepts, technical terminology, fundamental principles
+
+Example:
+Front: "Photosynthesis"
+Back: "The process by which plants use sunlight, water, and carbon dioxide to produce glucose and oxygen."
+Explanation: "This occurs primarily in the chloroplasts of plant cells and is the foundation of most food chains."
+
+RELATIONSHIP CARDS:
+Front: "How does X affect Y?" or "What is the relationship between X and Y?"
+Back: Description of the connection or interaction
+Use for: Cause-effect, dependencies, correlations
+
+Example:
+Front: "How does increasing temperature affect enzyme activity?"
+Back: "Enzyme activity increases with temperature up to an optimal point, after which excessive heat denatures the enzyme and activity decreases."
+Explanation: "Most human enzymes have an optimal temperature around 37°C (body temperature)."
+
+PROCESS CARDS:
+Front: "What are the steps/stages of X?" or "How does X occur?"
+Back: Ordered sequence or mechanism description
+Use for: Procedures, cycles, sequential events
+
+Example:
+Front: "What are the three main stages of cellular respiration?"
+Back: "Glycolysis (glucose breakdown), the Krebs cycle (energy extraction), and the electron transport chain (ATP production)."
+Explanation: "These stages progressively extract energy from glucose, producing up to 38 ATP molecules per glucose."
+
+COMPARISON CARDS:
+Front: "What is the difference between X and Y?"
+Back: Key distinguishing features
+Use for: Commonly confused concepts, contrasting ideas
+
+Example:
+Front: "What is the difference between DNA and RNA?"
+Back: "DNA is double-stranded with deoxyribose sugar and thymine, while RNA is single-stranded with ribose sugar and uracil."
+Explanation: "DNA stores genetic information long-term, while RNA typically carries instructions for protein synthesis."
+
+APPLICATION CARDS:
+Front: "Give an example of X" or "When/where does X occur?"
+Back: Concrete example or real-world instance
+Use for: Reinforcing understanding through practical context
+
+Example:
+Front: "Give an example of natural selection in modern times"
+Back: "Antibiotic resistance in bacteria, where bacteria with resistance genes survive treatment and reproduce, passing on resistance."
+Explanation: "This is why doctors emphasize completing antibiotic courses even when symptoms improve."
+
+═══════════════════════════════════════════════════════════════════════════════
+DESIGN BEST PRACTICES
+═══════════════════════════════════════════════════════════════════════════════
+
+DO:
+✓ Keep cards focused and atomic (one concept per card)
+✓ Use consistent phrasing for similar card types
+✓ Provide enough context to make questions unambiguous
+✓ Include examples in explanations when they add clarity
+✓ Use specific, concrete language
+✓ Make answers complete but concise
+✓ Test understanding, not just memorization when possible
+✓ Create cards that work in both directions when appropriate
+
+DON'T:
+✗ Create yes/no questions without meaningful context
+✗ Use overly complex multi-part questions
+✗ Include trick questions or unnecessary complexity
+✗ Test trivial or obvious information
+✗ Copy lengthy passages verbatim from source material
+✗ Create cards with ambiguous or multiple correct answers
+✗ Cluster multiple cards on the exact same narrow fact
+✗ Use vague pronouns without clear antecedents
+
+Common Pitfalls to Avoid:
+- "What is it?" (what is "it"?)
+- "True or False: X is important" (all concepts covered are presumably important)
+- Questions answerable with a simple "yes" or "no" without elaboration
+- Cards that test multiple unrelated facts simultaneously
+- Redundant cards that essentially ask the same question differently
+
+═══════════════════════════════════════════════════════════════════════════════
+OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════════════════════
+
+Return ONLY valid JSON (no markdown code fences, no preamble, no commentary):
 
 {
   "title": "Specific, descriptive title reflecting the actual content (not generic)",
-  "topic": "${topic || 'Content-based Study Cards'}",
+  "topic": "${topic || 'Content-Based Study Cards'}",
   "cards": [
     {
-      "front": "Clear question or term",
-      "back": "Complete, accurate answer or definition",
-      "explanation": "Additional context, example, or mnemonic to aid memory (optional)"
+      "front": "Clear, focused question or term",
+      "back": "Complete, accurate answer (1-3 sentences)",
+      "explanation": "Additional context, example, or mnemonic that aids retention (optional)"
     }
   ]
 }
 
-QUALITY CHECKLIST (verify each card):
-✓ Factually accurate and verifiable
-✓ Derived from source content (if provided)
-✓ Tests a single, clear concept
-✓ Answer is complete and unambiguous
-✓ Explanation adds meaningful value
-✓ No invented or external information
+═══════════════════════════════════════════════════════════════════════════════
+QUALITY ASSURANCE CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
 
-VALIDATION CHECKLIST (verify before responding):
-✓ Exactly ${numberOfCards} cards generated (or fewer if source is limited)
-✓ All required fields present
-✓ JSON is valid and parseable
-✓ No markdown formatting or code fences in output`;
+Before finalizing, verify each card:
+
+Content Quality:
+✓ Factually accurate and verifiable
+✓ Derived exclusively from source content (if provided)
+✓ No hallucinated or external information
+✓ Tests meaningful knowledge worth remembering
+✓ Appropriate level of detail (not too trivial, not too broad)
+
+Card Design:
+✓ Tests exactly one discrete concept (atomic)
+✓ Front is clear and unambiguous (provides sufficient context)
+✓ Back answers the question directly and completely
+✓ Answer can be recalled definitively (not vague or subjective)
+✓ Explanation adds genuine value (if included)
+
+Language & Clarity:
+✓ Uses specific, concrete language
+✓ Avoids ambiguous phrasing
+✓ Free from grammatical errors
+✓ Appropriate vocabulary for the topic level
+✓ Consistent style and structure across similar cards
+
+Distribution & Coverage:
+✓ Cards cover different aspects of the topic
+✓ Appropriate mix of definitions, relationships, processes, and applications
+✓ No redundant cards testing the same fact
+✓ Logical progression from foundational to complex concepts
+✓ Balanced coverage based on content hierarchy priorities
+
+Technical Requirements:
+✓ Exactly ${numberOfCards} cards generated (or fewer if source is insufficient)
+✓ All required fields present (front, back; explanation optional)
+✓ Valid JSON structure (parseable)
+✓ No markdown code fences around output
+✓ Proper escaping of special characters in strings
+
+Begin your response with the JSON object directly.`;
   }
 
   static generateRecommendations(weakTopics: string[], recentAttempts: any[]) {
@@ -304,106 +706,243 @@ VALIDATION CHECKLIST:
     sourceContent: string = '',
     fileContext: string = ''
   ) {
-    return `You are an expert instructional designer specializing in creating structured, comprehensive learning materials that promote deep understanding.
+    return `You are an expert instructional designer who creates learning materials that prioritize deep understanding over information density. Your goal is to help learners truly grasp concepts, not just memorize facts.
 
-TASK: Create a complete learning guide based on the inputs below.
+TASK: Create a complete learning guide that transforms the provided content into an intuitive, engaging learning experience.
 
 INPUT PARAMETERS:
 ${topic ? `- Topic: ${topic}` : '- Topic: Not specified (derive from content)'}
 ${sourceContent ? `- Primary Content:\n${sourceContent}\n` : '- Primary Content: None provided'}
 ${fileContext ? `- Additional Context:\n${fileContext}\n` : '- Additional Context: None provided'}
 
-CRITICAL REQUIREMENTS:
-1. ACCURACY: All information must be factually correct and verifiable
-2. SOURCE FIDELITY: Base content ONLY on provided materials. Do NOT introduce external information unless explicitly filling knowledge gaps in a general topic
-3. COHERENCE: Synthesize all inputs into one unified, logical learning path
-4. COMPLETENESS: Cover the topic comprehensively within the scope of provided content
-5. NO HALLUCINATION: If content is insufficient, create a focused guide on available material rather than inventing information
+═══════════════════════════════════════════════════════════════════════════════
+CORE TEACHING PHILOSOPHY
+═══════════════════════════════════════════════════════════════════════════════
 
-INSTRUCTIONAL DESIGN PRINCIPLES:
-- Progress from fundamental concepts to advanced applications
-- Build on previous sections logically
-- Balance theoretical explanation with practical examples
-- Include active learning checks to reinforce understanding
+1. CONCEPT-FIRST APPROACH
+   - Explain WHY the concept exists before diving into HOW it works
+   - Build intuition before introducing complexity
+   - Assume learners are intellectually curious but new to the topic
+   - Use plain language first, technical terms second
 
-SECTION STRUCTURE REQUIREMENTS:
+2. ACCURACY & SOURCE FIDELITY
+   - All information must be factually correct and verifiable
+   - Base content ONLY on provided materials
+   - If content is insufficient, focus deeply on what IS provided rather than inventing information
+   - Never hallucinate facts, examples, or details not present in source material
 
-DESCRIPTION:
-- 2-4 sentences explaining what the learner will gain
-- Focus on outcomes and practical value
-- Set clear expectations
+3. CLARITY OVER COMPLETENESS
+   - Better to explain less deeply than to overwhelm with breadth
+   - One well-understood concept > three poorly explained ones
+   - Remove unnecessary jargon; define essential terms clearly
+
+═══════════════════════════════════════════════════════════════════════════════
+CONTENT QUALITY RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+FORMULAS & MATHEMATICAL NOTATION:
+✓ Include formulas ONLY when the concept naturally involves them
+✓ Always explain what each symbol represents
+✓ Clarify when and WHY the formula is used
+✗ Don't dump formulas without context or explanation
+✗ Don't use math notation when plain language suffices
+
+Example:
+Good: "The mean (average) is calculated by adding all values and dividing by how many values you have. If you have test scores of 80, 85, and 90, you'd add them (255) and divide by 3, giving you 85."
+Bad: "μ = (Σx)/n where μ is mean, Σ is sum, x is each value, n is count"
+
+CODE USAGE GUIDELINES (CRITICAL):
+✓ ONLY include code when the concept:
+    - Explicitly involves programming, algorithms, or computation
+    - Cannot be reasonably understood without seeing implementation
+    - Is about a programming language, framework, or software tool
+
+✗ DO NOT use code for:
+    - Statistical concepts (use explanations and examples instead)
+    - Mathematical theories (use formulas with explanations)
+    - Business concepts, psychological theories, historical events
+    - General science topics that don't require computation
+
+✓ When code IS appropriate:
+    - Keep it minimal and focused
+    - Add inline comments explaining key lines
+    - Use it to clarify, not to replace explanation
+    - Choose the simplest syntax that demonstrates the concept
+
+EXAMPLES (MOST IMPORTANT):
+Your examples make or break understanding. They must be:
+
+✓ RELATABLE: Use contexts learners encounter in daily life, school, work, or common scenarios
+✓ CONCRETE: Specific details, not abstract placeholders
+✓ CLEARLY CONNECTED: Explicitly show how the example demonstrates the concept
+✓ PROGRESSIVELY COMPLEX: Start simple in early sections, build sophistication
+
+Example Quality Spectrum:
+- Poor: "Consider a variable X that represents a data point in a dataset..."
+- Okay: "Imagine you're analyzing sales data for a store..."
+- Good: "You're tracking your monthly grocery spending. In January you spent $450, February $520, March $380..."
+
+STEP-BY-STEP WALKTHROUGH:
+For at least one key example per section, walk through it:
+1. Set up the scenario clearly
+2. Show the process or calculation
+3. Explain what's happening at each step
+4. Connect the outcome back to the concept
+
+═══════════════════════════════════════════════════════════════════════════════
+SECTION STRUCTURE REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+DESCRIPTION (2-4 sentences):
+- Explain what the learner will UNDERSTAND (not just "learn")
+- Emphasize practical value or relevance
+- Set expectations: "By the end, you'll be able to..."
+- Make it inviting, not intimidating
 
 SECTIONS (3-6 recommended):
-- TITLE: Clear, descriptive module name
-- CONTENT: 
-  * Comprehensive explanation of the concept (200-400 words per section)
-  * Use Markdown for formatting:
-    - **Bold** for key terms and concepts
-    - \`inline code\` for technical terms, variables, function names
-    - \`\`\`language for multi-line code blocks (always specify language)
-    - > blockquotes for important notes or principles
-    - Numbered or bulleted lists for steps or features
-  * Break complex ideas into digestible paragraphs
-  * Define technical terms on first use
-  
-- EXAMPLE:
-  * ONE concrete, detailed example per section
-  * Show real-world application or practical scenario
-  * Explain HOW the example demonstrates the concept
-  * For code examples: include comments explaining key lines
-  
-- KNOWLEDGE CHECK:
-  * ONE well-crafted multiple-choice question
-  * Test understanding, not just recall
-  * 4 plausible options (avoid obvious wrong answers)
-  * Provide clear, instructive explanation of why the answer is correct
 
-MARKDOWN CODE FORMATTING RULES:
-✓ Use \`\`\`javascript for JavaScript code blocks
-✓ Use \`\`\`python for Python code blocks
-✓ Use \`\`\`html, \`\`\`css, etc. for other languages
-✓ Use \`variableName\` for inline code references
-✓ Always close code blocks properly
-✓ Add comments in code to explain complex parts
+Each section should follow this flow: Concept → Intuition → Details → Application
 
-OUTPUT FORMAT:
-Return ONLY valid JSON (no markdown, no code fences, no preamble):
+# TITLE:
+- Clear, descriptive, non-intimidating
+- Reflects the actual learning objective
+- Avoid vague titles like "Introduction" or "Overview"
+
+# CONTENT (250-400 words):
+Structure your explanation as:
+1. Opening hook (why this matters)
+2. Core concept in plain language
+3. Key details and nuance
+4. Common misconceptions (if applicable)
+5. Connection to related ideas (briefly)
+
+Formatting Guidelines:
+- **Bold** for key terms when first introduced
+- \`inline code\` ONLY for technical terms, variable names, function names when discussing code/programming
+- \`\`\`language for multi-line code blocks (always specify language, e.g., \`\`\`javascript)
+- > Use blockquotes for important principles, warnings, or key takeaways
+- Use numbered lists for sequential steps
+- Use bulleted lists for related features or characteristics
+- Break content into 3-5 paragraphs for readability
+
+Progressive Disclosure:
+- Section 1: Fundamentals and intuition
+- Section 2-3: Core mechanisms and details
+- Section 4-5: Applications and advanced nuance
+- Section 6: Synthesis or edge cases (if needed)
+
+# EXAMPLE:
+Each section needs ONE detailed, practical example that:
+- Uses a scenario the learner can visualize
+- Shows the concept in action
+- Includes a mini-walkthrough of key steps
+- Explicitly states: "This demonstrates [concept] because..."
+
+For code examples:
+\`\`\`javascript
+// Use meaningful variable names
+const studentGrades = [85, 92, 78, 90];
+
+// Calculate average - this is applying the mean concept
+const average = studentGrades.reduce((sum, grade) => sum + grade, 0) / studentGrades.length;
+// Result: 86.25
+\`\`\`
+
+For non-code examples:
+Walk through the scenario step-by-step with clear narration.
+
+# KNOWLEDGE CHECK:
+Create questions that test UNDERSTANDING, not just recall.
+
+Question Design:
+- Should require applying the concept, not just remembering a definition
+- Use scenarios similar to (but different from) the example
+- Avoid trick questions or obscure details
+- Test insight: "Why does X happen?" vs "What is X?"
+
+Options (4 total):
+- All options should be plausible to someone who half-understands
+- Avoid obvious throwaway answers
+- Include common misconceptions as wrong answers
+- Plain text ONLY - no prefixes like "A)", "1.", "•"
+
+Explanation:
+- First, affirm why the correct answer is right
+- Then briefly explain why each wrong answer is incorrect or incomplete
+- Use this as a teaching moment, not just validation
+- 2-4 sentences total
+
+═══════════════════════════════════════════════════════════════════════════════
+OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════════════════════
+
+Return ONLY valid JSON (no markdown fences, no preamble, no code blocks around it):
 
 {
-  "title": "Specific, descriptive title reflecting the actual content",
+  "title": "Specific, engaging title that reflects the actual content",
   "topic": "${topic || 'Comprehensive Summary'}",
-  "description": "Clear, outcome-focused summary (2-4 sentences)",
+  "description": "Outcome-focused description explaining what learners will understand and why it matters (2-4 sentences)",
   "learningGuide": {
     "sections": [
       {
-        "title": "Descriptive Section Title",
-        "content": "Comprehensive explanation with proper Markdown formatting. Use **bold** for emphasis, \`inline code\` for technical terms, and \`\`\`language for code blocks. Break into clear paragraphs.",
-        "example": "Detailed, practical example with explanation. For code: \`\`\`javascript\\nconst example = 'proper formatting';\\n// Comment explaining the code\\nconsole.log(example);\\n\`\`\`",
+        "title": "Clear, Descriptive Section Title",
+        "content": "Comprehensive explanation (250-400 words) following the Concept → Intuition → Details → Application flow. Use **bold** for key terms, \`inline code\` only for technical terms in programming contexts, and \`\`\`language for code blocks. Write in clear paragraphs with good flow.",
+        "example": "Detailed, relatable example with step-by-step walkthrough. If code is necessary and appropriate for this concept, format it as: \`\`\`javascript\\n// Commented code here\\nconst example = 'with explanation';\\n\`\`\` Otherwise, use a narrative walkthrough with concrete details.",
         "knowledgeCheck": {
-          "question": "Clear, thought-provoking question testing understanding",
-          "options": (array) Plain text ONLY. Do NOT include prefixes like "A)", "B)", "1.", "2.", etc. Just the option text content.
-          "correctAnswer": Index (0-3) of the correct option (it can be 0, 1, 2, 3) based on what is correct for the question,
-          "explanation": "Detailed explanation of why this answer is correct and why others are wrong"
+          "question": "Scenario-based question testing understanding, not just recall",
+          "options": ["Plain text option 1", "Plain text option 2", "Plain text option 3", "Plain text option 4"],
+          "correctAnswer": 0,
+          "explanation": "Clear explanation of why the correct answer is right and why the others miss the mark (2-4 sentences)"
         }
       }
     ]
   }
 }
 
-QUALITY CHECKLIST (verify each section):
-✓ Content is factually accurate and complete
-✓ Markdown formatting is correct (especially code blocks)
-✓ Example is relevant and well-explained
-✓ Knowledge check tests understanding, not just memory
-✓ Explanation is instructive and clear
-✓ Progressive difficulty across sections
+═══════════════════════════════════════════════════════════════════════════════
+QUALITY ASSURANCE CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
 
-VALIDATION CHECKLIST (verify before responding):
-✓ All required fields present
-✓ 3-6 sections included
-✓ Code blocks properly formatted with language specified
-✓ JSON is valid and parseable
-✓ No outer markdown code fences in the response`;
+Before finalizing, verify EVERY section has:
+- Concept explained in plain language before technical terms
+- Clear explanation of WHY the concept matters
+- Intuitive explanation before diving into mechanics
+- At least one common misconception addressed (if applicable)
+- Example that's relatable and clearly connected to concept
+- Knowledge check that tests understanding, not memorization
+- Proper Markdown formatting (especially code blocks with language tags)
+- Logical flow that builds on previous sections
+- No hallucinated information beyond the source material
+- Code included ONLY if genuinely necessary for this concept type
+
+Content Quality:
+- Could a curious beginner understand this without prior knowledge?
+- Are examples concrete and relatable (not abstract)?
+- Is jargon defined before being used?
+- Does each section add clear value to understanding?
+
+Technical Quality:
+- All required JSON fields present
+- 3-6 sections included
+- Code blocks have language specified: \`\`\`javascript not just \`\`\`
+- JSON is valid and parseable
+- No outer markdown code fences wrapping the JSON response
+- correctAnswer uses index 0-3, not text
+
+═══════════════════════════════════════════════════════════════════════════════
+FINAL REMINDER
+═══════════════════════════════════════════════════════════════════════════════
+
+Your goal is for learners to read this once and think: "I actually understand this now."
+
+Prioritize:
+1. Clarity over comprehensiveness
+2. Intuition over technical precision
+3. Understanding over memorization
+4. Relatability over academic rigor
+5. Teaching over telling
+
+Create a guide that respects the learner's intelligence while honoring their beginner status.`;
   }
 
   static extractTitle(content: string) {
@@ -580,83 +1119,279 @@ Return 2-3 examples in Markdown format. No preamble, no code fences wrapping the
     content: string,
     learningGuide: any
   ) {
-    return `You are an expert content summarizer specializing in creating high-quality, professional summaries of educational materials.
+    return `You are an expert content summarizer who transforms educational materials into clear, professional, and highly usable reference documents.
 
-TASK: Create a highly structured, concise, and professional summary of the study material provided below.
+TASK: Create a polished, structured summary that captures the essential knowledge from the provided study material in a format optimized for quick review and retention.
 
-INPUT MATERIAL:
+═══════════════════════════════════════════════════════════════════════════════
+INPUT MATERIAL
+═══════════════════════════════════════════════════════════════════════════════
+
 - Title: ${title}
 - Topic: ${topic}
 - Content: ${content || 'Not provided'}
 ${learningGuide ? `- Learning Guide: ${JSON.stringify(learningGuide)}` : ''}
 
-CRITICAL REQUIREMENTS:
-1. ACCURACY: Every statement must be factually correct and derived from the source material.
-2. COMPLETENESS: Capture the MOST IMPORTANT concepts. Avoid minor details.
-3. CONCISENESS: Aim for 400-800 words total. Do not exceed 1000 words. Be punchy and direct.
-4. NO UNNECESSARY HYPHENS: Do NOT use hyphens for prefix/word combinations unless linguistically required (e.g., use "incorporated" instead of "in-corporated", "reorganized" instead of "re-organized"). Only use hyphens when standard English grammar dictates (like "long-term" or "self-contained").
-5. CLARITY: Use clear, academic, yet accessible language. Avoid fluffy or overly "AI-sounding" filler.
-6. STRUCTURE: Use a clear hierarchy with logical flow.
-7. NO HALLUCINATION: Include ONLY information present in the source material.
-8. NO INTERACTIVE ELEMENTS: Remove all knowledge checks, exercises, quizzes, practice questions, and assessments.
-9. SHAREABILITY: Provide a standalone, comprehensive summary.
+═══════════════════════════════════════════════════════════════════════════════
+CORE PRINCIPLES
+═══════════════════════════════════════════════════════════════════════════════
 
-SUMMARY DESIGN PRINCIPLES:
-- TL;DR: Start with a 3-4 bullet point "Executive Summary" or "Quick Takeaways".
-- INVERTED PYRAMID: Most important information first.
-- SCANNABILITY: Use headers, bold text, and lists effectively.
-- PROFESSIONALISM: Do NOT use emojis under any circumstances. The tone must be scholarly and clean.
-- SPACING: Ensure sections are well-spaced and not jammed packed. Use empty lines between bullet points and paragraphs for maximum readability.
-- STANDALONE: Readable and useful without the full material.
+ACCURACY & FIDELITY:
+- Every statement must be factually correct and traceable to the source material
+- Never introduce external information, examples, or interpretations not present in the source
+- If the source material is limited, create a focused summary of what IS available
+- Maintain the original meaning and intent of the content
 
-FORMATTING REQUIREMENTS (Markdown):
-- Use ## headers for sections. Ensure they are clear and descriptive.
-- **Bold** key terms and important concepts.
-- Use bullet points (•) for lists.
-- Use > blockquotes for "Golden Nuggets" or critical insights.
-- Use \`inline code\` for essential technical terms and keywords (these will be rendered as sleek tags).
-- Use \`inline code\` for brief, essential code snippets (max 10 lines).
-- Ensure all Markdown elements are well-aligned.
+PROFESSIONAL TONE:
+- Academic yet accessible language
+- Direct and precise phrasing
+- No colloquialisms, idioms, or casual expressions
+- No emojis, decorative symbols, or informal elements
+- Avoid "AI-sounding" filler phrases like "delve into," "it's worth noting," "leverage," etc.
 
-STRUCTURE TEMPLATE:
+CONCISENESS WITH SUBSTANCE:
+- Target length: 400-800 words
+- Hard maximum: 1000 words
+- Every sentence must add value
+- Remove redundancy and verbose explanations
+- Favor clarity over exhaustive detail
+
+STRUCTURAL CLARITY:
+- Information hierarchy must be immediately apparent
+- Most critical concepts presented first (inverted pyramid)
+- Logical flow between sections
+- Visual breathing room between elements
+
+═══════════════════════════════════════════════════════════════════════════════
+CONTENT REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+WHAT TO INCLUDE:
+✓ Core concepts and their definitions
+✓ Key relationships between ideas
+✓ Critical principles or rules
+✓ Essential terminology
+✓ Important formulas or frameworks (if present in source)
+✓ Practical applications or implications
+✓ Notable examples that illustrate core concepts
+
+WHAT TO EXCLUDE:
+✗ Knowledge checks, quizzes, practice questions, assessments
+✗ Interactive exercises or activities
+✗ Step-by-step tutorials (unless they're the main content)
+✗ Pedagogical scaffolding (e.g., "Let's explore...", "Now consider...")
+✗ Motivational or engagement-focused language
+✗ Minor details, edge cases, or tangential information
+✗ Attribution to the learning guide itself (write as if presenting original research)
+
+SYNTHESIS APPROACH:
+- Combine related information from different sections into unified explanations
+- Present concepts in their most streamlined form
+- Identify and emphasize the 3-5 most important ideas
+- Create natural transitions between sections
+
+═══════════════════════════════════════════════════════════════════════════════
+FORMATTING STANDARDS
+═══════════════════════════════════════════════════════════════════════════════
+
+MARKDOWN ELEMENTS:
+
+Headers:
+- Use ## for main section headers
+- Section titles should be descriptive and content-specific
+- Avoid generic titles like "Introduction" or "Overview"
+
+Emphasis:
+- **Bold** for key terms on first mention and critical concepts
+- Use sparingly for maximum impact
+- Do not bold entire sentences or large blocks
+
+Lists:
+- Use bullet points (•) for unordered information
+- Use numbered lists only for sequential or ranked information
+- Include blank lines between list items for readability
+- Keep bullet points concise (1-2 sentences maximum)
+
+Code Formatting:
+- Use \`inline code\` for:
+  * Technical terms and keywords
+  * Variable names, function names, method names
+  * File extensions and command names
+  * Brief code expressions (single line)
+- Use \`\`\`language for multi-line code blocks (only if essential)
+- Always specify language for code blocks: \`\`\`javascript, \`\`\`python, etc.
+
+Blockquotes:
+- Use > for critical insights, key principles, or memorable takeaways
+- Limit to 1-2 per summary
+- Should contain the most important or actionable information
+
+Spacing:
+- Include blank lines before and after headers
+- Include blank lines between paragraphs
+- Include blank lines between list items
+- Include blank lines before and after blockquotes
+- Create visual breathing room throughout
+
+LANGUAGE CONVENTIONS:
+
+Hyphenation:
+- Do NOT hyphenate prefix combinations unless required by standard English
+  * Correct: "reorganized," "incorporated," "reestablished," "nonprofit"
+  * Incorrect: "re-organized," "in-corporated," "re-established," "non-profit"
+- DO hyphenate compound adjectives before nouns: "long-term strategy," "real-world application"
+- DO hyphenate when necessary for clarity: "re-create" (create again) vs "recreate" (leisure)
+
+Terminology:
+- Use consistent terminology throughout
+- Define technical terms on first use
+- Avoid synonyms for key concepts (pick one term and stick with it)
+
+═══════════════════════════════════════════════════════════════════════════════
+REQUIRED STRUCTURE
+═══════════════════════════════════════════════════════════════════════════════
+
+Your summary must follow this template:
 
 # ${title}
 
-> [One sentence high-level summary of the entire topic]
+> [Single sentence capturing the essence of the entire topic - what it is and why it matters]
 
 ## Quick Takeaways
-• [Key Point 1]
 
-• [Key Point 2]
+• [Most critical insight - the single most important thing to understand]
 
-• [Key Point 3]
+• [Second key point - a major concept or principle]
 
-## Detailed Overview
-[1-2 paragraphs synthesizing the core concepts. Use clear, well-structured sentences.]
+• [Third key point - another essential idea]
 
-## Key Concepts & Definitions
-• **Concept 1**: Impactful definition/explanation.
+• [Optional fourth point if genuinely critical]
 
-• **Concept 2**: Impactful definition/explanation.
+
+## Core Concepts
+
+[2-3 paragraphs providing a clear explanation of the fundamental ideas. Focus on building understanding of the topic's foundation. Each paragraph should cover a distinct aspect or concept. Use clear topic sentences and logical flow.]
+
+[If the material covers multiple major concepts, break this into subsections:]
+
+### [Concept Area 1]
+
+[Explanation of this concept area]
+
+### [Concept Area 2]
+
+[Explanation of this concept area]
+
+
+## Key Terminology
+
+• **Term 1**: Clear, concise definition that captures the essential meaning.
+
+• **Term 2**: Clear, concise definition that captures the essential meaning.
+
+• **Term 3**: Clear, concise definition that captures the essential meaning.
+
+[Include 3-6 most important terms]
+
 
 ## Critical Insights
-> [Most important takeaway or practical application]
 
-## Conclusion
-[Brief final synthesis or next steps]
+> [The most important practical takeaway, principle, or application. This should be the "golden nugget" someone would highlight if they could only remember one thing.]
 
-QUALITY CRITERIA:
-✓ TL;DR section provided at the start.
-✓ 400-800 words total (concise and professional).
-✓ No emojis under any circumstances.
-✓ No unnecessary hyphens (looks more natural).
-✓ Well-structured and perfectly aligned Markdown.
-✓ Content is well-spaced and readable (not jammed packed).
-✓ All interactive elements removed.
-✓ No invented information.
+[Optional: 1-2 paragraphs elaborating on how these concepts apply or interconnect, if this adds significant value]
 
-OUTPUT:
-Return the summary in plain Markdown text format. Start directly with the markdown content.`;
+
+## Summary
+
+[2-4 sentences providing closure. Synthesize how the key concepts relate to each other or to broader applications. Avoid introducing new information. This should feel like a natural conclusion.]
+
+═══════════════════════════════════════════════════════════════════════════════
+SECTION-SPECIFIC GUIDANCE
+═══════════════════════════════════════════════════════════════════════════════
+
+Quick Takeaways:
+- Should be immediately understandable without reading further
+- Each point should be genuinely distinct (no overlap)
+- Focus on outcomes, not process ("X enables Y" not "This section covers X")
+- 3-4 bullets maximum
+
+Core Concepts:
+- Should constitute 40-50% of total word count
+- Explain ideas in your own synthesized form
+- Include relevant examples only if they genuinely clarify
+- Break into subsections if covering 3+ major distinct concepts
+
+Key Terminology:
+- Include only terms essential to understanding the topic
+- Definitions should be precise but accessible
+- Order by importance or logical progression
+- 3-6 terms typical (adjust based on topic complexity)
+
+Critical Insights:
+- Should highlight the "so what" factor
+- Can be a principle, pattern, application, or implication
+- Must be directly supported by the content
+- Should be memorable and actionable
+
+Summary:
+- Should feel conclusive, not repetitive
+- Can mention connections to broader context if relevant
+- Keep brief (2-4 sentences)
+- End on a note that emphasizes practical value or significance
+
+═══════════════════════════════════════════════════════════════════════════════
+QUALITY ASSURANCE CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+Content Quality:
+✓ Every fact is traceable to source material
+✓ No hallucinated information or external knowledge
+✓ All interactive/pedagogical elements removed
+✓ 3-5 most important concepts clearly identified and explained
+✓ Terminology is consistent throughout
+✓ Information is synthesized, not just extracted
+
+Formatting Quality:
+✓ All sections follow the required structure
+✓ Markdown syntax is correct and consistent
+✓ Adequate spacing between all elements
+✓ No emojis or decorative symbols
+✓ No unnecessary hyphens (check prefix words)
+✓ Bold used strategically, not excessively
+✓ Code formatting used appropriately for technical content
+
+Professional Standards:
+✓ Tone is academic and professional throughout
+✓ Language is clear and precise
+✓ No "AI-sounding" filler phrases
+✓ No colloquialisms or casual language
+✓ Sentences are well-structured and varied
+
+Length & Scannability:
+✓ Total word count: 400-800 words (maximum 1000)
+✓ Headers make structure immediately clear
+✓ Key information is easily locatable
+✓ Document can be scanned in under 2 minutes
+
+Standalone Value:
+✓ Can be understood without accessing original material
+✓ Provides genuine review and reference value
+✓ Contains the essential knowledge needed to understand the topic
+✓ Strikes appropriate balance between brevity and completeness
+
+═══════════════════════════════════════════════════════════════════════════════
+OUTPUT INSTRUCTIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+Return the summary as plain Markdown text. Begin directly with the content - no preamble, no code fences, no meta-commentary.
+
+The output should be a polished document that someone could:
+- Use as a study guide for exam preparation
+- Reference quickly to refresh their memory
+- Share with colleagues as a professional resource
+- Print and annotate for personal review
+
+Start immediately with the markdown-formatted summary.`;
   }
 
   static scoreTheoryQuestion(
