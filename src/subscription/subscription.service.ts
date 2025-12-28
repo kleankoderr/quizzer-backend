@@ -504,7 +504,7 @@ export class SubscriptionService {
       // Always release the lock, even if verification fails
       if (lock) {
         try {
-          await lock.release();
+          await (lock as any).unlock();
           this.logger.log(
             `Released lock for payment verification: ${reference}`
           );

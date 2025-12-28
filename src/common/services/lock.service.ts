@@ -11,7 +11,7 @@ export class LockService {
   constructor(private readonly configService: ConfigService) {
     const redisClient = new Redis(this.configService.get<string>('REDIS_URL'));
 
-    this.redlock = new Redlock([redisClient], {
+    this.redlock = new Redlock([redisClient as any], {
       driftFactor: 0.01,
       retryCount: 10,
       retryDelay: 200,
