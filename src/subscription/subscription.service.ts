@@ -1,11 +1,11 @@
 import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
-  BadRequestException,
-  ForbiddenException,
-  ConflictException,
-  Inject,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -107,7 +107,16 @@ export class SubscriptionService {
       let subscriptionId: string;
 
       if (existingSubscription) {
-        subscriptionId = existingSubscription.id;
+        // Update existing subscription with new plan and status
+        const updatedSubscription = await tx.subscription.update({
+          where: { id: existingSubscription.id },
+          data: {
+            planId, // Update to the new plan being purchased
+            status: SubscriptionStatus.PENDING_PAYMENT, // Set to pending until payment is verified
+            pendingPlanId: null, // Clear any pending plan changes
+          },
+        });
+        subscriptionId = updatedSubscription.id;
       } else {
         // Create a placeholder subscription that will be activated later
         const newSubscription = await tx.subscription.create({
@@ -263,6 +272,51 @@ export class SubscriptionService {
    * @returns Activated subscription details
    */
   async verifyAndActivate(reference: string, requestingUserId?: string) {
+    this.logger.log(`Verifying payment with reference: ${reference}`);
+
+    // EARLY CHECK: Fetch payment record BEFORE acquiring lock
+    // This prevents race conditions when webhook already processed the payment
+    const existingPayment = await this.prisma.payment.findUnique({
+      where: { paystackReference: reference },
+      include: {
+        subscription: {
+          include: {
+            plan: true,
+          },
+        },
+        user: true,
+      },
+    });
+
+    if (!existingPayment) {
+      throw new NotFoundException('Payment record not found');
+    }
+
+    // Validate ownership if called from authenticated endpoint
+    if (requestingUserId && existingPayment.userId !== requestingUserId) {
+      this.logger.warn(
+        `User ${requestingUserId} attempted to verify payment belonging to ${existingPayment.userId}`,
+        {
+          reference,
+          requestingUserId,
+          actualUserId: existingPayment.userId,
+          timestamp: new Date().toISOString(),
+        }
+      );
+      throw new ForbiddenException(
+        'You are not authorized to verify this payment'
+      );
+    }
+
+    // If payment already successful, return existing subscription immediately
+    if (existingPayment.status === PaymentStatus.SUCCESS) {
+      this.logger.log(
+        `Payment ${reference} already processed successfully. Returning existing subscription.`
+      );
+      return existingPayment.subscription;
+    }
+
+    // Payment is still PENDING - acquire lock to process it
     const lockKey = `payment:verify:${reference}`;
     let lock: Lock;
 
@@ -280,49 +334,6 @@ export class SubscriptionService {
     }
 
     try {
-      this.logger.log(`Verifying payment with reference: ${reference}`);
-
-      // Early idempotency check - fetch payment record first
-      const existingPayment = await this.prisma.payment.findUnique({
-        where: { paystackReference: reference },
-        include: {
-          subscription: {
-            include: {
-              plan: true,
-            },
-          },
-          user: true,
-        },
-      });
-
-      if (!existingPayment) {
-        throw new NotFoundException('Payment record not found');
-      }
-
-      // Validate ownership if called from authenticated endpoint
-      if (requestingUserId && existingPayment.userId !== requestingUserId) {
-        this.logger.warn(
-          `User ${requestingUserId} attempted to verify payment belonging to ${existingPayment.userId}`,
-          {
-            reference,
-            requestingUserId,
-            actualUserId: existingPayment.userId,
-            timestamp: new Date().toISOString(),
-          }
-        );
-        throw new ForbiddenException(
-          'You are not authorized to verify this payment'
-        );
-      }
-
-      // If payment already successful, return existing subscription immediately
-      if (existingPayment.status === PaymentStatus.SUCCESS) {
-        this.logger.log(
-          `Payment ${reference} already processed. Returning existing subscription.`
-        );
-        return existingPayment.subscription;
-      }
-
       // Verify payment with Paystack only if not already processed
       const paystackData =
         await this.paystackService.verifyTransaction(reference);
@@ -504,7 +515,7 @@ export class SubscriptionService {
       // Always release the lock, even if verification fails
       if (lock) {
         try {
-          await (lock as any).unlock();
+          await lock.release();
           this.logger.log(
             `Released lock for payment verification: ${reference}`
           );
@@ -568,14 +579,12 @@ export class SubscriptionService {
   async getMySubscription(userId: string) {
     this.logger.log(`Fetching subscription for user ${userId}`);
 
-    const subscription = await this.prisma.subscription.findUnique({
+    return this.prisma.subscription.findUnique({
       where: { userId },
       include: {
         plan: true,
       },
     });
-
-    return subscription;
   }
 
   /**
