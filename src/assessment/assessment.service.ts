@@ -56,9 +56,9 @@ export class AssessmentService {
 
     // Analyze topics
     const topicScores = new Map<string, { total: number; count: number }>();
-    quizAttempts.forEach((attempt) => {
+    for (const attempt of quizAttempts) {
       const topic = attempt.quiz?.topic || attempt.flashcardSet?.topic;
-      if (!topic) return;
+      if (!topic) continue;
 
       if (!topicScores.has(topic)) {
         topicScores.set(topic, { total: 0, count: 0 });
@@ -66,7 +66,7 @@ export class AssessmentService {
       const stats = topicScores.get(topic);
       stats.total += (attempt.score / attempt.totalQuestions) * 100;
       stats.count += 1;
-    });
+    }
 
     const strongTopics: string[] = [];
     const weakTopics: string[] = [];
@@ -79,10 +79,10 @@ export class AssessmentService {
 
     // Analyze preferred time (when user studies most)
     const hourCounts = new Map<number, number>();
-    attempts.forEach((attempt) => {
+    for (const attempt of attempts) {
       const hour = new Date(attempt.completedAt).getHours();
       hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
-    });
+    }
 
     let preferredHour = 0;
     let maxCount = 0;
@@ -97,9 +97,9 @@ export class AssessmentService {
 
     // Build retention levels map
     const retentionLevels: Record<string, RetentionLevel> = {};
-    topicProgress.forEach((tp) => {
+    for (const tp of topicProgress) {
       retentionLevels[tp.topic] = tp.retentionLevel;
-    });
+    }
 
     return {
       averageScore,

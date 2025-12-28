@@ -1,10 +1,6 @@
 import { doubleCsrf } from 'csrf-csrf';
 
-export const {
-  invalidCsrfTokenError,
-  generateCsrfToken,
-  doubleCsrfProtection,
-} = doubleCsrf({
+export const { invalidCsrfTokenError } = doubleCsrf({
   getSecret: () =>
     process.env.CSRF_SECRET || 'complex-secret-key-should-be-in-env',
   cookieName: 'x-csrf-token',
