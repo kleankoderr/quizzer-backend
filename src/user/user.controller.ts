@@ -127,4 +127,14 @@ export class UserController {
   async getQuotaStatus(@CurrentUser('sub') userId: string) {
     return this.quotaService.getQuotaStatus(userId);
   }
+
+  @Get('quota/cleanup-suggestions')
+  @ApiOperation({ summary: 'Get storage cleanup suggestions' })
+  @ApiResponse({
+    status: 200,
+    description: 'Cleanup suggestions retrieved successfully',
+  })
+  async getCleanupSuggestions(@CurrentUser('sub') userId: string) {
+    return this.quotaService.getStorageCleanupSuggestions(userId);
+  }
 }
