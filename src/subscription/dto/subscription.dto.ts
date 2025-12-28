@@ -24,6 +24,23 @@ export class CheckoutDto {
 }
 
 /**
+ * DTO for scheduling a subscription downgrade
+ */
+export class ScheduleDowngradeDto {
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'New subscription plan ID',
+  })
+  @IsString()
+  @IsNotEmpty()
+  planId: string;
+}
+
+/**
+ * DTO for checkout response
+ */
+
+/**
  * DTO for checkout response
  */
 export class CheckoutResponseDto {
@@ -132,6 +149,14 @@ export class SubscriptionResponseDto {
   cancelAtPeriodEnd: boolean;
 
   @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description:
+      'ID of the plan scheduled to start at the end of the current period',
+    required: false,
+  })
+  pendingPlanId?: string;
+
+  @ApiProperty({
     type: PlanDetailsDto,
     description: 'Subscription plan details',
   })
@@ -154,9 +179,11 @@ export class SubscriptionResponseDto {
  * Type for Paystack webhook event data
  */
 export interface WebhookEventData {
+  id?: number; // Paystack event ID for deduplication
   reference?: string;
   amount?: number;
   status?: string;
+  created_at?: string; // Event timestamp for age validation
   customer?: {
     email?: string;
   };

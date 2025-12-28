@@ -28,6 +28,22 @@ export interface VerifyTransactionResponse {
   customer: {
     email: string;
   };
+  gateway_response?: string;
+  authorization?: {
+    authorization_code: string;
+    bin: string;
+    last4: string;
+    exp_month: string;
+    exp_year: string;
+    channel: string;
+    card_type: string;
+    bank: string;
+    country_code: string;
+    brand: string;
+    reusable: boolean;
+    signature: string;
+    account_name: string | null;
+  };
 }
 
 @Injectable()
@@ -143,6 +159,8 @@ export class PaystackService {
         customer: {
           email: data.customer.email,
         },
+        gateway_response: data.gateway_response,
+        authorization: data.authorization,
       };
     } catch (error) {
       this.handlePaystackError(error, 'verify transaction');

@@ -55,6 +55,11 @@ export class UserDocumentController {
     );
   }
 
+  @Get('cleanup-suggestions')
+  async getCleanupSuggestions(@CurrentUser() user: User) {
+    return this.userDocumentService.getCleanupSuggestions(user.id);
+  }
+
   @Get(':id')
   async getUserDocumentById(
     @CurrentUser() user: User,

@@ -10,21 +10,26 @@ import {
   HttpCode,
   HttpStatus,
   UseInterceptors,
-  Inject,
+  UnauthorizedException,
+  Query,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { CACHE_MANAGER, CacheInterceptor } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { CacheInterceptor } from '@nestjs/cache-manager';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import * as crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { SubscriptionService } from './subscription.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../admin/guards/admin.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   CheckoutDto,
@@ -35,6 +40,7 @@ import {
   PlanDetailsDto,
   VerifyPaymentDto,
   CurrentPlanResponseDto,
+  ScheduleDowngradeDto,
 } from './dto/subscription.dto';
 
 @ApiTags('Subscription')
@@ -45,8 +51,7 @@ export class SubscriptionController {
 
   constructor(
     private readonly subscriptionService: SubscriptionService,
-    private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    private readonly configService: ConfigService
   ) {
     this.paystackSecretKey = this.configService.get<string>(
       'PAYSTACK_SECRET_KEY'
@@ -148,12 +153,24 @@ export class SubscriptionController {
     description: 'Payment verified and subscription activated',
     type: SubscriptionResponseDto,
   })
+  @ApiResponse({
+    status: 403,
+    description: 'User is not authorized to verify this payment',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Payment record not found',
+  })
   async verifyPayment(
+    @CurrentUser('sub') userId: string,
     @Body() verifyPaymentDto: VerifyPaymentDto
   ): Promise<SubscriptionResponseDto> {
-    this.logger.log(`Verifying payment: ${verifyPaymentDto.reference}`);
+    this.logger.log(
+      `User ${userId} verifying payment: ${verifyPaymentDto.reference}`
+    );
     const subscription = await this.subscriptionService.verifyAndActivate(
-      verifyPaymentDto.reference
+      verifyPaymentDto.reference,
+      userId
     );
 
     return {
@@ -179,10 +196,13 @@ export class SubscriptionController {
    * Handle Paystack webhook events
    * Public endpoint - validates signature
    */
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests per 60 seconds
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Handle Paystack webhook events' })
   @ApiResponse({ status: 200, description: 'Webhook received' })
+  @ApiResponse({ status: 401, description: 'Invalid webhook signature' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async handleWebhook(
     @Body() webhookEvent: WebhookEventDto,
     @Headers('x-paystack-signature') signature: string,
@@ -190,47 +210,36 @@ export class SubscriptionController {
   ): Promise<{ message: string }> {
     this.logger.log(`Received webhook event: ${webhookEvent.event}`);
 
-    // Verify Paystack signature
+    // Step 1: Verify Paystack signature
     const isValid = this.verifyPaystackSignature(
       JSON.stringify(req.body),
       signature
     );
 
     if (!isValid) {
-      this.logger.warn(
-        'Invalid webhook signature. Possible unauthorized webhook call.'
+      this.logger.error(
+        'Invalid webhook signature - potential security threat',
+        {
+          event: webhookEvent.event,
+          ip: req.ip,
+          timestamp: new Date().toISOString(),
+        }
       );
-      // Return 200 to acknowledge receipt even with invalid signature
-      // This prevents Paystack from retrying
-      return { message: 'Webhook received' };
+      throw new UnauthorizedException('Invalid webhook signature');
     }
 
-    // Handle charge.success event
-    if (webhookEvent.event === 'charge.success') {
-      const reference = webhookEvent.data?.reference;
-
-      if (!reference) {
-        this.logger.error('Webhook event missing payment reference');
-        return { message: 'Webhook received' };
+    // Log successful signature verification
+    this.logger.log(
+      `Webhook signature verified successfully for event: ${webhookEvent.event}`,
+      {
+        ip: req.ip,
+        reference: webhookEvent.data?.reference,
       }
+    );
 
-      this.logger.log(`Processing successful payment: ${reference}`);
-
-      try {
-        await this.subscriptionService.verifyAndActivate(reference);
-        this.logger.log(`Subscription activated for payment: ${reference}`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to activate subscription for payment ${reference}: ${error.message}`,
-          error.stack
-        );
-        // Still return 200 to acknowledge receipt
-      }
-    } else {
-      this.logger.log(`Ignoring webhook event: ${webhookEvent.event}`);
-    }
-
-    return { message: 'Webhook received' };
+    return this.subscriptionService.processWebhookEvent(webhookEvent, {
+      ip: req.ip,
+    });
   }
 
   /**
@@ -347,6 +356,97 @@ export class SubscriptionController {
   }
 
   /**
+   * Schedule a subscription downgrade
+   * Protected endpoint - requires authentication
+   */
+  @Post('schedule-downgrade')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Schedule a subscription downgrade for end of period',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Downgrade scheduled successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid plan or usage exceeds limits',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async scheduleDowngrade(
+    @CurrentUser('sub') userId: string,
+    @Body() scheduleDowngradeDto: ScheduleDowngradeDto
+  ) {
+    this.logger.log(
+      `User ${userId} scheduling downgrade to plan ${scheduleDowngradeDto.planId}`
+    );
+    return this.subscriptionService.scheduleDowngrade(
+      userId,
+      scheduleDowngradeDto.planId
+    );
+  }
+
+  /**
+   * Get recent payment failures (Admin only)
+   * Protected endpoint - requires authentication and admin role
+   */
+  @Get('admin/payment-failures')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get recent payment failures (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of recent payment failures with user information',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Items per page (default: 50)',
+  })
+  async getPaymentFailures(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number
+  ) {
+    this.logger.log(
+      `Admin requesting payment failures (page: ${page}, limit: ${limit})`
+    );
+    return this.subscriptionService.getRecentPaymentFailures(page, limit);
+  }
+
+  /**
+   * Get payment method statistics (Admin only)
+   * Protected endpoint - requires authentication and admin role
+   */
+  @Get('admin/payment-stats')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get payment method statistics (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment method statistics',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  async getPaymentStats() {
+    this.logger.log('Admin requesting payment method statistics');
+    return this.subscriptionService.getPaymentMethodStats();
+  }
+
+  /**
    * Verify Paystack webhook signature using HMAC SHA512
    * @param payload Raw request body as string
    * @param signature Signature from x-paystack-signature header
@@ -370,23 +470,6 @@ export class SubscriptionController {
         error.stack
       );
       return false;
-    }
-  }
-
-  /**
-   * Clear subscription plans cache
-   * Call this method when plans are updated to ensure fresh data
-   * @private
-   */
-  private async clearPlansCache(): Promise<void> {
-    try {
-      await this.cacheManager.del('/subscription/plans');
-      this.logger.log('Subscription plans cache cleared');
-    } catch (error) {
-      this.logger.error(
-        `Error clearing plans cache: ${error.message}`,
-        error.stack
-      );
     }
   }
 }

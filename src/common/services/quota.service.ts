@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SubscriptionStatus, UserPlan } from '@prisma/client';
+import { PlanType, SubscriptionStatus } from '@prisma/client';
+import { SubscriptionHelperService } from './subscription-helper.service';
 
 export type QuotaFeature =
   | 'quiz'
@@ -16,7 +17,10 @@ export type QuotaFeature =
 export class QuotaService {
   private readonly logger = new Logger(QuotaService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly subscriptionHelper: SubscriptionHelperService
+  ) {}
 
   /**
    * Check if user has quota available for feature
@@ -37,7 +41,7 @@ export class QuotaService {
     }
 
     // Check if monthly quota needs reset
-    if (this.shouldResetMonthlyQuota(userQuota.monthlyResetAt)) {
+    if (await this.shouldResetMonthlyQuota(userId, userQuota.monthlyResetAt)) {
       await this.resetMonthlyQuota(userId);
     }
 
@@ -45,7 +49,9 @@ export class QuotaService {
     const limit = await this.getLimit(userId, feature);
 
     if (currentUsage >= limit) {
-      const tierMessage = userQuota.isPremium
+      // Check premium status from subscription (single source of truth)
+      const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
+      const tierMessage = isPremium
         ? 'Try again next month.'
         : 'Upgrade to premium for higher limits.';
       throw new ForbiddenException(
@@ -78,7 +84,7 @@ export class QuotaService {
     }
 
     // Check if monthly quota needs reset
-    if (this.shouldResetMonthlyQuota(userQuota.monthlyResetAt)) {
+    if (await this.shouldResetMonthlyQuota(userId, userQuota.monthlyResetAt)) {
       await this.resetMonthlyQuota(userId);
       userQuota = await this.prisma.userQuota.findUnique({
         where: { userId },
@@ -113,8 +119,10 @@ export class QuotaService {
     const storageLimitMB = planQuotas?.storageLimitMB || 0;
     const filesPerMonth = planQuotas?.filesPerMonth || 0;
 
+    const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
+
     return {
-      isPremium: hasActiveSubscription, // Only check active subscription, not stale userQuota.isPremium
+      isPremium,
       monthlyResetAt: userQuota.monthlyResetAt,
       quiz: {
         used: userQuota.monthlyQuizCount,
@@ -195,19 +203,51 @@ export class QuotaService {
     };
   }
 
-  private shouldResetMonthlyQuota(resetAt: Date): boolean {
+  private async shouldResetMonthlyQuota(
+    userId: string,
+    resetAt: Date
+  ): Promise<boolean> {
     const now = new Date();
     const lastReset = new Date(resetAt);
 
-    // Reset if it's a new month
-    return (
-      now.getMonth() !== lastReset.getMonth() ||
-      now.getFullYear() !== lastReset.getFullYear()
-    );
+    // Get user's subscription to check billing cycle
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    // For free users, reset monthly
+    if (!subscription || subscription.status !== SubscriptionStatus.ACTIVE) {
+      // Reset on calendar month change
+      return (
+        now.getMonth() !== lastReset.getMonth() ||
+        now.getFullYear() !== lastReset.getFullYear()
+      );
+    }
+
+    // For premium users, reset based on subscription billing cycle
+    return now >= subscription.currentPeriodEnd;
   }
 
   private async resetMonthlyQuota(userId: string): Promise<void> {
     this.logger.log(`Resetting monthly quota for user ${userId}`);
+
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    // Calculate next reset date
+    let nextReset: Date;
+    if (subscription?.status === SubscriptionStatus.ACTIVE) {
+      // Use subscription period end for premium users
+      nextReset = subscription.currentPeriodEnd;
+    } else {
+      // Use calendar month for free users
+      nextReset = new Date();
+      nextReset.setMonth(nextReset.getMonth() + 1);
+      nextReset.setDate(1);
+      nextReset.setHours(0, 0, 0, 0);
+    }
+
     await this.prisma.userQuota.update({
       where: { userId },
       data: {
@@ -219,9 +259,13 @@ export class QuotaService {
         monthlySmartCompanionCount: 0,
         monthlyWeakAreaAnalysisCount: 0,
         monthlyFileUploadCount: 0,
-        monthlyResetAt: new Date(),
+        monthlyResetAt: nextReset,
       },
     });
+
+    this.logger.log(
+      `Monthly quota reset for user ${userId}, next reset: ${nextReset.toISOString()}`
+    );
   }
 
   private async incrementUsage(
@@ -374,6 +418,18 @@ export class QuotaService {
     }
 
     const currentUsage = userQuota.totalFileStorageMB;
+
+    // Strict enforcement for downgraded users:
+    // If user is ALREADY over the limit (currentUsage > storageLimitMB), block upload
+    // even if the new file is small. This forces cleanup after downgrade.
+    if (currentUsage > storageLimitMB) {
+      throw new ForbiddenException(
+        `Your storage limit has been reduced. Please delete ${(
+          currentUsage - storageLimitMB
+        ).toFixed(2)}MB of files before uploading new ones.`
+      );
+    }
+
     const newTotal = currentUsage + fileSizeMB;
 
     if (newTotal > storageLimitMB) {
@@ -381,7 +437,9 @@ export class QuotaService {
         ? 'Your storage is full. Please delete some files.'
         : 'Upgrade to premium for more storage.';
       throw new ForbiddenException(
-        `File storage limit exceeded (${currentUsage.toFixed(2)}MB/${storageLimitMB}MB). ${tierMessage}`
+        `File storage limit exceeded (${currentUsage.toFixed(
+          2
+        )}MB/${storageLimitMB}MB). ${tierMessage}`
       );
     }
 
@@ -390,6 +448,110 @@ export class QuotaService {
       remaining: storageLimitMB - newTotal,
       current: currentUsage,
       limit: storageLimitMB,
+    };
+  }
+
+  /**
+   * Check if user is within storage limits
+   * @param userId User ID
+   * @returns True if usage is within limit
+   */
+  async enforceStorageLimit(userId: string): Promise<boolean> {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+      include: { plan: true },
+    });
+
+    // Determine storage limit based on subscription status
+    let storageLimitMB = 50; // Default free tier
+
+    if (
+      subscription?.status === SubscriptionStatus.ACTIVE &&
+      subscription.currentPeriodEnd > new Date() &&
+      subscription.plan.quotas
+    ) {
+      storageLimitMB = (subscription.plan.quotas as any).storageLimitMB || 50;
+    } else {
+      // Fallback to Free plan quotas if available
+      const freePlan = await this.prisma.subscriptionPlan.findFirst({
+        where: { name: PlanType.Free, isActive: true },
+      });
+      if (freePlan?.quotas) {
+        storageLimitMB = (freePlan.quotas as any).storageLimitMB || 50;
+      }
+    }
+
+    const userQuota = await this.prisma.userQuota.findUnique({
+      where: { userId },
+    });
+
+    if (!userQuota) return true;
+
+    return userQuota.totalFileStorageMB <= storageLimitMB;
+  }
+
+  /**
+   * Get suggestions for files to delete to get back under storage limit
+   * @param userId User ID
+   */
+  async getStorageCleanupSuggestions(userId: string) {
+    const userQuota = await this.prisma.userQuota.findUnique({
+      where: { userId },
+    });
+
+    if (!userQuota) {
+      return { needsCleanup: false };
+    }
+
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+      include: { plan: true },
+    });
+
+    // Determine storage limit
+    let limit = 50; // Default free tier
+    if (
+      subscription?.status === SubscriptionStatus.ACTIVE &&
+      subscription.currentPeriodEnd > new Date() &&
+      subscription.plan.quotas
+    ) {
+      limit = (subscription.plan.quotas as any).storageLimitMB || 50;
+    } else {
+      const freePlan = await this.prisma.subscriptionPlan.findFirst({
+        where: { name: PlanType.Free, isActive: true },
+      });
+      if (freePlan?.quotas) {
+        limit = (freePlan.quotas as any).storageLimitMB || 50;
+      }
+    }
+
+    const current = userQuota.totalFileStorageMB;
+
+    if (current <= limit) {
+      return { needsCleanup: false };
+    }
+
+    const needToDelete = current - limit;
+
+    // Get user's largest files
+    const largestFiles = await this.prisma.userDocument.findMany({
+      where: { userId },
+      include: { document: true },
+      orderBy: { document: { sizeBytes: 'desc' } },
+      take: 10,
+    });
+
+    return {
+      needsCleanup: true,
+      neededDeletion: needToDelete,
+      currentUsage: current,
+      limit,
+      suggestions: largestFiles.map((uf) => ({
+        id: uf.id,
+        name: uf.displayName,
+        sizeMB: (uf.document.sizeBytes / 1024 / 1024).toFixed(2),
+        uploadedAt: uf.uploadedAt,
+      })),
     };
   }
 
@@ -419,18 +581,13 @@ export class QuotaService {
   async resetToFreeTier(userId: string): Promise<void> {
     this.logger.log(`Resetting user ${userId} to free tier`);
 
-    // Use transaction to ensure both updates happen atomically
-    await this.prisma.$transaction([
-      this.prisma.userQuota.update({
-        where: { userId },
-        data: {
-          isPremium: false,
-        },
-      }),
-      this.prisma.user.update({
-        where: { id: userId },
-        data: { plan: UserPlan.FREE },
-      }),
-    ]);
+    // Only update subscription status
+    // Quota checks will automatically use free tier quotas based on subscription
+    await this.prisma.subscription.update({
+      where: { userId },
+      data: {
+        status: SubscriptionStatus.EXPIRED,
+      },
+    });
   }
 }

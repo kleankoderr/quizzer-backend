@@ -25,4 +25,18 @@ export class SubscriptionScheduler {
       this.logger.error('Failed to process expired subscriptions', error);
     }
   }
+
+  /**
+   * Clean up abandoned payments every 6 hours
+   */
+  @Cron('0 */6 * * *') // Every 6 hours
+  async cleanupPayments() {
+    this.logger.log('Running payment cleanup job...');
+    try {
+      const count = await this.subscriptionService.cleanupAbandonedPayments();
+      this.logger.log(`Payment cleanup completed. Cleaned ${count} payments.`);
+    } catch (error) {
+      this.logger.error('Failed to clean up payments', error);
+    }
+  }
 }

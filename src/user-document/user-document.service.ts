@@ -429,4 +429,12 @@ export class UserDocumentService {
 
     return result.count;
   }
+
+  /**
+   * Get storage cleanup suggestions for users over quota
+   * @param userId User ID
+   */
+  async getCleanupSuggestions(userId: string) {
+    return this.quotaService.getStorageCleanupSuggestions(userId);
+  }
 }

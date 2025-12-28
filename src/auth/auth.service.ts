@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { SignupDto, LoginDto, GoogleAuthDto } from './dto/auth.dto';
 import { SettingsService } from '../settings/settings.service';
 import { SessionService } from '../session/session.service';
+import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import axios from 'axios';
 
 @Injectable()
@@ -21,7 +22,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly settingsService: SettingsService,
-    private readonly sessionService: SessionService
+    private readonly sessionService: SessionService,
+    private readonly subscriptionHelper: SubscriptionHelperService
   ) {
     this.client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
@@ -197,6 +199,9 @@ export class AuthService {
       userAgent,
     });
 
+    // Get premium status from subscription (single source of truth)
+    const isPremium = await this.subscriptionHelper.isPremiumUser(user.id);
+
     return {
       user: {
         id: user.id,
@@ -206,7 +211,7 @@ export class AuthService {
         schoolName: user.schoolName,
         grade: user.grade,
         role: user.role,
-        plan: user.plan,
+        isPremium, // Replacing plan field with isPremium for backwards compatibility
         onboardingCompleted: user.onboardingCompleted,
         assessmentPopupShown: user.assessmentPopupShown,
         createdAt: user.createdAt,
@@ -216,7 +221,7 @@ export class AuthService {
   }
 
   async getCurrentUser(userId: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -226,12 +231,21 @@ export class AuthService {
         schoolName: true,
         grade: true,
         role: true,
-        plan: true,
         onboardingCompleted: true,
         assessmentPopupShown: true,
         createdAt: true,
       },
     });
+
+    if (!user) return null;
+
+    // Get premium status from subscription (single source of truth)
+    const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
+
+    return {
+      ...user,
+      isPremium, // Add isPremium based on subscription status
+    };
   }
 
   /**

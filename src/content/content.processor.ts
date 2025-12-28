@@ -7,7 +7,7 @@ import { AiService } from '../ai/ai.service';
 import { EventFactory, EVENTS } from '../events/events.types';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
-import { UserPlan } from '@prisma/client';
+import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 
 export interface ContentJobData {
   userId: string;
@@ -37,6 +37,7 @@ export class ContentProcessor extends WorkerHost {
     private readonly eventEmitter: EventEmitter2,
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
+    private readonly subscriptionHelper: SubscriptionHelperService,
     @InjectQueue('summary-generation')
     private readonly summaryQueue: Queue
   ) {
@@ -153,13 +154,10 @@ export class ContentProcessor extends WorkerHost {
     jobId: string
   ): Promise<void> {
     try {
-      // Check if user is premium
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { plan: true },
-      });
+      // Check if user is premium using subscription (single source of truth)
+      const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
 
-      if (user?.plan === UserPlan.PREMIUM) {
+      if (isPremium) {
         await this.summaryQueue.add(
           'generate-summary',
           { studyMaterialId, userId },

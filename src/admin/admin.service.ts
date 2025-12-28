@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { ChallengeService } from '../challenge/challenge.service';
@@ -14,7 +18,6 @@ import {
   UpdateSchoolDto,
   PlatformSettingsDto,
 } from './dto/admin.dto';
-import { ForbiddenException } from '@nestjs/common';
 
 @Injectable()
 export class AdminService {
@@ -249,109 +252,145 @@ export class AdminService {
 
   async getUserContent(userId: string, filterDto: ContentFilterDto) {
     const { type = 'all', page = '1', limit = '10' } = filterDto;
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
+    const pageNum = Number.parseInt(page, 10);
+    const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
-    let data: any[] = [];
-    let total = 0;
-
-    if (type === 'quiz' || type === 'all') {
-      const [quizzes, quizCount] = await Promise.all([
-        this.prisma.quiz.findMany({
-          where: { userId },
-          skip: type === 'quiz' ? skip : 0,
-          take: type === 'quiz' ? limitNum : undefined,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            title: true,
-            topic: true,
-            difficulty: true,
-            createdAt: true,
-            _count: { select: { attempts: true } },
-          },
-        }),
-        this.prisma.quiz.count({ where: { userId } }),
-      ]);
-
-      if (type === 'quiz') {
-        data = quizzes.map((q) => ({ ...q, type: 'quiz' }));
-        total = quizCount;
-      } else {
-        data.push(...quizzes.map((q) => ({ ...q, type: 'quiz' })));
-      }
-    }
-
-    if (type === 'flashcard' || type === 'all') {
-      const [flashcards, flashcardCount] = await Promise.all([
-        this.prisma.flashcardSet.findMany({
-          where: { userId },
-          skip: type === 'flashcard' ? skip : 0,
-          take: type === 'flashcard' ? limitNum : undefined,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            title: true,
-            topic: true,
-            createdAt: true,
-            _count: { select: { attempts: true } },
-          },
-        }),
-        this.prisma.flashcardSet.count({ where: { userId } }),
-      ]);
-
-      if (type === 'flashcard') {
-        data = flashcards.map((f) => ({ ...f, type: 'flashcard' }));
-        total = flashcardCount;
-      } else {
-        data.push(...flashcards.map((f) => ({ ...f, type: 'flashcard' })));
-      }
-    }
-
-    if (type === 'content' || type === 'all') {
-      const [contents, contentCount] = await Promise.all([
-        this.prisma.content.findMany({
-          where: { userId },
-          skip: type === 'content' ? skip : 0,
-          take: type === 'content' ? limitNum : undefined,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            title: true,
-            topic: true,
-            createdAt: true,
-          },
-        }),
-        this.prisma.content.count({ where: { userId } }),
-      ]);
-
-      if (type === 'content') {
-        data = contents.map((c) => ({ ...c, type: 'content' }));
-        total = contentCount;
-      } else {
-        data.push(...contents.map((c) => ({ ...c, type: 'content' })));
-      }
-    }
-
-    // If type is "all", sort by createdAt and paginate
     if (type === 'all') {
-      data.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      total = data.length;
-      data = data.slice(skip, skip + limitNum);
+      return this.getAllUserContent(userId, skip, limitNum, pageNum);
     }
+
+    let result = { data: [], total: 0 };
+
+    switch (type) {
+      case 'quiz':
+        result = await this.getQuizzes(userId, skip, limitNum);
+        break;
+      case 'flashcard':
+        result = await this.getFlashcards(userId, skip, limitNum);
+        break;
+      case 'content':
+        result = await this.getContents(userId, skip, limitNum);
+        break;
+    }
+
+    return {
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(result.total / limitNum),
+      },
+    };
+  }
+
+  private async getAllUserContent(
+    userId: string,
+    skip: number,
+    limit: number,
+    page: number
+  ) {
+    const [quizResult, flashcardResult, contentResult] = await Promise.all([
+      this.getQuizzes(userId, 0),
+      this.getFlashcards(userId, 0),
+      this.getContents(userId, 0),
+    ]);
+
+    const allData = [
+      ...quizResult.data,
+      ...flashcardResult.data,
+      ...contentResult.data,
+    ];
+
+    allData.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    const total = allData.length;
+    const data = allData.slice(skip, skip + limit);
 
     return {
       data,
       meta: {
         total,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(total / limitNum),
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  private async getQuizzes(userId: string, skip: number, take?: number) {
+    const [quizzes, total] = await Promise.all([
+      this.prisma.quiz.findMany({
+        where: { userId },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          topic: true,
+          difficulty: true,
+          createdAt: true,
+          _count: { select: { attempts: true } },
+        },
+      }),
+      this.prisma.quiz.count({ where: { userId } }),
+    ]);
+
+    return {
+      data: quizzes.map((q) => ({ ...q, type: 'quiz' })),
+      total,
+    };
+  }
+
+  private async getFlashcards(userId: string, skip: number, take?: number) {
+    const [flashcards, total] = await Promise.all([
+      this.prisma.flashcardSet.findMany({
+        where: { userId },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          topic: true,
+          createdAt: true,
+          _count: { select: { attempts: true } },
+        },
+      }),
+      this.prisma.flashcardSet.count({ where: { userId } }),
+    ]);
+
+    return {
+      data: flashcards.map((f) => ({ ...f, type: 'flashcard' })),
+      total,
+    };
+  }
+
+  private async getContents(userId: string, skip: number, take?: number) {
+    const [contents, total] = await Promise.all([
+      this.prisma.content.findMany({
+        where: { userId },
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          topic: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.content.count({ where: { userId } }),
+    ]);
+
+    return {
+      data: contents.map((c) => ({ ...c, type: 'content' })),
+      total,
     };
   }
 
@@ -400,11 +439,6 @@ export class AdminService {
     const pageNum = Number.parseInt(page, 10);
     const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
-
-    // This is a simplified aggregation of content.
-    // In the future, you might want separate endpoints or a union query.
-    // For now, let's return quizzes and flashcards separately or combined if needed.
-    // Let's focus on Quizzes for now as primary content.
 
     const where: Prisma.QuizWhereInput = {};
 
@@ -488,8 +522,8 @@ export class AdminService {
 
   async getAllChallenges(filterDto: ContentFilterDto) {
     const { search, page = '1', limit = '10' } = filterDto;
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
+    const pageNum = Number.parseInt(page, 10);
+    const limitNum = Number.parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
     const where: Prisma.ChallengeWhereInput = {};
@@ -1054,7 +1088,7 @@ export class AdminService {
 
       const planKey = sub.plan.id;
       if (revenueByPlan.has(planKey)) {
-        const existing = revenueByPlan.get(planKey)!;
+        const existing = revenueByPlan.get(planKey);
         revenueByPlan.set(planKey, {
           planName: sub.plan.name,
           revenue: existing.revenue + sub.plan.price,
@@ -1077,14 +1111,16 @@ export class AdminService {
         : 0;
 
     // Calculate growth rate
-    const growthRate =
-      previousMonthSubscriptions > 0
-        ? ((newSubscriptionsLast30Days - previousMonthSubscriptions) /
-            previousMonthSubscriptions) *
-          100
-        : newSubscriptionsLast30Days > 0
-          ? 100
-          : 0;
+    let growthRate = 0;
+
+    if (previousMonthSubscriptions > 0) {
+      growthRate =
+        ((newSubscriptionsLast30Days - previousMonthSubscriptions) /
+          previousMonthSubscriptions) *
+        100;
+    } else if (newSubscriptionsLast30Days > 0) {
+      growthRate = 100;
+    }
 
     // Get subscription growth data for chart
     const growthData = await this.getSubscriptionGrowthData(thirtyDaysAgo, now);
@@ -1129,7 +1165,15 @@ export class AdminService {
         monthlyConceptExplanationCount: true,
         monthlyFileUploadCount: true,
         totalFileStorageMB: true,
-        isPremium: true,
+        userId: true,
+      },
+    });
+
+    // Get premium users count from subscriptions (single source of truth)
+    const premiumUsers = await this.prisma.subscription.count({
+      where: {
+        status: 'ACTIVE',
+        currentPeriodEnd: { gte: new Date() },
       },
     });
 
@@ -1139,7 +1183,6 @@ export class AdminService {
     let totalExplanations = 0;
     let totalFileUploads = 0;
     let totalStorageUsed = 0;
-    let premiumUsers = 0;
 
     for (const quota of quotas) {
       totalQuizzes += quota.monthlyQuizCount;
@@ -1148,7 +1191,6 @@ export class AdminService {
       totalExplanations += quota.monthlyConceptExplanationCount;
       totalFileUploads += quota.monthlyFileUploadCount;
       totalStorageUsed += quota.totalFileStorageMB;
-      if (quota.isPremium) premiumUsers++;
     }
 
     return {

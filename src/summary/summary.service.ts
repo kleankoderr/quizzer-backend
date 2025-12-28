@@ -10,9 +10,9 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { customAlphabet } from 'nanoid';
-import { UserPlan } from '@prisma/client';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 
 const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
@@ -34,6 +34,7 @@ export class SummaryService {
     @InjectQueue('summary-generation')
     private readonly summaryQueue: Queue,
     private readonly prisma: PrismaService,
+    private readonly subscriptionHelper: SubscriptionHelperService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
@@ -45,17 +46,10 @@ export class SummaryService {
     studyMaterialId: string,
     userId: string
   ): Promise<{ jobId: string }> {
-    // Check user plan is PREMIUM
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { plan: true },
-    });
+    // Check user has premium subscription
+    const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (user.plan !== UserPlan.PREMIUM) {
+    if (!isPremium) {
       throw new ForbiddenException(
         'Summary generation is only available for premium users'
       );
@@ -436,7 +430,7 @@ export class SummaryService {
     }
 
     // Check for existing view
-    let hasViewed = false;
+    let hasViewed: boolean;
 
     if (userId) {
       // Check if user has viewed

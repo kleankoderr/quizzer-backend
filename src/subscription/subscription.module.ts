@@ -6,6 +6,7 @@ import { SubscriptionService } from './subscription.service';
 import { SubscriptionScheduler } from './subscription.scheduler';
 import { PaystackService } from './paystack.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LockService } from '../common/services/lock.service';
 import { CommonModule } from '../common/common.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { CommonModule } from '../common/common.module';
     SubscriptionScheduler,
     PaystackService,
     PrismaService,
+    LockService,
   ],
   exports: [PaystackService, SubscriptionService],
 })
