@@ -37,10 +37,15 @@ RUN apk add --no-cache \
 # Copy build artifacts and node_modules from the build stage
 COPY --from=base /app/dist ./dist
 COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/prisma ./prisma
 COPY package*.json ./
+
+# Copy and set up the entrypoint script
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 # Expose the application's port
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "dist/main.js"]
+# Start the application using exec form
+CMD ["./docker-entrypoint.sh"]

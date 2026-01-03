@@ -8,9 +8,12 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
 
 async function bootstrap() {
+  const startTime = Date.now();
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
   });
+
+  console.log(`✅ Application created in ${Date.now() - startTime}ms`);
 
   // Get HTTP adapter for exception filter
   const httpAdapter = app.get(HttpAdapterHost);
@@ -78,6 +81,9 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
+
+  const totalTime = Date.now() - startTime;
+  console.log(`🎉 Application started on port ${port} in ${totalTime}ms`);
 }
 
 bootstrap();
