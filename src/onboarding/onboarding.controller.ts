@@ -1,4 +1,11 @@
-import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common';
 import { OnboardingService } from './onboarding.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
@@ -8,7 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { User } from '@prisma/client';
+import { User, UserRole } from '@prisma/client';
 
 @ApiTags('Onboarding')
 @Controller('onboarding')
@@ -30,6 +37,11 @@ export class OnboardingController {
       userType?: string;
     }
   ) {
+    // Prevent admin users from accessing onboarding
+    if (user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Admin users do not require onboarding');
+    }
+
     // Save preferences and trigger assessment
     await this.onboardingService.savePreferences(user.id, body);
 
@@ -43,6 +55,11 @@ export class OnboardingController {
   @ApiOperation({ summary: 'Check assessment generation status' })
   @ApiResponse({ status: 200, description: 'Status retrieved' })
   async checkStatus(@CurrentUser() user: User) {
+    // Prevent admin users from accessing onboarding
+    if (user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Admin users do not require onboarding');
+    }
+
     return this.onboardingService.checkAssessmentStatus(user.id);
   }
 }
