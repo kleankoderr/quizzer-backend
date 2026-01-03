@@ -6,6 +6,7 @@ import {
   UseGuards,
   Res,
   Req,
+  HttpCode,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Response, Request } from 'express';
@@ -23,6 +24,8 @@ import {
   LoginDto,
   AuthResponseDto,
   GoogleAuthDto,
+  VerifyEmailDto,
+  ResendOtpDto,
 } from './dto/auth.dto';
 
 @ApiTags('Authentication')
@@ -47,7 +50,13 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const { user, accessToken } = await this.authService.signup(signupDto);
+    const result = await this.authService.signup(signupDto);
+
+    if ('requiresVerification' in result && result.requiresVerification) {
+      return result;
+    }
+
+    const { user, accessToken } = result as any;
     this.setCookie(res, accessToken, req);
     return { user, accessToken, message: 'Account created successfully.' };
   }
@@ -66,9 +75,45 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const { user, accessToken } = await this.authService.login(loginDto);
+    const result = await this.authService.login(loginDto);
+
+    if ('requiresVerification' in result && result.requiresVerification) {
+      return result;
+    }
+
+    const { user, accessToken } = result as any;
     this.setCookie(res, accessToken, req);
     return { user, accessToken };
+  }
+
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Verify email address with OTP' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully',
+    type: AuthResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid OTP' })
+  @ApiResponse({ status: 403, description: 'Too many attempts' })
+  @HttpCode(200)
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.authService.verifyEmail(dto.email, dto.otp);
+    const { user, accessToken } = result as any;
+    this.setCookie(res, accessToken, req);
+    return { user, accessToken, message: 'Email verified successfully.' };
+  }
+
+  @Post('resend-otp')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Resend OTP verification email' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @HttpCode(200)
+  async resendOtp(@Body() dto: ResendOtpDto) {
+    return this.authService.resendOtp(dto.email);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60000 } })

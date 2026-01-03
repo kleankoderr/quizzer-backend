@@ -1,4 +1,10 @@
-import { IsEmail, IsString, MinLength, IsNotEmpty } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SignupDto {
@@ -66,4 +72,25 @@ export class AuthResponseDto {
 
   @ApiProperty({ description: 'JWT access token' })
   accessToken: string;
+}
+
+export class VerifyEmailDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: '123456', description: '6-digit OTP' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  @IsNotEmpty()
+  otp: string;
+}
+
+export class ResendOtpDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
 }

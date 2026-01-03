@@ -12,6 +12,7 @@ model User {
   email                         String            @unique
   name                          String
   password                      String?
+  emailVerified                 Boolean           @default(false)
   avatar                        String?
   googleId                      String?           @unique
   accessToken                   String?

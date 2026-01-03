@@ -41,6 +41,8 @@ import { SessionModule } from './session/session.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { WeakAreaModule } from './weak-area/weak-area.module';
 import { SummaryModule } from './summary/summary.module';
+import { EmailModule } from './email/email.module';
+import { OtpModule } from './otp/otp.module';
 
 @Module({
   imports: [
@@ -122,6 +124,8 @@ import { SummaryModule } from './summary/summary.module';
     SubscriptionModule,
     WeakAreaModule,
     SummaryModule,
+    EmailModule,
+    OtpModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService } from '../../session/session.service';
+import { OtpCacheService } from '../../otp/otp-cache.service';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
@@ -11,7 +12,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly sessionService: SessionService
+    private readonly sessionService: SessionService,
+    private readonly otpCacheService: OtpCacheService
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -43,6 +45,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (!user) {
       throw new UnauthorizedException('User not found or has been deleted');
+    }
+
+    // Check verification status
+    let isVerified = await this.otpCacheService.getVerificationStatus(
+      user.email
+    );
+    if (isVerified === null) {
+      isVerified = user.emailVerified;
+      // Cache it
+      await this.otpCacheService.cacheVerificationStatus(
+        user.email,
+        isVerified
+      );
+    }
+
+    if (!isVerified) {
+      throw new UnauthorizedException(
+        'Email address is not verified. Please verify your email.'
+      );
     }
 
     return {
