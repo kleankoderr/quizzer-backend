@@ -7,7 +7,6 @@ import {
   UploadResult,
   TransformOptions,
 } from '../interfaces/file-storage.interface';
-import { FileCompressionService } from './file-compression.service';
 
 /**
  * Cloudinary implementation with aggressive compression via FileCompressionService
@@ -16,10 +15,7 @@ import { FileCompressionService } from './file-compression.service';
 export class CloudinaryFileStorageService implements IFileStorageService {
   private readonly logger = new Logger(CloudinaryFileStorageService.name);
 
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly fileCompressionService: FileCompressionService
-  ) {
+  constructor(private readonly configService: ConfigService) {
     cloudinary.config({
       cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
       api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
@@ -37,42 +33,16 @@ export class CloudinaryFileStorageService implements IFileStorageService {
     options?: UploadOptions
   ): Promise<UploadResult> {
     try {
-      let processedBuffer = file.buffer;
-      let processedMimetype = file.mimetype;
-      const originalSize = file.buffer.length;
+      const fileSize = file.buffer.length;
 
       this.logger.log(
-        `Starting upload for ${file.originalname} (${originalSize} bytes, ${file.mimetype})`
-      );
-
-      // Apply aggressive local compression
-      if (file.mimetype.startsWith('image/')) {
-        this.logger.debug(`Applying maximum image compression...`);
-        processedBuffer = await this.fileCompressionService.compressImage(
-          file.buffer
-        );
-        processedMimetype = 'image/webp';
-      } else if (file.mimetype === 'application/pdf') {
-        this.logger.debug(
-          `Applying maximum PDF compression with Ghostscript...`
-        );
-        processedBuffer = await this.fileCompressionService.compressPDF(
-          file.buffer
-        );
-      }
-
-      const localCompressionRatio = (
-        ((originalSize - processedBuffer.length) / originalSize) *
-        100
-      ).toFixed(2);
-      this.logger.log(
-        `Local compression: ${originalSize} → ${processedBuffer.length} bytes (${localCompressionRatio}% reduction)`
+        `Starting upload for ${file.originalname} (${fileSize} bytes, ${file.mimetype})`
       );
 
       // Determine resource type
       const isImageOrPdf =
-        processedMimetype.startsWith('image/') ||
-        processedMimetype === 'application/pdf';
+        file.mimetype.startsWith('image/') ||
+        file.mimetype === 'application/pdf';
       const resourceType =
         options?.resourceType || (isImageOrPdf ? 'image' : 'auto');
 
@@ -98,7 +68,7 @@ export class CloudinaryFileStorageService implements IFileStorageService {
       }
 
       this.logger.debug(
-        `Uploading to Cloudinary: ${file.originalname} (${processedBuffer.length} bytes)`
+        `Uploading to Cloudinary: ${file.originalname} (${file.buffer.length} bytes)`
       );
 
       // Upload to Cloudinary
@@ -107,27 +77,21 @@ export class CloudinaryFileStorageService implements IFileStorageService {
           uploadOptions,
           (error, result) => {
             if (error) {
-              reject(
+              const errorMessage =
                 error instanceof Error
-                  ? error
-                  : new Error((error as any).message || JSON.stringify(error))
-              );
+                  ? error.message
+                  : (error as any).message || JSON.stringify(error);
+              reject(new Error(`Cloudinary upload failed: ${errorMessage}`));
             } else {
               resolve(result);
             }
           }
         );
-        uploadStream.end(processedBuffer);
+        uploadStream.end(file.buffer);
       });
 
-      const finalCompressionRatio = (
-        ((originalSize - result.bytes) / originalSize) *
-        100
-      ).toFixed(2);
       this.logger.log(`Upload successful: ${result.public_id}`);
-      this.logger.log(
-        `Final size: ${result.bytes} bytes (${finalCompressionRatio}% total reduction from ${originalSize} bytes)`
-      );
+      this.logger.log(`Uploaded ${file.originalname}: ${result.bytes} bytes`);
 
       return {
         publicId: result.public_id,

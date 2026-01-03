@@ -10,7 +10,7 @@ export class SchoolService {
   private readonly logger = new Logger(SchoolService.name);
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly httpService: HttpService
   ) {}
 
@@ -72,8 +72,9 @@ export class SchoolService {
         // Sort combined results
         results.sort((a, b) => a.name.localeCompare(b.name));
         results = results.slice(0, 10); // Limit total to 10
-      } catch (_error) {
-        // Continue with local results if external fails
+      } catch (error) {
+        // Log the error but continue with local results if external API fails
+        this.logger.warn('External school API request failed', error);
       }
     }
 
@@ -113,15 +114,26 @@ export class SchoolService {
   private async invalidateSchoolCache() {
     try {
       const store = (this.cacheManager as any).store;
-      // Check if we have access to the redis client directly
-      if ('client' in store) {
-        const client = (store as any).client;
+
+      // Check if store exists and has a client property
+      if (!store) {
+        this.logger.warn('Cache store is not available');
+        return;
+      }
+
+      // For cache-manager-redis-yet, the store is a promise that resolves to the actual store
+      // We need to await it if it's a promise
+      const actualStore = store instanceof Promise ? await store : store;
+
+      if (actualStore && 'client' in actualStore) {
+        const client = actualStore.client;
         // In node-redis v4+, keys returns an array of keys
-        // We need to handle the prefix if the store adds one, but usually it doesn't unless configured
         const keys = await client.keys('schools:search:*');
         if (keys && keys.length > 0) {
           await client.del(keys);
         }
+      } else {
+        this.logger.warn('Redis client not accessible from cache store');
       }
     } catch (error) {
       this.logger.error('Failed to invalidate school cache:', error);

@@ -48,40 +48,14 @@ export class GoogleFileStorageService implements IFileStorageService {
     options?: UploadOptions
   ): Promise<UploadResult> {
     try {
-      let processedBuffer = file.buffer;
-      let processedMimetype = file.mimetype;
-      const originalSize = file.buffer.length;
+      const fileSize = file.buffer.length;
 
       this.logger.log(
-        `Starting upload for ${file.originalname} (${originalSize} bytes, ${file.mimetype})`
+        `Starting upload for ${file.originalname} (${fileSize} bytes, ${file.mimetype})`
       );
 
-      // Apply aggressive local compression
-      if (file.mimetype.startsWith('image/')) {
-        this.logger.debug(`Applying maximum image compression...`);
-        processedBuffer = await this.fileCompressionService.compressImage(
-          file.buffer
-        );
-        processedMimetype = 'image/webp';
-      } else if (file.mimetype === 'application/pdf') {
-        this.logger.debug(
-          `Applying maximum PDF compression with Ghostscript...`
-        );
-        processedBuffer = await this.fileCompressionService.compressPDF(
-          file.buffer
-        );
-      }
-
-      const compressionRatio = (
-        ((originalSize - processedBuffer.length) / originalSize) *
-        100
-      ).toFixed(2);
-      this.logger.log(
-        `Local compression: ${originalSize} → ${processedBuffer.length} bytes (${compressionRatio}% reduction)`
-      );
-
-      // Calculate file hash for deduplication using the COMPRESSED buffer
-      const fileHash = this.calculateFileHash(processedBuffer);
+      // Calculate file hash for deduplication using the file buffer
+      const fileHash = this.calculateFileHash(file.buffer);
       const cacheKey = `google-file:${fileHash}`;
 
       // Check if file already uploaded (cached by hash)
@@ -94,19 +68,19 @@ export class GoogleFileStorageService implements IFileStorageService {
       }
 
       this.logger.debug(
-        `Uploading file: ${file.originalname} (${processedBuffer.length} bytes) to Google File API`
+        `Uploading file: ${file.originalname} (${file.buffer.length} bytes) to Google File API`
       );
 
       // Create a Blob from the buffer (convert Buffer to Uint8Array first)
-      const uint8Array = new Uint8Array(processedBuffer);
-      const fileBlob = new Blob([uint8Array], { type: processedMimetype });
+      const uint8Array = new Uint8Array(file.buffer);
+      const fileBlob = new Blob([uint8Array], { type: file.mimetype });
 
       // Upload using the SDK
       const uploadedFile = await this.genAI.files.upload({
         file: fileBlob,
         config: {
           displayName: options?.publicId || file.originalname,
-          mimeType: processedMimetype,
+          mimeType: file.mimetype,
         },
       });
 
@@ -137,13 +111,13 @@ export class GoogleFileStorageService implements IFileStorageService {
         publicId: fileStatus.name, // e.g., "files/abc123"
         url: fileStatus.uri, // Google File URI
         secureUrl: fileStatus.uri, // Same as url for Google Files
-        format: processedMimetype.split('/')[1] || 'unknown',
+        format: file.mimetype.split('/')[1] || 'unknown',
         bytes: fileStatus.sizeBytes
           ? Number.parseInt(fileStatus.sizeBytes)
-          : processedBuffer.length,
-        resourceType: processedMimetype.startsWith('image/')
+          : file.buffer.length,
+        resourceType: file.mimetype.startsWith('image/')
           ? 'image'
-          : processedMimetype.startsWith('video/')
+          : file.mimetype.startsWith('video/')
             ? 'video'
             : 'raw',
       };

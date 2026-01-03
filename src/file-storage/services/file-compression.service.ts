@@ -168,9 +168,27 @@ export class FileCompressionService implements OnModuleInit {
       this.logger.debug(`Executing ultra-aggressive Ghostscript compression`);
 
       // Execute Ghostscript
-      await execFileAsync('gs', gsArgs, {
+      const { stderr } = await execFileAsync('gs', gsArgs, {
         maxBuffer: 50 * 1024 * 1024,
       });
+
+      if (stderr) {
+        this.logger.debug(`Ghostscript stderr: ${stderr}`);
+      }
+
+      // Verify output file exists before reading
+      try {
+        await fs.access(outputPath);
+      } catch (accessError) {
+        // Handle the error by adding context and re-throwing
+        const errorMsg =
+          accessError instanceof Error
+            ? accessError.message
+            : String(accessError);
+        throw new Error(
+          `Ghostscript did not create output file: ${errorMsg}. Check if gs is properly installed and has write permissions to ${tempDir}`
+        );
+      }
 
       // Read compressed file
       const compressed = await fs.readFile(outputPath);
@@ -192,16 +210,24 @@ export class FileCompressionService implements OnModuleInit {
       }
 
       // Clean up temp files
-      await fs.unlink(inputPath).catch(() => {});
-      await fs.unlink(outputPath).catch(() => {});
+      await fs.unlink(inputPath).catch((err) => {
+        this.logger.debug(`Failed to delete temp input file: ${err.message}`);
+      });
+      await fs.unlink(outputPath).catch((err) => {
+        this.logger.debug(`Failed to delete temp output file: ${err.message}`);
+      });
 
       return compressed;
     } catch (error) {
       this.logger.error(`PDF compression failed: ${error.message}`);
 
       // Clean up temp files
-      await fs.unlink(inputPath).catch(() => {});
-      await fs.unlink(outputPath).catch(() => {});
+      await fs.unlink(inputPath).catch((err) => {
+        this.logger.debug(`Failed to delete temp input file: ${err.message}`);
+      });
+      await fs.unlink(outputPath).catch((err) => {
+        this.logger.debug(`Failed to delete temp output file: ${err.message}`);
+      });
 
       return buffer;
     }
