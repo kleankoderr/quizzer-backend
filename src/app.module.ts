@@ -22,7 +22,6 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { UserModule } from './user/user.module';
 import { TaskModule } from './task/task.module';
 
-import { SeedModule } from './seed/seed.module';
 import { AdminModule } from './admin/admin.module';
 import { FileStorageModule } from './file-storage/file-storage.module';
 import { StudyModule } from './study/study.module';
@@ -105,7 +104,6 @@ import { SummaryModule } from './summary/summary.module';
     UserModule,
     TaskModule,
 
-    SeedModule,
     AdminModule,
     StudyModule,
     AssessmentModule,

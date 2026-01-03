@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-
+import { PrismaClient, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -12,8 +12,68 @@ const pool = new Pool({
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+async function seedSuperAdmin() {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    console.log(
+      '⚠️  Super Admin credentials not found in environment variables. Skipping...\n'
+    );
+    return;
+  }
+
+  try {
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: adminEmail },
+    });
+
+    if (existingAdmin) {
+      console.log('✅ Super Admin account already exists:', adminEmail);
+
+      // Ensure role is SUPER_ADMIN
+      if (existingAdmin.role === UserRole.SUPER_ADMIN) {
+        console.log('');
+      } else {
+        await prisma.user.update({
+          where: { id: existingAdmin.id },
+          data: { role: UserRole.SUPER_ADMIN },
+        });
+        console.log('   ↳ Updated role to SUPER_ADMIN\n');
+      }
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
+    const admin = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        password: hashedPassword,
+        name: 'Super Admin',
+        role: UserRole.SUPER_ADMIN,
+        schoolName: 'Quizzer HQ',
+        grade: 'Admin',
+      },
+    });
+
+    console.log('✅ Super Admin account created:', {
+      id: admin.id,
+      email: admin.email,
+      role: admin.role,
+    });
+    console.log('');
+  } catch (error: any) {
+    console.error('❌ Failed to seed Super Admin:', error.message);
+    throw error;
+  }
+}
+
 async function main() {
   console.log('🌱 Starting database seeding...\n');
+
+  // Seed Super Admin first
+  await seedSuperAdmin();
 
   // Define Free Plan
   const freePlan = await prisma.subscriptionPlan.upsert({
