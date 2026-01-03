@@ -19,6 +19,7 @@ import {
   FILE_STORAGE_SERVICE,
 } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
+import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import {
   processFileUploads,
   ProcessedDocument,
@@ -55,6 +56,7 @@ export class ContentService {
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
+    private readonly fileCompressionService: FileCompressionService,
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService
   ) {}
@@ -515,7 +517,8 @@ export class ContentService {
         files,
         this.documentHashService,
         this.cloudinaryFileStorageService,
-        this.googleFileStorageService
+        this.googleFileStorageService,
+        this.fileCompressionService
       );
 
       const duplicateCount = processedDocs.filter((d) => d.isDuplicate).length;

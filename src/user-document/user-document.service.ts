@@ -6,6 +6,7 @@ import {
   FILE_STORAGE_SERVICE,
 } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
+import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import { processFileUploads } from '../common/helpers/file-upload.helpers';
 import { QuotaService } from '../common/services/quota.service';
 
@@ -20,6 +21,7 @@ export class UserDocumentService {
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
+    private readonly fileCompressionService: FileCompressionService,
     private readonly quotaService: QuotaService
   ) {}
 
@@ -337,7 +339,8 @@ export class UserDocumentService {
         files,
         this.documentHashService,
         this.cloudinaryFileStorageService,
-        this.googleFileStorageService
+        this.googleFileStorageService,
+        this.fileCompressionService
       );
 
       // Create UserDocument references for each uploaded file

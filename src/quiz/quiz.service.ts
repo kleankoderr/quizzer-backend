@@ -15,6 +15,7 @@ import {
 } from '../file-storage/interfaces/file-storage.interface';
 import { QuizType } from '@prisma/client';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
+import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import {
   processFileUploads,
   ProcessedDocument,
@@ -72,6 +73,7 @@ export class QuizService {
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
+    private readonly fileCompressionService: FileCompressionService,
     private readonly userDocumentService: UserDocumentService
   ) {}
 
@@ -835,7 +837,8 @@ export class QuizService {
         files,
         this.documentHashService,
         this.cloudinaryFileStorageService,
-        this.googleFileStorageService
+        this.googleFileStorageService,
+        this.fileCompressionService
       );
 
       const duplicateCount = processedDocs.filter((d) => d.isDuplicate).length;
