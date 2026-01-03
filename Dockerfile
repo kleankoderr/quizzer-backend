@@ -23,6 +23,9 @@ RUN npx prisma generate
 # Build the NestJS project
 RUN npm run build
 
+# Verify the build output
+RUN ls -la dist/ && test -f dist/src/main.js && echo "✅ Build successful: dist/src/main.js exists"
+
 
 # ---- Production Image ----
 FROM node:20-alpine

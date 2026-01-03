@@ -11,4 +11,4 @@ npx prisma generate
 npm run db:seed
 
 # Start the application
-exec node dist/main
+exec node dist/src/main
