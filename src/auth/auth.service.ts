@@ -6,7 +6,7 @@ import {
   ForbiddenException,
   BadRequestException,
   NotFoundException,
-} from '@nestjs/common';
+ HttpStatus, HttpException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -19,7 +19,6 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OtpService } from '../otp/otp.service';
 import { OtpCacheService } from '../otp/otp-cache.service';
 import { OtpEmailEvent } from '../email/events/otp-email.event';
-import { HttpStatus, HttpException } from '@nestjs/common';
 
 @Injectable()
 export class AuthService {
@@ -200,6 +199,13 @@ export class AuthService {
 
     if (user.emailVerified) {
       throw new ConflictException('Email is already verified');
+    }
+
+    // Check lockout
+    if (await this.otpCacheService.isAccountLocked(email)) {
+      throw new ForbiddenException(
+        'Account is temporarily locked due to too many failed attempts. Please try again later.'
+      );
     }
 
     // Check resend limit
