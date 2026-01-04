@@ -8,7 +8,7 @@ npx prisma migrate deploy
 npx prisma generate
 
 # Seed the database with initial data
-npm run db:seed
+pnpm run db:seed
 
 # Start the application
 exec node dist/src/main

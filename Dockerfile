@@ -9,10 +9,10 @@ RUN apk add --no-cache \
     ghostscript-fonts
 
 # Copy package files first for caching
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
-# Install all dependencies (dev + prod)
-RUN npm install --production=false
+# Install pnpm and dependencies
+RUN corepack enable && pnpm install --frozen-lockfile
 
 # Copy the full project
 COPY . .
@@ -21,7 +21,7 @@ COPY . .
 RUN npx prisma generate
 
 # Build the NestJS project
-RUN npm run build
+RUN pnpm run build
 
 # Verify the build output
 RUN ls -la dist/ && test -f dist/src/main.js && echo "✅ Build successful: dist/src/main.js exists"
@@ -37,11 +37,14 @@ RUN apk add --no-cache \
     ghostscript \
     ghostscript-fonts
 
+# Install pnpm
+RUN corepack enable
+
 # Copy build artifacts and node_modules from the build stage
 COPY --from=base /app/dist ./dist
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/prisma ./prisma
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Copy and set up the entrypoint script
 COPY docker-entrypoint.sh ./
