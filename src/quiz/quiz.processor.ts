@@ -59,7 +59,6 @@ export class QuizProcessor extends WorkerHost {
     try {
       // Step 1: Initialize and prepare
       const fileReferences = this.prepareFileReferences(files);
-      await job.updateProgress(20);
 
       // Create UserDocument references for uploaded files
       if (files && files.length > 0) {
@@ -115,7 +114,7 @@ export class QuizProcessor extends WorkerHost {
       // Emit completion event
       this.eventEmitter.emit(
         EVENTS.QUIZ.COMPLETED,
-        EventFactory.quizCompleted(userId, quiz.id, questions.length, {
+        EventFactory.quizCompleted(userId, jobId, quiz.id, questions.length, {
           title: quiz.title,
           topic: quiz.topic,
         })

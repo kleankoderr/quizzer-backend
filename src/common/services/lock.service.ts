@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Redlock from 'redlock';
-import { createClient } from 'redis';
+import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -9,18 +9,16 @@ export class LockService {
   private readonly redlock: Redlock;
 
   constructor(private readonly configService: ConfigService) {
-    const redisClient = createClient({
-      url: this.configService.get<string>('REDIS_URL'),
-      socket: {
-        connectTimeout: 5000,
-      },
+    const redisClient = new Redis(this.configService.get<string>('REDIS_URL'), {
+      connectTimeout: 5000,
+      maxRetriesPerRequest: 3,
     });
 
-    redisClient.connect().catch((err) => {
+    redisClient.on('error', (err) => {
       this.logger.error('Redis connection error:', err);
     });
 
-    this.redlock = new Redlock([redisClient as any], {
+    this.redlock = new Redlock([redisClient], {
       driftFactor: 0.01,
       retryCount: 10,
       retryDelay: 200,

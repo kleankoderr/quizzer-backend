@@ -61,6 +61,7 @@
     "ghostscript-node": "^1.5.0",
     "google-auth-library": "^10.5.0",
     "groq-sdk": "^0.37.0",
+    "ioredis": "^5.8.2",
     "json5": "^2.2.3",
     "nanoid": "^5.1.6",
     "passport": "^0.7.0",

@@ -122,7 +122,7 @@ export class ContentProcessor extends WorkerHost {
 
       this.eventEmitter.emit(
         EVENTS.CONTENT.COMPLETED,
-        EventFactory.contentCompleted(userId, content.id, {
+        EventFactory.contentCompleted(userId, jobId, content.id, {
           title: content.title,
           topic: content.topic,
         })

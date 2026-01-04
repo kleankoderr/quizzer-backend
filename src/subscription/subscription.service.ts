@@ -14,7 +14,6 @@ import { PaystackService } from './paystack.service';
 import { QuotaService } from '../common/services/quota.service';
 import { LockService } from '../common/services/lock.service';
 import { PaymentStatus, SubscriptionStatus } from '@prisma/client';
-import { Lock } from 'redlock';
 
 @Injectable()
 export class SubscriptionService {
@@ -107,13 +106,11 @@ export class SubscriptionService {
       let subscriptionId: string;
 
       if (existingSubscription) {
-        // Update existing subscription with new plan and status
         const updatedSubscription = await tx.subscription.update({
           where: { id: existingSubscription.id },
           data: {
-            planId, // Update to the new plan being purchased
             status: SubscriptionStatus.PENDING_PAYMENT, // Set to pending until payment is verified
-            pendingPlanId: null, // Clear any pending plan changes
+            pendingPlanId: planId, // Store the new plan ID here until payment is verified
           },
         });
         subscriptionId = updatedSubscription.id;
@@ -318,11 +315,10 @@ export class SubscriptionService {
 
     // Payment is still PENDING - acquire lock to process it
     const lockKey = `payment:verify:${reference}`;
-    let lock: Lock;
 
     try {
       // Acquire distributed lock to prevent race conditions
-      lock = await this.lockService.acquireLock(lockKey, 30000); // 30s TTL
+      await this.lockService.acquireLock(lockKey, 30000); // 30s TTL
       this.logger.log(`Acquired lock for payment verification: ${reference}`);
     } catch (_error) {
       this.logger.warn(
@@ -466,10 +462,14 @@ export class SubscriptionService {
               cancelAtPeriodEnd: false,
             },
             update: {
-              planId: existingPayment.subscription.planId,
+              // Apply plan change from pendingPlanId if it exists, otherwise keep current planId
+              planId:
+                existingPayment.subscription.pendingPlanId ||
+                existingPayment.subscription.planId,
               status: SubscriptionStatus.ACTIVE,
               currentPeriodEnd: periodEnd,
               cancelAtPeriodEnd: false,
+              pendingPlanId: null, // Clear pending plan after applying
             },
             include: {
               plan: true,
@@ -512,20 +512,8 @@ export class SubscriptionService {
 
       return subscription;
     } finally {
-      // Always release the lock, even if verification fails
-      if (lock) {
-        try {
-          await lock.release();
-          this.logger.log(
-            `Released lock for payment verification: ${reference}`
-          );
-        } catch (releaseError) {
-          this.logger.error(
-            `Failed to release lock for ${reference}:`,
-            releaseError
-          );
-        }
-      }
+      // Lock will auto-expire after TTL (30s)
+      // No manual release needed in Redlock 5.x
     }
   }
 

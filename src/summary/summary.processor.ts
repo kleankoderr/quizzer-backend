@@ -111,7 +111,7 @@ export class SummaryProcessor extends WorkerHost {
       // Emit success event
       this.eventEmitter.emit(
         EVENTS.SUMMARY.COMPLETED,
-        EventFactory.summaryCompleted(userId, summary.id, {
+        EventFactory.summaryCompleted(userId, jobId, summary.id, {
           shortCode: summary.shortCode,
           contentTitle: content.title,
         })

@@ -98,6 +98,9 @@ importers:
       groq-sdk:
         specifier: ^0.37.0
         version: 0.37.0
+      ioredis:
+        specifier: ^5.8.2
+        version: 5.8.2
       json5:
         specifier: ^2.2.3
         version: 2.2.3

@@ -52,7 +52,7 @@ export interface FlashcardProgressEvent extends ProgressEvent {
 
 export interface FlashcardCompletedEvent extends CompletionEvent {
   eventType: typeof EVENTS.FLASHCARD.COMPLETED;
-  resourceType: 'flashcard-set';
+  resourceType: 'flashcard';
   jobId: string;
   flashcardSetId: string;
   cardCount: number;
@@ -72,6 +72,7 @@ export interface QuizProgressEvent extends ProgressEvent {
 export interface QuizCompletedEvent extends CompletionEvent {
   eventType: typeof EVENTS.QUIZ.COMPLETED;
   resourceType: 'quiz';
+  jobId: string;
   quizId: string;
   questionCount: number;
 }
@@ -99,6 +100,7 @@ export interface ContentSectionEvent extends BaseEvent {
 export interface ContentCompletedEvent extends CompletionEvent {
   eventType: typeof EVENTS.CONTENT.COMPLETED;
   resourceType: 'content';
+  jobId: string;
   contentId: string;
   topic: string;
 }
@@ -191,6 +193,7 @@ export interface SummaryProgressEvent extends ProgressEvent {
 export interface SummaryCompletedEvent extends CompletionEvent {
   eventType: typeof EVENTS.SUMMARY.COMPLETED;
   resourceType: 'summary';
+  jobId: string;
   summaryId: string;
   shortCode: string;
 }
@@ -270,7 +273,7 @@ export const EventFactory = {
     userId,
     jobId,
     resourceId: flashcardSetId,
-    resourceType: 'flashcard-set',
+    resourceType: 'flashcard',
     flashcardSetId,
     cardCount,
     metadata,
@@ -309,12 +312,14 @@ export const EventFactory = {
 
   quizCompleted: (
     userId: string,
+    jobId: string,
     quizId: string,
     questionCount: number,
     metadata?: Record<string, any>
   ): QuizCompletedEvent => ({
     eventType: EVENTS.QUIZ.COMPLETED,
     userId,
+    jobId,
     resourceId: quizId,
     resourceType: 'quiz',
     quizId,
@@ -373,11 +378,13 @@ export const EventFactory = {
 
   contentCompleted: (
     userId: string,
+    jobId: string,
     contentId: string,
     metadata?: Record<string, any>
   ): ContentCompletedEvent => ({
     eventType: EVENTS.CONTENT.COMPLETED,
     userId,
+    jobId,
     resourceId: contentId,
     resourceType: 'content',
     contentId,
@@ -484,11 +491,13 @@ export const EventFactory = {
 
   summaryCompleted: (
     userId: string,
+    jobId: string,
     summaryId: string,
     metadata?: Record<string, any>
   ): SummaryCompletedEvent => ({
     eventType: EVENTS.SUMMARY.COMPLETED,
     userId,
+    jobId,
     resourceId: summaryId,
     resourceType: 'summary',
     summaryId,

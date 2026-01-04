@@ -17,7 +17,7 @@ export class PlatformSettingsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
   async getSettings(): Promise<PlatformSettings> {
