@@ -6,7 +6,9 @@ import {
   ForbiddenException,
   BadRequestException,
   NotFoundException,
- HttpStatus, HttpException } from '@nestjs/common';
+  HttpStatus,
+  HttpException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -19,6 +21,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OtpService } from '../otp/otp.service';
 import { OtpCacheService } from '../otp/otp-cache.service';
 import { OtpEmailEvent } from '../email/events/otp-email.event';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -117,7 +120,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check verification status
+    // Admins skip email verification
+    const isAdmin =
+      user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
+    if (isAdmin) {
+      return this.generateAuthResponse(user);
+    }
+
+    // Check verification status for non-admin users
     let isVerified = await this.otpCacheService.getVerificationStatus(email);
     if (isVerified === null) {
       // Fallback to DB
