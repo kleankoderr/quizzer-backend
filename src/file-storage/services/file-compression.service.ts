@@ -168,13 +168,9 @@ export class FileCompressionService implements OnModuleInit {
       this.logger.debug(`Executing ultra-aggressive Ghostscript compression`);
 
       // Execute Ghostscript
-      const { stderr } = await execFileAsync('gs', gsArgs, {
+      await execFileAsync('gs', gsArgs, {
         maxBuffer: 50 * 1024 * 1024,
       });
-
-      if (stderr) {
-        this.logger.debug(`Ghostscript stderr: ${stderr}`);
-      }
 
       // Verify output file exists before reading
       try {
