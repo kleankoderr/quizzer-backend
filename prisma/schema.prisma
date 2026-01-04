@@ -454,6 +454,7 @@ model PlatformSettings {
   maintenanceMode   Boolean  @default(false)
   supportEmail      String?
   aiPrompts         Json?
+  aiProviderConfig  Json?
   updatedAt         DateTime @updatedAt
 
   @@map("platform_settings")

@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { QuotaService } from '../common/services/quota.service';
+import { PlatformSettingsService } from '../common/services/platform-settings.service';
 import { UserRole, Prisma } from '@prisma/client';
 import {
   UserFilterDto,
@@ -25,7 +26,8 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly challengeService: ChallengeService,
-    private readonly quotaService: QuotaService
+    private readonly quotaService: QuotaService,
+    private readonly platformSettingsService: PlatformSettingsService
   ) {}
 
   async deleteContent(contentId: string) {
@@ -640,25 +642,11 @@ export class AdminService {
   }
 
   async getSettings() {
-    const settings = await this.prisma.platformSettings.findFirst();
-    if (!settings) {
-      return this.prisma.platformSettings.create({
-        data: { allowRegistration: true, maintenanceMode: false },
-      });
-    }
-    return settings;
+    return this.platformSettingsService.getSettings();
   }
 
   async updateSettings(dto: PlatformSettingsDto) {
-    const settings = await this.prisma.platformSettings.findFirst();
-    if (settings) {
-      return this.prisma.platformSettings.update({
-        where: { id: settings.id },
-        data: dto,
-      });
-    } else {
-      return this.prisma.platformSettings.create({ data: dto });
-    }
+    return this.platformSettingsService.updateSettings(dto);
   }
 
   async deleteFlashcardSet(flashcardSetId: string) {

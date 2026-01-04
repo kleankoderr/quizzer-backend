@@ -37,9 +37,12 @@ async function seedSuperAdmin() {
       } else {
         await prisma.user.update({
           where: { id: existingAdmin.id },
-          data: { role: UserRole.SUPER_ADMIN },
+          data: {
+            role: UserRole.SUPER_ADMIN,
+            emailVerified: true,
+          },
         });
-        console.log('   ↳ Updated role to SUPER_ADMIN\n');
+        console.log('   ↳ Updated role to SUPER_ADMIN and verified email\n');
       }
       return;
     }
@@ -54,6 +57,7 @@ async function seedSuperAdmin() {
         role: UserRole.SUPER_ADMIN,
         schoolName: 'Quizzer HQ',
         grade: 'Admin',
+        emailVerified: true,
       },
     });
 
@@ -164,6 +168,35 @@ async function main() {
     price: premiumPlan.price,
     quotas: premiumPlan.quotas,
   });
+
+  // Define Platform Settings
+  const settings = await prisma.platformSettings.findFirst();
+  const defaultAiConfig = {
+    files: 'gemini',
+    content: 'groq',
+    explanation: 'groq',
+    example: 'groq',
+    recommendations: 'groq',
+    summary: 'groq',
+    // quiz, flashcards, learningGuide are OMITTED to allow dynamic fallback
+  };
+
+  if (settings) {
+    await prisma.platformSettings.update({
+      where: { id: settings.id },
+      data: { aiProviderConfig: defaultAiConfig as any },
+    });
+    console.log('✅ Platform Settings updated with default AI config');
+  } else {
+    await prisma.platformSettings.create({
+      data: {
+        allowRegistration: true,
+        maintenanceMode: false,
+        aiProviderConfig: defaultAiConfig as any,
+      },
+    });
+    console.log('✅ Platform Settings created with default AI config');
+  }
 
   console.log('\n🎉 Database seeding completed successfully!');
 }

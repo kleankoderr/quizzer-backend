@@ -107,6 +107,11 @@ export class PlatformSettingsDto {
   @IsOptional()
   @IsString()
   supportEmail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  aiProviderConfig?: Record<string, any>;
 }
 
 export class ModerationActionDto {

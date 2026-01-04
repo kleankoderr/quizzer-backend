@@ -45,10 +45,21 @@ export class RecommendationService {
     });
 
     if (!stored || stored.length === 0) {
+      // Check if user has ANY recommendations (including dismissed ones)
+      const anyStored = await this.prisma.recommendation.findFirst({
+        where: { userId },
+      });
+
+      if (anyStored) {
+        // User has interacted (dismissed all), so return empty list
+        return [];
+      }
+
       this.logger.debug(
-        `No recommendations found for user ${userId}, returning defaults`
+        `No recommendations found for user ${userId}, creating defaults`
       );
-      // Return sensible defaults for new users
+
+      // Return sensible defaults for new users and persist them
       const defaults = [
         {
           topic: 'General Knowledge',
@@ -66,7 +77,33 @@ export class RecommendationService {
           priority: 'low' as const,
         },
       ];
-      return defaults.slice(0, limit);
+
+      const createdDefaults = await Promise.all(
+        defaults.slice(0, limit).map((def) =>
+          this.prisma.recommendation.create({
+            data: {
+              userId,
+              topic: def.topic,
+              reason: def.reason,
+              priority: def.priority,
+              visible: true,
+            },
+          })
+        )
+      );
+
+      const result = createdDefaults.map((s) => ({
+        id: s.id,
+        topic: s.topic,
+        reason: s.reason,
+        priority: s.priority,
+        visible: s.visible,
+      }));
+
+      // Cache the newly created defaults
+      await this.cacheManager.set(cacheKey, result, 600000);
+
+      return result;
     }
 
     this.logger.log(
