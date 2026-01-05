@@ -26,6 +26,8 @@ import {
   GoogleAuthDto,
   VerifyEmailDto,
   ResendOtpDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
 } from './dto/auth.dto';
 
 @ApiTags('Authentication')
@@ -144,6 +146,22 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getCurrentUser(@CurrentUser('sub') userId: string) {
     return this.authService.getCurrentUser(userId);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset OTP' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @HttpCode(200)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with OTP' })
+  @ApiResponse({ status: 200, description: 'Password reset successful' })
+  @HttpCode(200)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.email, dto.otp, dto.password);
   }
 
   @Post('logout')

@@ -21,6 +21,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OtpService } from '../otp/otp.service';
 import { OtpCacheService } from '../otp/otp-cache.service';
 import { OtpEmailEvent } from '../email/events/otp-email.event';
+import { PasswordResetEvent } from '../email/events/password-reset.event';
 import { UserRole } from '@prisma/client';
 
 @Injectable()
@@ -445,5 +446,89 @@ export class AuthService {
       // If decoding fails, return 0 (don't blacklist)
       return 0;
     }
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return {
+        message:
+          'If an account exists with this email, you will receive a reset code.',
+      };
+    }
+
+    if (user.googleId && !user.password) {
+      throw new BadRequestException(
+        'This account uses Google Sign-In. Please sign in with Google.'
+      );
+    }
+
+    // Rate limit
+    const genLimit =
+      await this.otpCacheService.checkOtpGenerationRateLimit(email);
+    if (!genLimit.allowed) {
+      throw new HttpException(
+        'Too many requests. Try again later.',
+        HttpStatus.TOO_MANY_REQUESTS
+      );
+    }
+
+    // Generate & Send
+    const otp = this.otpService.generateOtp();
+    const hashedOtp = await this.otpService.hashOtp(otp);
+    await this.otpCacheService.cachePasswordResetOtp(email, hashedOtp, 600);
+
+    this.eventEmitter.emit(
+      'password-reset.send',
+      new PasswordResetEvent(email, user.name, otp)
+    );
+
+    return { message: 'Password reset code sent to your email.' };
+  }
+
+  async resetPassword(email: string, otp: string, newPassword: string) {
+    // 1. Check cached OTP
+    const cachedData =
+      await this.otpCacheService.getCachedPasswordResetOtp(email);
+    if (!cachedData) {
+      throw new BadRequestException('Invalid or expired reset code.');
+    }
+
+    // 2. Validate OTP
+    const isValid = await this.otpService.validateOtp(
+      otp,
+      cachedData.hashedOtp
+    );
+    if (!isValid) {
+      const attempts =
+        await this.otpCacheService.incrementPasswordResetFailedAttempts(email);
+      if (attempts >= 5) {
+        await this.otpCacheService.lockAccount(email, 900);
+        throw new ForbiddenException(
+          'Too many failed attempts. Account locked for 15 minutes.'
+        );
+      }
+      throw new BadRequestException(
+        `Invalid reset code. ${5 - attempts} attempts remaining.`
+      );
+    }
+
+    // 3. Update Password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { email },
+      data: {
+        password: hashedPassword,
+        emailVerified: true, // resetting password also confirms email ownership
+      },
+    });
+
+    // 4. Clear cache
+    await this.otpCacheService.deleteCachedPasswordResetOtp(email);
+
+    return {
+      message:
+        'Password reset successful. You can now log in with your new password.',
+    };
   }
 }

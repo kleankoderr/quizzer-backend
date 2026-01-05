@@ -31,6 +31,10 @@ export class OtpCacheService {
     return `user:verified:${email}`;
   }
 
+  private getPasswordResetOtpKey(email: string): string {
+    return `otp:password-reset:${email}`;
+  }
+
   /**
    * Caches the OTP with basic metadata
    */
@@ -174,5 +178,49 @@ export class OtpCacheService {
     // Explicit check because val could be false (which is valid)
     if (val === undefined || val === null) return null;
     return val as boolean;
+  }
+
+  /**
+   * Caches password reset OTP
+   */
+  async cachePasswordResetOtp(
+    email: string,
+    hashedOtp: string,
+    ttlSeconds: number
+  ): Promise<void> {
+    const key = this.getPasswordResetOtpKey(email);
+    const data: OtpCacheData = {
+      hashedOtp,
+      attempts: 0,
+    };
+    await this.cacheManager.set(key, data, ttlSeconds * 1000);
+  }
+
+  /**
+   * Gets cached password reset OTP
+   */
+  async getCachedPasswordResetOtp(email: string): Promise<OtpCacheData | null> {
+    const key = this.getPasswordResetOtpKey(email);
+    return await this.cacheManager.get<OtpCacheData>(key);
+  }
+
+  /**
+   * Deletes cached password reset OTP
+   */
+  async deleteCachedPasswordResetOtp(email: string): Promise<void> {
+    const key = this.getPasswordResetOtpKey(email);
+    await this.cacheManager.del(key);
+  }
+
+  /**
+   * Increments failed attempts for password reset
+   */
+  async incrementPasswordResetFailedAttempts(email: string): Promise<number> {
+    const key = this.getPasswordResetOtpKey(email);
+    const data = await this.getCachedPasswordResetOtp(email);
+    if (!data) return 0;
+    data.attempts += 1;
+    await this.cacheManager.set(key, data, 600 * 1000);
+    return data.attempts;
   }
 }

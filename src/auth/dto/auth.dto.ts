@@ -94,3 +94,30 @@ export class ResendOtpDto {
   @IsNotEmpty()
   email: string;
 }
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: '123456', description: '6-digit OTP' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  @IsNotEmpty()
+  otp: string;
+
+  @ApiProperty({ example: 'newpassword123', description: 'New password' })
+  @IsString()
+  @MinLength(6)
+  @IsNotEmpty()
+  password: string;
+}
