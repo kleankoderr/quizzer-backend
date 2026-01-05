@@ -19,6 +19,26 @@ export class SchoolService {
     private readonly httpService: HttpService
   ) {}
 
+  async getTopSchools() {
+    const cacheKey = 'schools:top:10';
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const schools = await this.prisma.school.findMany({
+      take: 10,
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    // Cache for 24 hours
+    await this.cacheManager.set(cacheKey, schools, 24 * 60 * 60 * 1000);
+
+    return schools;
+  }
+
   async searchSchools(query: string) {
     if (!query || query.length < 2) {
       return [];

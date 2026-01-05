@@ -457,12 +457,6 @@ export class AuthService {
       };
     }
 
-    if (user.googleId && !user.password) {
-      throw new BadRequestException(
-        'This account uses Google Sign-In. Please sign in with Google.'
-      );
-    }
-
     // Rate limit
     const genLimit =
       await this.otpCacheService.checkOtpGenerationRateLimit(email);
@@ -473,11 +467,12 @@ export class AuthService {
       );
     }
 
-    // Generate & Send
+    // Generate & Send OTP (works for both regular users and Google OAuth users)
     const otp = this.otpService.generateOtp();
     const hashedOtp = await this.otpService.hashOtp(otp);
     await this.otpCacheService.cachePasswordResetOtp(email, hashedOtp, 600);
 
+    // Send password reset email
     this.eventEmitter.emit(
       'password-reset.send',
       new PasswordResetEvent(email, user.name, otp)

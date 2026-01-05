@@ -5,6 +5,11 @@ import { SchoolService } from './school.service';
 export class SchoolController {
   constructor(private readonly schoolService: SchoolService) {}
 
+  @Get()
+  async getSchools() {
+    return this.schoolService.getTopSchools();
+  }
+
   @Get('search')
   async search(@Query('q') query: string) {
     return this.schoolService.searchSchools(query);
