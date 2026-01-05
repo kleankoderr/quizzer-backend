@@ -33,6 +33,7 @@
   "dependencies": {
     "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
+    "@keyv/redis": "^5.1.5",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/bullmq": "^11.0.0",
     "@nestjs/common": "^11.1.8",
@@ -61,7 +62,6 @@
     "ghostscript-node": "^1.5.0",
     "google-auth-library": "^10.5.0",
     "groq-sdk": "^0.37.0",
-    "ioredis": "^5.8.2",
     "json5": "^2.2.3",
     "nanoid": "^5.1.6",
     "passport": "^0.7.0",
@@ -82,7 +82,6 @@
     "@nestjs/testing": "^11.1.8",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.5",
-    "@types/ioredis": "^4.28.10",
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.0",

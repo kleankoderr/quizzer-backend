@@ -3,7 +3,11 @@ import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { REDIS_CLIENT } from '../cache/cache.module';
 import { firstValueFrom } from 'rxjs';
+import { createClient } from 'redis';
+
+type RedisClientType = ReturnType<typeof createClient>;
 
 @Injectable()
 export class SchoolService {
@@ -11,6 +15,7 @@ export class SchoolService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(REDIS_CLIENT) private readonly redisClient: RedisClientType,
     private readonly httpService: HttpService
   ) {}
 
@@ -113,27 +118,10 @@ export class SchoolService {
 
   private async invalidateSchoolCache() {
     try {
-      const store = (this.cacheManager as any).store;
-
-      // Check if store exists and has a client property
-      if (!store) {
-        this.logger.warn('Cache store is not available');
-        return;
-      }
-
-      // For cache-manager-redis-yet, the store is a promise that resolves to the actual store
-      // We need to await it if it's a promise
-      const actualStore = store instanceof Promise ? await store : store;
-
-      if (actualStore && 'client' in actualStore) {
-        const client = actualStore.client;
-        // In node-redis v4+, keys returns an array of keys
-        const keys = await client.keys('schools:search:*');
-        if (keys && keys.length > 0) {
-          await client.del(keys);
-        }
-      } else {
-        this.logger.warn('Redis client not accessible from cache store');
+      // Use the shared redis client directly
+      const keys = await this.redisClient.keys('schools:search:*');
+      if (keys && keys.length > 0) {
+        await this.redisClient.del(keys);
       }
     } catch (error) {
       this.logger.error('Failed to invalidate school cache:', error);

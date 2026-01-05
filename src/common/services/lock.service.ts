@@ -1,24 +1,35 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import Redlock from 'redlock';
-import Redis from 'ioredis';
-import { ConfigService } from '@nestjs/config';
+import { createClient } from 'redis';
+import { REDIS_CLIENT } from '../../cache/cache.module';
+
+type RedisClientType = ReturnType<typeof createClient>;
 
 @Injectable()
 export class LockService {
   private readonly logger = new Logger(LockService.name);
   private readonly redlock: Redlock;
 
-  constructor(private readonly configService: ConfigService) {
-    const redisClient = new Redis(this.configService.get<string>('REDIS_URL'), {
-      connectTimeout: 5000,
-      maxRetriesPerRequest: 3,
-    });
+  constructor(
+    @Inject(REDIS_CLIENT) private readonly redisClient: RedisClientType
+  ) {
+    // Create an adapter for Redlock to bridge the signature mismatch with node-redis v5+
+    // Redlock expects: client.evalsha(hash, keysCount, [...keys, ...args])
+    // node-redis expects: client.evalSha(hash, { keys, arguments })
+    const redlockAdapter = {
+      eval: (script: string, keysCount: number, allArgs: string[]) =>
+        this.redisClient.eval(script, {
+          keys: allArgs.slice(0, keysCount),
+          arguments: allArgs.slice(keysCount).map(String),
+        }),
+      evalsha: (sha: string, keysCount: number, allArgs: string[]) =>
+        this.redisClient.evalSha(sha, {
+          keys: allArgs.slice(0, keysCount),
+          arguments: allArgs.slice(keysCount).map(String),
+        }),
+    };
 
-    redisClient.on('error', (err) => {
-      this.logger.error('Redis connection error:', err);
-    });
-
-    this.redlock = new Redlock([redisClient], {
+    this.redlock = new Redlock([redlockAdapter as any], {
       driftFactor: 0.01,
       retryCount: 10,
       retryDelay: 200,
