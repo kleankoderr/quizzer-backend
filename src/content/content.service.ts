@@ -26,6 +26,7 @@ import {
 } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
+import { StudyPackService } from '../study-pack/study-pack.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -58,7 +59,8 @@ export class ContentService {
     private readonly documentHashService: DocumentHashService,
     private readonly fileCompressionService: FileCompressionService,
     private readonly userDocumentService: UserDocumentService,
-    private readonly quotaService: QuotaService
+    private readonly quotaService: QuotaService,
+    private readonly studyPackService: StudyPackService
   ) {}
 
   /**
@@ -304,6 +306,7 @@ export class ContentService {
     });
 
     await this.invalidateUserCache(userId);
+    await this.studyPackService.invalidateUserCache(userId);
 
     return updatedContent;
   }
@@ -335,6 +338,7 @@ export class ContentService {
     });
 
     await this.invalidateUserCache(userId);
+    await this.studyPackService.invalidateUserCache(userId);
 
     this.logger.log(`Content ${contentId} deleted successfully`);
     return deleted;

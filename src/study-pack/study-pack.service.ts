@@ -27,16 +27,24 @@ export class StudyPackService {
   }
 
   private async getListVersion(userId: string): Promise<number> {
-    const version = await this.cacheManager.get<number>(
-      this.getListVersionKey(userId)
-    );
-    return version || 0;
+    const key = this.getListVersionKey(userId);
+    const version = await this.cacheManager.get<number>(key);
+    if (version === undefined || version === null) {
+      // First time, set it to 1 and return 1
+      await this.cacheManager.set(key, 1, 86400000); // 24 hours
+      return 1;
+    }
+    return version;
   }
 
   private async incrementListVersion(userId: string): Promise<void> {
     const key = this.getListVersionKey(userId);
     const version = await this.getListVersion(userId);
-    await this.cacheManager.set(key, version + 1, 0); // 0 = no expiry for version key (or long time)
+    await this.cacheManager.set(key, version + 1, 86400000); // 24 hours
+  }
+
+  async invalidateUserCache(userId: string): Promise<void> {
+    await this.incrementListVersion(userId);
   }
 
   async create(userId: string, createStudyPackDto: CreateStudyPackDto) {

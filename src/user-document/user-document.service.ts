@@ -9,6 +9,7 @@ import { DocumentHashService } from '../file-storage/services/document-hash.serv
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import { processFileUploads } from '../common/helpers/file-upload.helpers';
 import { QuotaService } from '../common/services/quota.service';
+import { StudyPackService } from '../study-pack/study-pack.service';
 
 @Injectable()
 export class UserDocumentService {
@@ -22,7 +23,8 @@ export class UserDocumentService {
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
     private readonly fileCompressionService: FileCompressionService,
-    private readonly quotaService: QuotaService
+    private readonly quotaService: QuotaService,
+    private readonly studyPackService: StudyPackService
   ) {}
 
   /**
@@ -233,6 +235,8 @@ export class UserDocumentService {
       where: { id: userDocumentId },
     });
 
+    await this.studyPackService.invalidateUserCache(userId);
+
     // Decrement storage quota
     await this.prisma.userQuota.update({
       where: { userId },
@@ -397,6 +401,7 @@ export class UserDocumentService {
 
       // Increment quota after successful upload
       await this.quotaService.incrementFileUpload(userId, totalFileSizeMB);
+      await this.studyPackService.invalidateUserCache(userId);
 
       return userDocuments;
     } catch (error) {

@@ -26,6 +26,7 @@ import {
   ProcessedDocument,
 } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
+import { StudyPackService } from '../study-pack/study-pack.service';
 
 const CACHE_TTL_MS = 300000; // 5 minutes
 
@@ -48,7 +49,8 @@ export class FlashcardService {
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
     private readonly fileCompressionService: FileCompressionService,
-    private readonly userDocumentService: UserDocumentService
+    private readonly userDocumentService: UserDocumentService,
+    private readonly studyPackService: StudyPackService
   ) {}
 
   /**
@@ -424,6 +426,7 @@ export class FlashcardService {
 
     // Invalidate cache
     await this.invalidateUserCache(userId);
+    await this.studyPackService.invalidateUserCache(userId);
 
     this.logger.log(`Flashcard set ${id} deleted`);
     return { success: true, message: 'Flashcard set deleted successfully' };

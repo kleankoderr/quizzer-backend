@@ -11,6 +11,7 @@ import { StudyModule } from '../study/study.module';
 import { FileStorageModule } from '../file-storage/file-storage.module';
 import { UserDocumentModule } from '../user-document/user-document.module';
 import { PrismaModule } from '../prisma/prisma.module'; // Assuming PrismaModule needs to be imported if used
+import { StudyPackModule } from '../study-pack/study-pack.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PrismaModule } from '../prisma/prisma.module'; // Assuming PrismaModule
     StudyModule,
     FileStorageModule, // Added FileStorageModule
     UserDocumentModule, // Added UserDocumentModule
+    StudyPackModule,
   ],
   controllers: [FlashcardController],
   providers: [FlashcardService, FlashcardProcessor],

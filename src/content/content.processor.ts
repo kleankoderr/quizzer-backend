@@ -8,6 +8,7 @@ import { EventFactory, EVENTS } from '../events/events.types';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
+import { StudyPackService } from '../study-pack/study-pack.service';
 
 export interface ContentJobData {
   userId: string;
@@ -38,6 +39,7 @@ export class ContentProcessor extends WorkerHost {
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
     private readonly subscriptionHelper: SubscriptionHelperService,
+    private readonly studyPackService: StudyPackService,
     @InjectQueue('summary-generation')
     private readonly summaryQueue: Queue
   ) {
@@ -111,6 +113,8 @@ export class ContentProcessor extends WorkerHost {
       });
 
       await this.quotaService.incrementQuota(userId, 'studyMaterial');
+
+      await this.studyPackService.invalidateUserCache(userId).catch(() => {});
 
       // Auto-generate summary for premium users
       await this.queueSummaryForPremiumUser(userId, content.id, jobId);

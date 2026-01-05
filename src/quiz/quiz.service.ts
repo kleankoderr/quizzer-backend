@@ -21,6 +21,7 @@ import {
   ProcessedDocument,
 } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
+import { StudyPackService } from '../study-pack/study-pack.service';
 
 const CACHE_TTL_MS = 300000; // 5 minutes
 const DUPLICATE_SUBMISSION_WINDOW_MS = 10000; // 10 seconds
@@ -74,7 +75,8 @@ export class QuizService {
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
     private readonly fileCompressionService: FileCompressionService,
-    private readonly userDocumentService: UserDocumentService
+    private readonly userDocumentService: UserDocumentService,
+    private readonly studyPackService: StudyPackService
   ) {}
 
   // ==================== QUIZ GENERATION ====================
@@ -581,6 +583,7 @@ export class QuizService {
     // Fire and forget file cleanup & cache invalidation
     this.cleanupQuizFilesAsync(quiz.sourceFiles);
     this.invalidateUserCache(userId).catch(() => {});
+    this.studyPackService.invalidateUserCache(userId).catch(() => {});
 
     this.logger.log(`Quiz ${id} deleted successfully`);
     return { success: true, message: 'Quiz deleted successfully' };

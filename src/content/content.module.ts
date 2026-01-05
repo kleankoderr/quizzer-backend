@@ -9,6 +9,7 @@ import { QuizModule } from '../quiz/quiz.module';
 import { FlashcardModule } from '../flashcard/flashcard.module';
 import { FileStorageModule } from '../file-storage/file-storage.module';
 import { UserDocumentModule } from '../user-document/user-document.module';
+import { StudyPackModule } from '../study-pack/study-pack.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UserDocumentModule } from '../user-document/user-document.module';
     FlashcardModule,
     FileStorageModule,
     UserDocumentModule,
+    StudyPackModule,
   ],
   controllers: [ContentController],
   providers: [ContentService, ContentProcessor],
