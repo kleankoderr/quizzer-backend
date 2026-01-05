@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, PlanType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -17,90 +17,48 @@ async function seedSuperAdmin() {
   const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (!adminEmail || !adminPassword) {
-    console.log(
-      '⚠️  Super Admin credentials not found in environment variables. Skipping...\n'
-    );
+    console.log('⚠️  Super Admin credentials not found. Skipping...\n');
     return;
   }
 
-  try {
-    const existingAdmin = await prisma.user.findUnique({
-      where: { email: adminEmail },
-    });
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail },
+  });
 
-    if (existingAdmin) {
-      console.log('✅ Super Admin account already exists:', adminEmail);
+  if (existingAdmin) {
+    console.log('✅ Super Admin exists:', adminEmail);
 
-      // Ensure role is SUPER_ADMIN
-      if (existingAdmin.role === UserRole.SUPER_ADMIN) {
-        console.log('');
-      } else {
-        await prisma.user.update({
-          where: { id: existingAdmin.id },
-          data: {
-            role: UserRole.SUPER_ADMIN,
-            emailVerified: true,
-          },
-        });
-        console.log('   ↳ Updated role to SUPER_ADMIN and verified email\n');
-      }
-      return;
+    if (existingAdmin.role !== UserRole.SUPER_ADMIN) {
+      await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: { role: UserRole.SUPER_ADMIN, emailVerified: true },
+      });
+      console.log('   ↳ Updated to SUPER_ADMIN\n');
     }
-
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
-
-    const admin = await prisma.user.create({
-      data: {
-        email: adminEmail,
-        password: hashedPassword,
-        name: 'Super Admin',
-        role: UserRole.SUPER_ADMIN,
-        schoolName: 'Quizzer HQ',
-        grade: 'Admin',
-        emailVerified: true,
-      },
-    });
-
-    console.log('✅ Super Admin account created:', {
-      id: admin.id,
-      email: admin.email,
-      role: admin.role,
-    });
-    console.log('');
-  } catch (error: any) {
-    console.error('❌ Failed to seed Super Admin:', error.message);
-    throw error;
+    return;
   }
+
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+  const admin = await prisma.user.create({
+    data: {
+      email: adminEmail,
+      password: hashedPassword,
+      name: 'Super Admin',
+      role: UserRole.SUPER_ADMIN,
+      schoolName: 'Quizzer HQ',
+      grade: 'Admin',
+      emailVerified: true,
+    },
+  });
+
+  console.log('✅ Super Admin created:', admin.email);
 }
 
-async function main() {
-  console.log('🌱 Starting database seeding...\n');
-
-  // Seed Super Admin first
-  await seedSuperAdmin();
-
-  // Define Free Plan
-  const freePlan = await prisma.subscriptionPlan.upsert({
-    where: { id: 'free-plan-id' },
-    update: {
-      name: 'Free',
-      price: 0,
-      interval: 'monthly',
-      isActive: true,
-      quotas: {
-        quizzes: 5,
-        flashcards: 5,
-        studyMaterials: 2,
-        conceptExplanations: 5,
-        smartRecommendations: 5,
-        smartCompanions: 5,
-        filesPerMonth: 10,
-        storageLimitMB: 20,
-      },
-    },
-    create: {
+async function seedPlans() {
+  const plans = [
+    {
       id: 'free-plan-id',
-      name: 'Free',
+      name: PlanType.Free,
       price: 0,
       interval: 'monthly',
       isActive: true,
@@ -115,20 +73,9 @@ async function main() {
         storageLimitMB: 20,
       },
     },
-  });
-
-  console.log('✅ Free Plan created/updated:', {
-    id: freePlan.id,
-    name: freePlan.name,
-    price: freePlan.price,
-    quotas: freePlan.quotas,
-  });
-
-  // Define Premium Plan
-  const premiumPlan = await prisma.subscriptionPlan.upsert({
-    where: { id: 'premium-plan-id' },
-    update: {
-      name: 'Premium',
+    {
+      id: 'premium-plan-id',
+      name: PlanType.Premium,
       price: 2000,
       interval: 'monthly',
       isActive: true,
@@ -143,34 +90,24 @@ async function main() {
         storageLimitMB: 1000,
       },
     },
-    create: {
-      id: 'premium-plan-id',
-      name: 'Premium',
-      price: 2000, // ₦2000 per month
-      interval: 'monthly',
-      isActive: true,
-      quotas: {
-        quizzes: 15,
-        flashcards: 15,
-        studyMaterials: 10,
-        conceptExplanations: 20,
-        smartRecommendations: 20,
-        smartCompanions: 20,
-        filesPerMonth: 100,
-        storageLimitMB: 1000,
-      },
-    },
-  });
+  ];
 
-  console.log('✅ Premium Plan created/updated:', {
-    id: premiumPlan.id,
-    name: premiumPlan.name,
-    price: premiumPlan.price,
-    quotas: premiumPlan.quotas,
-  });
+  for (const plan of plans) {
+    const existing = await prisma.subscriptionPlan.findUnique({
+      where: { id: plan.id },
+    });
 
-  // Define Platform Settings
-  const settings = await prisma.platformSettings.findFirst();
+    if (existing) {
+      console.log(`✅ ${plan.name} Plan already exists`);
+      continue;
+    }
+
+    await prisma.subscriptionPlan.create({ data: plan });
+    console.log(`✅ ${plan.name} Plan created: ₦${plan.price}/month`);
+  }
+}
+
+async function seedPlatformSettings() {
   const defaultAiConfig = {
     files: 'gemini',
     content: 'groq',
@@ -178,15 +115,16 @@ async function main() {
     example: 'groq',
     recommendations: 'groq',
     summary: 'groq',
-    // quiz, flashcards, learningGuide are OMITTED to allow dynamic fallback
   };
 
-  if (settings) {
+  const existing = await prisma.platformSettings.findFirst();
+
+  if (existing) {
     await prisma.platformSettings.update({
-      where: { id: settings.id },
+      where: { id: existing.id },
       data: { aiProviderConfig: defaultAiConfig as any },
     });
-    console.log('✅ Platform Settings updated with default AI config');
+    console.log('✅ Platform Settings updated');
   } else {
     await prisma.platformSettings.create({
       data: {
@@ -195,15 +133,25 @@ async function main() {
         aiProviderConfig: defaultAiConfig as any,
       },
     });
-    console.log('✅ Platform Settings created with default AI config');
+    console.log('✅ Platform Settings created');
   }
+}
 
-  console.log('\n🎉 Database seeding completed successfully!');
+async function main() {
+  console.log('🌱 Seeding database...\n');
+
+  // Run super admin first
+  await seedSuperAdmin();
+
+  // Run plans and settings in parallel (independent operations)
+  await Promise.all([seedPlans(), seedPlatformSettings()]);
+
+  console.log('\n🎉 Seeding completed!');
 }
 
 main()
   .catch((error) => {
-    console.error('❌ Error seeding database:', error);
+    console.error('❌ Seeding failed:', error);
     process.exit(1);
   })
   .finally(async () => {
