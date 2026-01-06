@@ -4,6 +4,7 @@ import { AdminController } from './admin.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ChallengeModule } from '../challenge/challenge.module';
 import { AiModule } from '../ai/ai.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
@@ -11,6 +12,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     PrismaModule,
     ChallengeModule,
     AiModule,
+    SubscriptionModule,
     CacheModule.register({
       ttl: 3600000, // 1 hour in milliseconds
       max: 100, // Maximum number of items in cache

@@ -6,9 +6,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { EventFactory, EVENTS } from '../events/events.types';
 import { UserDocumentService } from '../user-document/user-document.service';
-import { QuotaService } from '../common/services/quota.service';
+
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { UsageService } from '../subscription/domain/services/usage.service';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
 
 export interface ContentJobData {
   userId: string;
@@ -37,7 +39,7 @@ export class ContentProcessor extends WorkerHost {
     private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userDocumentService: UserDocumentService,
-    private readonly quotaService: QuotaService,
+    private readonly usageService: UsageService,
     private readonly subscriptionHelper: SubscriptionHelperService,
     private readonly studyPackService: StudyPackService,
     @InjectQueue('summary-generation')
@@ -112,7 +114,10 @@ export class ContentProcessor extends WorkerHost {
         },
       });
 
-      await this.quotaService.incrementQuota(userId, 'studyMaterial');
+      await this.usageService.incrementUsage(
+        userId,
+        EntitlementKeys.STUDY_MATERIAL
+      );
 
       await this.studyPackService.invalidateUserCache(userId).catch(() => {});
 

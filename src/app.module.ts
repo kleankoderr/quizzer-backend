@@ -37,6 +37,7 @@ import { EventsModule } from './events/events.module';
 import { UserDocumentModule } from './user-document/user-document.module';
 import { StudyPackModule } from './study-pack/study-pack.module';
 import { CommonModule } from './common/common.module';
+import { StorageModule } from './common/storage.module';
 import { SessionModule } from './session/session.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { WeakAreaModule } from './weak-area/weak-area.module';
@@ -121,6 +122,7 @@ import { OtpModule } from './otp/otp.module';
     UserDocumentModule,
     StudyPackModule,
     CommonModule,
+    StorageModule,
     SubscriptionModule,
     WeakAreaModule,
     SummaryModule,

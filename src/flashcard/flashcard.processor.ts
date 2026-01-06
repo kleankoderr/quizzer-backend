@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger, Inject } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EVENTS } from '../events/events.constants';
 import { EventFactory } from '../events/events.types';
@@ -10,8 +10,10 @@ import { GenerateFlashcardDto } from './dto/flashcard.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { UserDocumentService } from '../user-document/user-document.service';
-import { QuotaService } from '../common/services/quota.service';
+
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { UsageService } from '../subscription/domain/services/usage.service';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
 
 export interface ProcessedFileData {
   originalname: string;
@@ -39,7 +41,7 @@ export class FlashcardProcessor extends WorkerHost {
     private readonly eventEmitter: EventEmitter2,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly userDocumentService: UserDocumentService,
-    private readonly quotaService: QuotaService,
+    private readonly usageService: UsageService,
     private readonly studyPackService: StudyPackService
   ) {
     super();
@@ -126,7 +128,7 @@ export class FlashcardProcessor extends WorkerHost {
 
       await this.cacheManager.del(`flashcards:all:${userId}`);
 
-      await this.quotaService.incrementQuota(userId, 'flashcard');
+      await this.usageService.incrementUsage(userId, EntitlementKeys.FLASHCARD);
 
       await this.studyPackService.invalidateUserCache(userId).catch(() => {});
 

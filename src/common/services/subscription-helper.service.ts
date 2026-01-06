@@ -1,18 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SubscriptionStatus, PlanType } from '@prisma/client';
+import { SubscriptionStatus } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionHelperService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Check if user has an active premium subscription
-   * Single source of truth for premium status
-   * A user is premium if they have:
-   * 1. A Premium plan (not Free)
-   * 2. ACTIVE subscription status
-   * 3. currentPeriodEnd in the future
+   * Check if user has an active paid subscription
+   * A user is considered a 'paid' user if they have an active subscription
+   * on a plan that is not the 'Free' tier.
    */
   async isPremiumUser(userId: string): Promise<boolean> {
     const subscription = await this.prisma.subscription.findUnique({
@@ -23,15 +20,14 @@ export class SubscriptionHelperService {
     if (!subscription) return false;
 
     return (
-      subscription.plan.name === PlanType.Premium &&
+      subscription.plan.price > 0 &&
       subscription.status === SubscriptionStatus.ACTIVE &&
       subscription.currentPeriodEnd > new Date()
     );
   }
 
   /**
-   * Get detailed premium status and plan information
-   * Returns premium status, plan name, expiration date, and subscription status
+   * Get detailed status and plan information
    */
   async getPremiumStatus(userId: string) {
     const subscription = await this.prisma.subscription.findUnique({
@@ -39,14 +35,14 @@ export class SubscriptionHelperService {
       include: { plan: true },
     });
 
-    const isPremium =
-      subscription?.plan.name === PlanType.Premium &&
+    const isPaid =
+      (subscription?.plan.price ?? 0) > 0 &&
       subscription?.status === SubscriptionStatus.ACTIVE &&
       subscription.currentPeriodEnd > new Date();
 
     return {
-      isPremium,
-      planName: subscription?.plan.name || PlanType.Free,
+      isPremium: isPaid,
+      planName: subscription?.plan.name || 'Free',
       expiresAt: subscription?.currentPeriodEnd,
       status: subscription?.status || 'NONE',
     };

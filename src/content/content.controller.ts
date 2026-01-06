@@ -1,43 +1,40 @@
 import {
-  Controller,
-  Post,
-  Get,
-  Put,
-  Delete,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-  UseInterceptors,
-  UploadedFiles,
   BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
   ApiBearerAuth,
-  ApiQuery,
-  ApiConsumes,
   ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { ContentService } from './content.service';
 import { CreateContentDto, UpdateContentDto } from './dto/content.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { QuotaGuard } from '../common/guards/quota.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CheckQuota } from '../common/decorators/check-quota.decorator';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
+import { RequireEntitlement } from '../subscription/decorators/require-entitlement.decorator';
 
 @ApiTags('Content')
 @Controller('content')
-@UseGuards(JwtAuthGuard, QuotaGuard)
 @ApiBearerAuth()
 export class ContentController {
   constructor(private readonly contentService: ContentService) {}
 
-  @CheckQuota('studyMaterial')
+  @RequireEntitlement({ key: EntitlementKeys.STUDY_MATERIAL, consume: true })
   @Post('generate')
   @Throttle({ default: { limit: 5, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate a new content' })
@@ -168,7 +165,10 @@ export class ContentController {
     return this.contentService.deleteContent(userId, contentId);
   }
 
-  @CheckQuota('conceptExplanation')
+  @RequireEntitlement({
+    key: EntitlementKeys.CONCEPT_EXPLANATION,
+    consume: true,
+  })
   @Post(':id/explain')
   @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate explanation for a section' })
@@ -189,7 +189,10 @@ export class ContentController {
     );
   }
 
-  @CheckQuota('conceptExplanation')
+  @RequireEntitlement({
+    key: EntitlementKeys.CONCEPT_EXPLANATION,
+    consume: true,
+  })
   @Post(':id/example')
   @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate examples for a section' })

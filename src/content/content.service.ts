@@ -1,9 +1,9 @@
 import {
-  Injectable,
-  NotFoundException,
   BadRequestException,
   Inject,
+  Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -15,18 +15,20 @@ import { FlashcardService } from '../flashcard/flashcard.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import {
-  IFileStorageService,
   FILE_STORAGE_SERVICE,
+  IFileStorageService,
 } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import {
-  processFileUploads,
   ProcessedDocument,
+  processFileUploads,
 } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
-import { QuotaService } from '../common/services/quota.service';
+
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { UsageService } from '../subscription/domain/services/usage.service';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -59,7 +61,7 @@ export class ContentService {
     private readonly documentHashService: DocumentHashService,
     private readonly fileCompressionService: FileCompressionService,
     private readonly userDocumentService: UserDocumentService,
-    private readonly quotaService: QuotaService,
+    private readonly usageService: UsageService,
     private readonly studyPackService: StudyPackService
   ) {}
 
@@ -370,7 +372,11 @@ export class ContentService {
       context: sectionContent,
     });
 
-    await this.quotaService.incrementQuota(userId, 'conceptExplanation');
+    await this.usageService.incrementUsage(
+      userId,
+      EntitlementKeys.CONCEPT_EXPLANATION,
+      1
+    );
 
     await this.cacheManager.set(cacheKey, result, 43200000);
 
@@ -401,7 +407,11 @@ export class ContentService {
       context: sectionContent,
     });
 
-    await this.quotaService.incrementQuota(userId, 'conceptExplanation');
+    await this.usageService.incrementUsage(
+      userId,
+      EntitlementKeys.SMART_COMPANION,
+      1
+    );
 
     await this.cacheManager.set(cacheKey, result, 43200000);
 

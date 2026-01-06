@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, PlanType } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -48,62 +48,120 @@ async function seedSuperAdmin() {
       schoolName: 'Quizzer HQ',
       grade: 'Admin',
       emailVerified: true,
+      quota: {
+        create: {
+          hasActivePaidPlan: true,
+        },
+      },
     },
   });
 
   console.log('✅ Super Admin created:', admin.email);
 }
 
+async function seedEntitlements() {
+  const entitlements = [
+    { key: 'quiz', name: 'Quiz Generation', type: 'COUNTER' },
+    { key: 'flashcard', name: 'Flashcard Generation', type: 'COUNTER' },
+    {
+      key: 'studyMaterial',
+      name: 'Study Material Generation',
+      type: 'COUNTER',
+    },
+    { key: 'conceptExplanation', name: 'Concept Explanation', type: 'COUNTER' },
+    {
+      key: 'smartRecommendation',
+      name: 'Smart Recommendation',
+      type: 'COUNTER',
+    },
+    { key: 'smartCompanion', name: 'Smart Companion', type: 'COUNTER' },
+    { key: 'fileUpload', name: 'File Upload Count', type: 'COUNTER' },
+    { key: 'fileStorage', name: 'File Storage Limit', type: 'COUNTER' },
+    { key: 'weakAreaAnalysis', name: 'Weak Area Analysis', type: 'COUNTER' },
+  ];
+
+  for (const ent of entitlements) {
+    await prisma.entitlement.upsert({
+      where: { key: ent.key },
+      update: { name: ent.name, type: ent.type as any },
+      create: { key: ent.key, name: ent.name, type: ent.type as any },
+    });
+  }
+  console.log('✅ Base Entitlements seeded');
+}
+
 async function seedPlans() {
   const plans = [
     {
-      id: 'free-plan-id',
-      name: PlanType.Free,
+      id: 'free_plan',
+      name: 'Free',
       price: 0,
       interval: 'monthly',
       isActive: true,
       quotas: {
-        quizzes: 5,
-        flashcards: 5,
-        studyMaterials: 2,
-        conceptExplanations: 5,
-        smartRecommendations: 5,
-        smartCompanions: 5,
-        filesPerMonth: 10,
-        storageLimitMB: 20,
+        quiz: 5,
+        flashcard: 5,
+        studyMaterial: 2,
+        conceptExplanation: 5,
+        smartRecommendation: 5,
+        smartCompanion: 5,
+        fileUpload: 10,
+        fileStorage: 20,
+        weakAreaAnalysis: 1,
       },
     },
     {
-      id: 'premium-plan-id',
-      name: PlanType.Premium,
+      id: 'premium_plan',
+      name: 'Premium',
       price: 2000,
       interval: 'monthly',
       isActive: true,
       quotas: {
-        quizzes: 15,
-        flashcards: 15,
-        studyMaterials: 10,
-        conceptExplanations: 20,
-        smartRecommendations: 20,
-        smartCompanions: 20,
-        filesPerMonth: 100,
-        storageLimitMB: 1000,
+        quiz: 50,
+        flashcard: 50,
+        studyMaterial: 20,
+        conceptExplanation: 100,
+        smartRecommendation: 100,
+        smartCompanion: 100,
+        fileUpload: 100,
+        fileStorage: 1000,
+        weakAreaAnalysis: 10,
       },
     },
   ];
 
-  for (const plan of plans) {
-    const existing = await prisma.subscriptionPlan.findUnique({
-      where: { id: plan.id },
+  for (const planData of plans) {
+    const { quotas, ...data } = planData;
+    const plan = await prisma.subscriptionPlan.upsert({
+      where: { name: data.name },
+      update: { ...data, quotas: quotas as any },
+      create: { ...data, quotas: quotas as any },
     });
 
-    if (existing) {
-      console.log(`✅ ${plan.name} Plan already exists`);
-      continue;
-    }
+    // Seed Plan Entitlements based on the quotas
+    for (const [key, value] of Object.entries(quotas)) {
+      const entitlement = await prisma.entitlement.findUnique({
+        where: { key },
+      });
 
-    await prisma.subscriptionPlan.create({ data: plan });
-    console.log(`✅ ${plan.name} Plan created: ₦${plan.price}/month`);
+      if (entitlement) {
+        await prisma.planEntitlement.upsert({
+          where: {
+            planId_entitlementId: {
+              planId: plan.id,
+              entitlementId: entitlement.id,
+            },
+          },
+          update: { value: { limit: value } as any },
+          create: {
+            planId: plan.id,
+            entitlementId: entitlement.id,
+            value: { limit: value } as any,
+          },
+        });
+      }
+    }
+    console.log(`✅ ${plan.name} Plan & Entitlements seeded`);
   }
 }
 
@@ -143,7 +201,10 @@ async function main() {
   // Run super admin first
   await seedSuperAdmin();
 
-  // Run plans and settings in parallel (independent operations)
+  // Seed entitlements before plans
+  await seedEntitlements();
+
+  // Run plans and settings in parallel
   await Promise.all([seedPlans(), seedPlatformSettings()]);
 
   console.log('\n🎉 Seeding completed!');

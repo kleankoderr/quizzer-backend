@@ -1,9 +1,12 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
-import { QuotaService } from '../common/services/quota.service';
+
+import { UsageService } from '../subscription/domain/services/usage.service';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
+import { SubscriptionStatus } from '@prisma/client';
 
 @Injectable()
 export class RecommendationService {
@@ -12,7 +15,7 @@ export class RecommendationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly quotaService: QuotaService,
+    private readonly usageService: UsageService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
@@ -33,9 +36,14 @@ export class RecommendationService {
       return cached;
     }
 
-    // Get user's quota status to determine premium tier
-    const quotaStatus = await this.quotaService.getQuotaStatus(userId);
-    const isPremium = quotaStatus.isPremium;
+    // Check premium status
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+      include: { plan: true },
+    });
+    const isPremium =
+      subscription?.status === SubscriptionStatus.ACTIVE &&
+      subscription.plan.price > 0;
     const limit = isPremium ? 3 : 1;
 
     const stored = await this.prisma.recommendation.findMany({
@@ -190,7 +198,25 @@ export class RecommendationService {
       return [];
     }
 
-    // Check cooldown: Don't generate if we generated in the last 24 hours
+    // Check conditions
+    if (!(await this.checkCooldown(userId))) return [];
+    if (!this.checkPerformance(attempts[0])) return [];
+    if (!(await this.checkFrequency(userId))) return [];
+
+    // Analyze weak topics
+    const weakTopics = this.getWeakTopics(attempts);
+
+    if (weakTopics.length === 0) {
+      this.logger.debug(
+        `No weak topics found for user ${userId}. Skipping recommendations.`
+      );
+      return [];
+    }
+
+    return this.generateAndSaveAiRecommendations(userId, weakTopics, attempts);
+  }
+
+  private async checkCooldown(userId: string): Promise<boolean> {
     const latestRecommendation = await this.prisma.recommendation.findFirst({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
@@ -204,32 +230,35 @@ export class RecommendationService {
 
       if (hoursSinceLastGeneration < 24) {
         this.logger.debug(
-          `Skipping recommendations: Generated ${hoursSinceLastGeneration.toFixed(1)}h ago (cooldown: 24h)`
+          `Skipping recommendations: Generated ${hoursSinceLastGeneration.toFixed(
+            1
+          )}h ago (cooldown: 24h)`
         );
-        return [];
+        return false;
       }
     }
+    return true;
+  }
 
-    // Check if latest attempt performance warrants new recommendations
-    const latestAttempt = attempts[0];
-    if (
-      latestAttempt &&
-      latestAttempt.score != null &&
-      latestAttempt.totalQuestions
-    ) {
+  private checkPerformance(latestAttempt: any): boolean {
+    if (latestAttempt?.score != null && latestAttempt.totalQuestions) {
       const latestPercentage =
         (latestAttempt.score / latestAttempt.totalQuestions) * 100;
 
       // Only generate if score is below 70% (stricter threshold)
       if (latestPercentage >= 70) {
         this.logger.debug(
-          `Latest attempt score (${latestPercentage.toFixed(1)}%) is good (>= 70%). Skipping recommendations.`
+          `Latest attempt score (${latestPercentage.toFixed(
+            1
+          )}%) is good (>= 70%). Skipping recommendations.`
         );
-        return [];
+        return false;
       }
     }
+    return true;
+  }
 
-    // Check attempt frequency: Only generate after every 3rd quiz attempt
+  private async checkFrequency(userId: string): Promise<boolean> {
     const quizAttempts = await this.prisma.attempt.count({
       where: {
         userId,
@@ -241,10 +270,12 @@ export class RecommendationService {
       this.logger.debug(
         `Attempt count (${quizAttempts}) not at 3-attempt interval. Skipping recommendations.`
       );
-      return [];
+      return false;
     }
+    return true;
+  }
 
-    // Analyze weak topics
+  private getWeakTopics(attempts: any[]): string[] {
     const weakTopics: string[] = [];
     const topicScores = new Map<string, { total: number; count: number }>();
 
@@ -273,25 +304,35 @@ export class RecommendationService {
       }
     }
 
-    if (weakTopics.length === 0) {
-      this.logger.debug(
-        `No weak topics found for user ${userId}. Skipping recommendations.`
-      );
-      return [];
-    }
+    return weakTopics;
+  }
 
+  private async generateAndSaveAiRecommendations(
+    userId: string,
+    weakTopics: string[],
+    attempts: any[]
+  ) {
     try {
       this.logger.log(
-        `Generating recommendations for ${weakTopics.length} weak topics: ${weakTopics.join(', ')}`
+        `Generating recommendations for ${weakTopics.length} weak topics: ${weakTopics.join(
+          ', '
+        )}`
       );
 
-      // Get user's quota status to determine premium tier
-      const quotaStatus = await this.quotaService.getQuotaStatus(userId);
-      const isPremium = quotaStatus.isPremium;
+      // Check premium status
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+        include: { plan: true },
+      });
+      const isPremium =
+        subscription?.status === SubscriptionStatus.ACTIVE &&
+        subscription.plan.price > 0;
       const recommendationLimit = isPremium ? 3 : 1;
 
       this.logger.debug(
-        `Calling AI service to generate ${recommendationLimit} recommendations for ${isPremium ? 'premium' : 'free'} user`
+        `Calling AI service to generate ${recommendationLimit} recommendations for ${
+          isPremium ? 'premium' : 'free'
+        } user`
       );
       const recommendations = await this.aiService.generateRecommendations({
         weakTopics: weakTopics.slice(0, recommendationLimit), // Get topics based on tier
@@ -338,9 +379,10 @@ export class RecommendationService {
       );
 
       // Track quota usage for smart recommendations
-      await this.quotaService.incrementQuota(userId, 'smartRecommendation');
-      this.logger.debug(
-        `Incremented smart recommendation quota for user ${userId}`
+      await this.usageService.incrementUsage(
+        userId,
+        EntitlementKeys.SMART_RECOMMENDATION,
+        1
       );
 
       // Invalidate cache after generating new recommendations

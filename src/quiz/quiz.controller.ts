@@ -1,41 +1,38 @@
 import {
-  Controller,
-  Post,
-  Get,
-  Delete,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-  UseInterceptors,
-  UploadedFiles,
   BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
   ApiBearerAuth,
   ApiConsumes,
+  ApiOperation,
   ApiQuery,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { QuotaGuard } from '../common/guards/quota.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CheckQuota } from '../common/decorators/check-quota.decorator';
 import { GenerateQuizDto, SubmitQuizDto } from './dto/quiz.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
+import { RequireEntitlement } from '../subscription/decorators/require-entitlement.decorator';
 
 @ApiTags('Quizzes')
 @ApiBearerAuth()
 @Controller('quiz')
-@UseGuards(JwtAuthGuard, QuotaGuard)
 export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
-  @CheckQuota('quiz')
+  @RequireEntitlement({ key: EntitlementKeys.QUIZ, consume: true })
   @Post('generate')
   @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate a new quiz' })

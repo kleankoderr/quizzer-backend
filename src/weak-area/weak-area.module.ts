@@ -3,12 +3,12 @@ import { WeakAreaController } from './weak-area.controller';
 import { WeakAreaService } from './weak-area.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AiModule } from '../ai/ai.module';
-import { QuotaService } from '../common/services/quota.service';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
-  imports: [PrismaModule, AiModule],
+  imports: [PrismaModule, AiModule, SubscriptionModule],
   controllers: [WeakAreaController],
-  providers: [WeakAreaService, QuotaService],
+  providers: [WeakAreaService],
   exports: [WeakAreaService],
 })
 export class WeakAreaModule {}

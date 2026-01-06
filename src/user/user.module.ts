@@ -4,9 +4,10 @@ import { UserService } from './user.service';
 import { PrismaModule } from '../prisma/prisma.module';
 
 import { SchoolModule } from '../school/school.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
-  imports: [PrismaModule, SchoolModule],
+  imports: [PrismaModule, SchoolModule, SubscriptionModule],
   controllers: [UserController],
   providers: [UserService],
   exports: [UserService],

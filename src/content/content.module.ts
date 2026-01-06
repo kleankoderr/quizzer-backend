@@ -10,6 +10,8 @@ import { FlashcardModule } from '../flashcard/flashcard.module';
 import { FileStorageModule } from '../file-storage/file-storage.module';
 import { UserDocumentModule } from '../user-document/user-document.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
+import { StorageModule } from '../common/storage.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
   imports: [
@@ -23,7 +25,10 @@ import { StudyPackModule } from '../study-pack/study-pack.module';
     FlashcardModule,
     FileStorageModule,
     UserDocumentModule,
+    UserDocumentModule,
     StudyPackModule,
+    StorageModule,
+    SubscriptionModule,
   ],
   controllers: [ContentController],
   providers: [ContentService, ContentProcessor],

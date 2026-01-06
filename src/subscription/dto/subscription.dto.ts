@@ -308,7 +308,7 @@ export class CurrentPlanResponseDto {
   cancelAtPeriodEnd: boolean;
 
   @ApiProperty({ example: false })
-  isPremium: boolean;
+  hasActivePaidPlan: boolean;
 
   @ApiProperty({ type: QuotaUsageDto })
   quiz: QuotaUsageDto;

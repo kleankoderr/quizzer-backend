@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Inject,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserDocumentDto } from './dto/user-document.dto';
 import {
@@ -8,8 +14,10 @@ import {
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import { processFileUploads } from '../common/helpers/file-upload.helpers';
-import { QuotaService } from '../common/services/quota.service';
+import { FileStorageService } from '../common/services/file-storage.service';
+import { EntitlementEngine } from '../subscription/domain/services/entitlement-engine.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
 
 @Injectable()
 export class UserDocumentService {
@@ -23,7 +31,8 @@ export class UserDocumentService {
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
     private readonly fileCompressionService: FileCompressionService,
-    private readonly quotaService: QuotaService,
+    private readonly fileStorageService: FileStorageService,
+    private readonly entitlementEngine: EntitlementEngine,
     private readonly studyPackService: StudyPackService
   ) {}
 
@@ -237,15 +246,22 @@ export class UserDocumentService {
 
     await this.studyPackService.invalidateUserCache(userId);
 
-    // Decrement storage quota
-    await this.prisma.userQuota.update({
-      where: { userId },
-      data: {
-        totalFileStorageMB: {
-          decrement: fileSizeMB,
+    // Decrement storage usage
+    await this.prisma.usageRecord
+      .update({
+        where: {
+          userId_featureKey: {
+            userId,
+            featureKey: EntitlementKeys.FILE_STORAGE,
+          },
         },
-      },
-    });
+        data: {
+          currentValue: { decrement: fileSizeMB },
+        },
+      })
+      .catch(() => {
+        // Ignore if record doesn't exist
+      });
 
     this.logger.log(
       `Deleted user document reference: ${userDocumentId} for user ${userId}, freed ${fileSizeMB.toFixed(2)}MB`
@@ -327,16 +343,25 @@ export class UserDocumentService {
     this.logger.log(`Uploading ${files.length} file(s) for user ${userId}`);
 
     try {
-      // Check file upload quota (daily/monthly file count)
-      await this.quotaService.checkQuota(userId, 'fileUpload');
+      // Check file upload entitlement
+      const uploadResult = await this.entitlementEngine.authorize(
+        userId,
+        EntitlementKeys.FILE_UPLOAD
+      );
+      if (!uploadResult.allowed) {
+        throw new ForbiddenException(uploadResult.reason);
+      }
 
       // Calculate total file size in MB
       const totalFileSizeMB = files.reduce((sum, file) => {
-        return sum + file.size / (1024 * 1024);
+        return sum + file.size / (1024 / 1024);
       }, 0);
 
       // Check file storage limit
-      await this.quotaService.checkFileStorageLimit(userId, totalFileSizeMB);
+      await this.fileStorageService.checkFileStorageLimit(
+        userId,
+        totalFileSizeMB
+      );
 
       // Process file uploads (upload to storage and create Document records)
       const processedDocs = await processFileUploads(
@@ -399,8 +424,11 @@ export class UserDocumentService {
         `Successfully uploaded ${userDocuments.length} file(s) for user ${userId}`
       );
 
-      // Increment quota after successful upload
-      await this.quotaService.incrementFileUpload(userId, totalFileSizeMB);
+      // Increment usage after successful upload
+      await this.fileStorageService.incrementFileUpload(
+        userId,
+        totalFileSizeMB
+      );
       await this.studyPackService.invalidateUserCache(userId);
 
       return userDocuments;
@@ -443,6 +471,6 @@ export class UserDocumentService {
    * @param userId User ID
    */
   async getCleanupSuggestions(userId: string) {
-    return this.quotaService.getStorageCleanupSuggestions(userId);
+    return this.fileStorageService.getStorageCleanupSuggestions(userId);
   }
 }

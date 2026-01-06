@@ -20,7 +20,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { UserService } from './user.service';
-import { QuotaService } from '../common/services/quota.service';
+import { EntitlementEngine } from '../subscription/domain/services/entitlement-engine.service';
+import { FileStorageService } from '../common/services/file-storage.service';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -34,7 +36,8 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 export class UserController {
   constructor(
     private readonly userService: UserService,
-    private readonly quotaService: QuotaService
+    private readonly entitlementEngine: EntitlementEngine,
+    private readonly fileStorageService: FileStorageService
   ) {}
 
   @Get('profile')
@@ -125,7 +128,25 @@ export class UserController {
     description: 'Quota status retrieved successfully',
   })
   async getQuotaStatus(@CurrentUser('sub') userId: string) {
-    return this.quotaService.getQuotaStatus(userId);
+    // Get all entitlement results
+    const features = Object.values(EntitlementKeys);
+    const results = await this.entitlementEngine.authorizeMany(
+      userId,
+      features
+    );
+
+    // Format response
+    const quotaStatus: any = {};
+    for (const [key, result] of results.entries()) {
+      const featureName = Object.keys(EntitlementKeys).find(
+        (k) => EntitlementKeys[k as keyof typeof EntitlementKeys] === key
+      );
+      if (featureName && result.metadata) {
+        quotaStatus[key] = result.metadata;
+      }
+    }
+
+    return quotaStatus;
   }
 
   @Get('quota/cleanup-suggestions')
@@ -135,6 +156,6 @@ export class UserController {
     description: 'Cleanup suggestions retrieved successfully',
   })
   async getCleanupSuggestions(@CurrentUser('sub') userId: string) {
-    return this.quotaService.getStorageCleanupSuggestions(userId);
+    return this.fileStorageService.getStorageCleanupSuggestions(userId);
   }
 }

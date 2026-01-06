@@ -1,40 +1,38 @@
 import {
-  Controller,
-  Post,
-  Get,
-  Delete,
   Body,
+  Controller,
+  Delete,
+  Get,
   Param,
+  Post,
   Query,
-  UseGuards,
-  UseInterceptors,
   UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
   ApiBearerAuth,
   ApiConsumes,
+  ApiOperation,
   ApiQuery,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { FlashcardService } from './flashcard.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { QuotaGuard } from '../common/guards/quota.guard';
+
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CheckQuota } from '../common/decorators/check-quota.decorator';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
+import { RequireEntitlement } from '../subscription/decorators/require-entitlement.decorator';
 
 @ApiTags('Flashcards')
 @ApiBearerAuth()
 @Controller('flashcards')
-@UseGuards(JwtAuthGuard, QuotaGuard)
 export class FlashcardController {
   constructor(private readonly flashcardService: FlashcardService) {}
 
-  @CheckQuota('flashcard')
+  @RequireEntitlement({ key: EntitlementKeys.FLASHCARD, consume: true })
   @Post('generate')
   @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @ApiOperation({ summary: 'Generate flashcards' })

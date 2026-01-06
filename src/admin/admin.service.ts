@@ -4,11 +4,13 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
 import { ChallengeService } from '../challenge/challenge.service';
-import { QuotaService } from '../common/services/quota.service';
+
 import { PlatformSettingsService } from '../common/services/platform-settings.service';
 import { UserRole, Prisma } from '@prisma/client';
+import { FeatureKey } from '../subscription/domain/constants/feature-keys';
+import { EntitlementEngine } from '../subscription/domain/services/entitlement-engine.service';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
 import {
   UserFilterDto,
   UpdateUserStatusDto,
@@ -24,10 +26,9 @@ import {
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
     private readonly challengeService: ChallengeService,
-    private readonly quotaService: QuotaService,
-    private readonly platformSettingsService: PlatformSettingsService
+    private readonly platformSettingsService: PlatformSettingsService,
+    private readonly entitlementEngine: EntitlementEngine
   ) {}
 
   async deleteContent(contentId: string) {
@@ -1144,16 +1145,11 @@ export class AdminService {
   }
 
   async getQuotaStats() {
-    // Get all user quotas
-    const quotas = await this.prisma.userQuota.findMany({
+    // Get all usage records
+    const usageRecords = await this.prisma.usageRecord.findMany({
       select: {
-        monthlyQuizCount: true,
-        monthlyFlashcardCount: true,
-        monthlyStudyMaterialCount: true,
-        monthlyConceptExplanationCount: true,
-        monthlyFileUploadCount: true,
-        totalFileStorageMB: true,
-        userId: true,
+        featureKey: true,
+        currentValue: true,
       },
     });
 
@@ -1165,32 +1161,34 @@ export class AdminService {
       },
     });
 
-    let totalQuizzes = 0;
-    let totalFlashcards = 0;
-    let totalLearningGuides = 0;
-    let totalExplanations = 0;
-    let totalFileUploads = 0;
-    let totalStorageUsed = 0;
+    const stats: Record<string, number> = {
+      [FeatureKey.QUIZ]: 0,
+      [FeatureKey.FLASHCARD]: 0,
+      [FeatureKey.STUDY_MATERIAL]: 0,
+      [FeatureKey.CONCEPT_EXPLANATION]: 0,
+      [FeatureKey.FILE_UPLOAD]: 0,
+      [FeatureKey.FILE_STORAGE]: 0,
+    };
 
-    for (const quota of quotas) {
-      totalQuizzes += quota.monthlyQuizCount;
-      totalFlashcards += quota.monthlyFlashcardCount;
-      totalLearningGuides += quota.monthlyStudyMaterialCount;
-      totalExplanations += quota.monthlyConceptExplanationCount;
-      totalFileUploads += quota.monthlyFileUploadCount;
-      totalStorageUsed += quota.totalFileStorageMB;
+    for (const record of usageRecords) {
+      if (stats[record.featureKey] !== undefined) {
+        stats[record.featureKey] += record.currentValue;
+      }
     }
 
+    const totalUserQuotas = await this.prisma.userQuota.count();
+
     return {
-      totalQuizzesGenerated: totalQuizzes,
-      totalFlashcardsGenerated: totalFlashcards,
-      totalLearningGuidesGenerated: totalLearningGuides,
-      totalExplanationsGenerated: totalExplanations,
-      totalFileUploads,
-      totalStorageUsedMB: Math.round(totalStorageUsed),
-      totalStorageUsedGB: Math.round((totalStorageUsed / 1024) * 100) / 100,
+      totalQuizzesGenerated: stats[FeatureKey.QUIZ],
+      totalFlashcardsGenerated: stats[FeatureKey.FLASHCARD],
+      totalLearningGuidesGenerated: stats[FeatureKey.STUDY_MATERIAL],
+      totalExplanationsGenerated: stats[FeatureKey.CONCEPT_EXPLANATION],
+      totalFileUploads: stats[FeatureKey.FILE_UPLOAD],
+      totalStorageUsedMB: Math.round(stats[FeatureKey.FILE_STORAGE]),
+      totalStorageUsedGB:
+        Math.round((stats[FeatureKey.FILE_STORAGE] / 1024) * 100) / 100,
       premiumUsers,
-      freeUsers: quotas.length - premiumUsers,
+      freeUsers: totalUserQuotas - premiumUsers,
     };
   }
 
@@ -1376,6 +1374,24 @@ export class AdminService {
   }
 
   async getUserQuota(userId: string) {
-    return this.quotaService.getQuotaStatus(userId);
+    // Get all entitlement results
+    const features = Object.values(EntitlementKeys);
+    const results = await this.entitlementEngine.authorizeMany(
+      userId,
+      features
+    );
+
+    // Format response
+    const quotaStatus: any = {};
+    for (const [key, result] of results.entries()) {
+      const featureName = Object.keys(EntitlementKeys).find(
+        (k) => EntitlementKeys[k as keyof typeof EntitlementKeys] === key
+      );
+      if (featureName && result.metadata) {
+        quotaStatus[key] = result.metadata;
+      }
+    }
+
+    return quotaStatus;
   }
 }

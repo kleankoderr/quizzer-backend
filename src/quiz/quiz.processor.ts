@@ -9,8 +9,10 @@ import { QuizType } from '@prisma/client';
 import { EventFactory } from '../events/events.types';
 import { EVENTS } from '../events/events.constants';
 import { UserDocumentService } from '../user-document/user-document.service';
-import { QuotaService } from '../common/services/quota.service';
+
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { UsageService } from '../subscription/domain/services/usage.service';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
 
 export interface FileReference {
   originalname: string;
@@ -44,7 +46,7 @@ export class QuizProcessor extends WorkerHost {
     private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userDocumentService: UserDocumentService,
-    private readonly quotaService: QuotaService,
+    private readonly usageService: UsageService,
     private readonly studyPackService: StudyPackService
   ) {
     super();
@@ -105,7 +107,7 @@ export class QuizProcessor extends WorkerHost {
         await this.linkToContent(contentId, quiz.id);
       }
 
-      await this.quotaService.incrementQuota(userId, 'quiz');
+      await this.usageService.incrementUsage(userId, EntitlementKeys.QUIZ);
 
       await this.studyPackService.invalidateUserCache(userId).catch(() => {});
 

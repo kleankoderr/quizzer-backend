@@ -11,8 +11,12 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaystackService } from './paystack.service';
-import { QuotaService } from '../common/services/quota.service';
+
 import { LockService } from '../common/services/lock.service';
+import { UsageService } from './domain/services/usage.service';
+import { EntitlementConfigProvider } from './domain/services/entitlement-config.provider';
+import { EntitlementEngine } from './domain/services/entitlement-engine.service';
+import { EntitlementKeys } from './constants/entitlement-keys';
 import { PaymentStatus, SubscriptionStatus } from '@prisma/client';
 
 @Injectable()
@@ -27,8 +31,10 @@ export class SubscriptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paystackService: PaystackService,
-    private readonly quotaService: QuotaService,
+    private readonly entitlementEngine: EntitlementEngine,
     private readonly lockService: LockService,
+    private readonly usageService: UsageService,
+    private readonly entitlementConfigProvider: EntitlementConfigProvider,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
@@ -162,43 +168,74 @@ export class SubscriptionService {
 
   /**
    * Validate if a user can downgrade to a new plan based on current usage
+   * Uses dynamic entitlements from PlanEntitlement table (cached)
    * @param userId User ID
    * @param newPlan Target subscription plan
    */
   private async validateDowngrade(userId: string, newPlan: any): Promise<void> {
-    const quotaStatus = await this.quotaService.getQuotaStatus(userId);
-    const newQuotas = newPlan.quotas;
+    this.logger.log(
+      `Validating downgrade for user ${userId} to plan ${newPlan.id} (${newPlan.name})`
+    );
+
+    // Fetch new plan entitlements from cache
+    const planWithEntitlements =
+      await this.entitlementConfigProvider.getPlanWithEntitlements(newPlan.id);
+
+    if (!planWithEntitlements) {
+      throw new NotFoundException(`Plan ${newPlan.id} not found`);
+    }
+
+    const newPlanEntitlements = planWithEntitlements.entitlements;
+
+    this.logger.log(
+      `Validating against ${newPlanEntitlements.length} dynamic entitlements (cached)`
+    );
 
     const violations: string[] = [];
 
-    // Check quiz quota
-    if (quotaStatus.quiz.used > newQuotas.quizzes) {
-      violations.push(
-        `Quizzes: You've used ${quotaStatus.quiz.used} but new plan allows ${newQuotas.quizzes}`
-      );
-    }
+    for (const planEnt of newPlanEntitlements) {
+      const featureKey = planEnt.entitlement.key;
+      const entitlementValue = planEnt.value;
 
-    // Check flashcard quota
-    if (quotaStatus.flashcard.used > newQuotas.flashcards) {
-      violations.push(
-        `Flashcards: You've used ${quotaStatus.flashcard.used} but new plan allows ${newQuotas.flashcards}`
-      );
-    }
+      // Extract limit from value (supports both simple number and {limit: number} formats)
+      let newLimit: number;
+      if (typeof entitlementValue === 'number') {
+        newLimit = entitlementValue;
+      } else if (entitlementValue && typeof entitlementValue === 'object') {
+        newLimit = entitlementValue.limit ?? entitlementValue.value ?? 0;
+      } else {
+        // Boolean or other types don't have usage limits
+        continue;
+      }
 
-    // Check storage quota (convert MB to bytes if needed, but assuming both are in MB based on context)
-    // quotaStatus.fileStorage.used is likely in MB, newQuotas.storageLimitMB is in MB
-    if (quotaStatus.fileStorage.used > newQuotas.storageLimitMB) {
-      violations.push(
-        `Storage: You're using ${quotaStatus.fileStorage.used}MB but new plan allows ${newQuotas.storageLimitMB}MB`
+      // Get current usage for this specific feature
+      const currentUsage = await this.usageService.getUsage(userId, featureKey);
+
+      this.logger.debug(
+        `Checking ${featureKey}: used ${currentUsage}, new limit ${newLimit}`
       );
+
+      if (currentUsage > newLimit) {
+        violations.push(
+          `${planEnt.entitlement.name || featureKey}: You've used ${currentUsage} but new plan allows ${newLimit}`
+        );
+      }
     }
 
     if (violations.length > 0) {
+      this.logger.warn(
+        `Downgrade validation failed for user ${userId}: ${violations.length} violations`,
+        violations
+      );
       throw new BadRequestException({
         message: 'Cannot downgrade: Current usage exceeds new plan limits',
         violations,
       });
     }
+
+    this.logger.log(
+      `Downgrade validation passed for user ${userId} to plan ${newPlan.name}`
+    );
   }
 
   /**
@@ -482,19 +519,11 @@ export class SubscriptionService {
             create: {
               userId: existingPayment.userId,
               monthlyResetAt: periodEnd,
-              // All counts default to 0
+              hasActivePaidPlan: true,
             },
             update: {
               monthlyResetAt: periodEnd,
-              // Reset all counts to 0 for new billing period
-              monthlyQuizCount: 0,
-              monthlyFlashcardCount: 0,
-              monthlyStudyMaterialCount: 0,
-              monthlyConceptExplanationCount: 0,
-              monthlySmartRecommendationCount: 0,
-              monthlySmartCompanionCount: 0,
-              monthlyWeakAreaAnalysisCount: 0,
-              monthlyFileUploadCount: 0,
+              hasActivePaidPlan: true,
             },
           });
 
@@ -508,6 +537,11 @@ export class SubscriptionService {
 
       this.logger.log(
         `Subscription activated successfully for user ${existingPayment.userId}`
+      );
+
+      // Invalidate user plan cache after activation
+      await this.entitlementConfigProvider.invalidateUserPlan(
+        existingPayment.userId
       );
 
       return subscription;
@@ -623,8 +657,26 @@ export class SubscriptionService {
       this.logger.log(`Created free tier subscription for user ${userId}`);
     }
 
-    // Get quota status from quota service
-    const quotaStatus = await this.quotaService.getQuotaStatus(userId);
+    // Get quota status using EntitlementEngine
+    const features = Object.values(EntitlementKeys);
+    const results = await this.entitlementEngine.authorizeMany(
+      userId,
+      features
+    );
+
+    // Format quota status
+    const quotaStatus: any = {
+      hasActivePaidPlan:
+        subscription.status === SubscriptionStatus.ACTIVE &&
+        subscription.plan.price > 0,
+      monthlyResetAt: subscription.currentPeriodEnd,
+    };
+
+    for (const [key, result] of results.entries()) {
+      if (result.metadata) {
+        quotaStatus[key] = result.metadata;
+      }
+    }
 
     // Build response
     return {
@@ -634,7 +686,7 @@ export class SubscriptionService {
       status: subscription.status,
       currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      isPremium: quotaStatus.isPremium,
+      hasActivePaidPlan: quotaStatus.hasActivePaidPlan,
       quiz: quotaStatus.quiz,
       flashcard: quotaStatus.flashcard,
       studyMaterial: quotaStatus.studyMaterial,
@@ -736,8 +788,8 @@ export class SubscriptionService {
           );
         });
 
-        // Reset user quota to free tier (outside transaction to avoid deadlock)
-        await this.quotaService.resetToFreeTier(subscription.userId);
+        // Reset to free tier - just update subscription status
+        // UsageService will handle quota resets automatically
 
         processedCount++;
       } catch (error) {
@@ -792,20 +844,17 @@ export class SubscriptionService {
         data: { currentPeriodEnd: newPeriodEnd },
       }),
 
-      // Reset quotas for new billing period
+      // Reset quotas for new billing period (only metadata reset)
       this.prisma.userQuota.update({
         where: { userId },
         data: {
           monthlyResetAt: newPeriodEnd,
-          monthlyQuizCount: 0,
-          monthlyFlashcardCount: 0,
-          monthlyStudyMaterialCount: 0,
-          monthlyConceptExplanationCount: 0,
-          monthlySmartRecommendationCount: 0,
-          monthlySmartCompanionCount: 0,
-          monthlyWeakAreaAnalysisCount: 0,
-          monthlyFileUploadCount: 0,
         },
+      }),
+
+      // Clear usage records for the user
+      this.prisma.usageRecord.deleteMany({
+        where: { userId },
       }),
     ]);
   }

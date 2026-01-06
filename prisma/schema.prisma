@@ -29,7 +29,7 @@ model User {
   onboardingAssessmentCompleted Boolean           @default(false)
   schoolId                      String?
   assessmentPopupShown          Boolean           @default(false)
-  plan                          UserPlan          @default(FREE)
+  plan                          String            @default("Free")
   attempts                      Attempt[]
   contents                      Content[]
   flashcardSets                 FlashcardSet[]
@@ -45,28 +45,20 @@ model User {
   topicProgress                 TopicProgress[]
   userDocuments                 UserDocument[]
   quota                         UserQuota?
+  usageRecords                  UsageRecord[]
   school                        School?           @relation(fields: [schoolId], references: [id])
 
   @@map("users")
 }
 
 model UserQuota {
-  id                              String   @id @default(uuid())
-  userId                          String   @unique
-  isPremium                       Boolean  @default(false)
-  monthlyResetAt                  DateTime @default(now())
-  createdAt                       DateTime @default(now())
-  updatedAt                       DateTime @updatedAt
-  monthlyFileUploadCount          Int      @default(0)
-  totalFileStorageMB              Float    @default(0)
-  monthlyConceptExplanationCount  Int      @default(0)
-  monthlyFlashcardCount           Int      @default(0)
-  monthlyQuizCount                Int      @default(0)
-  monthlySmartCompanionCount      Int      @default(0)
-  monthlySmartRecommendationCount Int      @default(0)
-  monthlyStudyMaterialCount       Int      @default(0)
-  monthlyWeakAreaAnalysisCount    Int      @default(0)
-  user                            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  hasActivePaidPlan Boolean  @default(false)
+  monthlyResetAt    DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_quotas")
@@ -479,15 +471,16 @@ model StudyPack {
 }
 
 model SubscriptionPlan {
-  id            String         @id @default(uuid())
+  id            String            @id @default(uuid())
   price         Float
   interval      String
-  quotas        Json
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  name          PlanType
+  quotas        Json?
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  name          String            @unique
   subscriptions Subscription[]
+  entitlements  PlanEntitlement[]
 
   @@map("subscription_plans")
 }
@@ -644,7 +637,50 @@ enum UserPlan {
   PREMIUM
 }
 
-enum PlanType {
-  Free
-  Premium
+model Entitlement {
+  id          String            @id @default(uuid())
+  key         String            @unique
+  name        String
+  description String?
+  type        EntitlementType   @default(COUNTER)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  plans       PlanEntitlement[]
+
+  @@map("entitlements")
+}
+
+model PlanEntitlement {
+  id            String           @id @default(uuid())
+  planId        String
+  entitlementId String
+  value         Json?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  entitlement   Entitlement      @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  plan          SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, entitlementId])
+  @@map("plan_entitlements")
+}
+
+model UsageRecord {
+  id           String   @id @default(uuid())
+  userId       String
+  featureKey   String
+  currentValue Float    @default(0)
+  resetAt      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, featureKey])
+  @@index([userId])
+  @@map("usage_records")
+}
+
+enum EntitlementType {
+  COUNTER
+  BOOLEAN
+  LEVEL
 }

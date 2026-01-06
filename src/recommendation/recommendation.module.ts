@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { RecommendationController } from './recommendation.controller';
 import { RecommendationService } from './recommendation.service';
 import { AiModule } from '../ai/ai.module';
-import { QuotaService } from '../common/services/quota.service';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
-  imports: [AiModule],
+  imports: [AiModule, SubscriptionModule],
   controllers: [RecommendationController],
-  providers: [RecommendationService, QuotaService],
+  providers: [RecommendationService],
   exports: [RecommendationService],
 })
 export class RecommendationModule {}

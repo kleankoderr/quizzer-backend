@@ -1,26 +1,24 @@
 import {
   Controller,
   Get,
-  Post,
-  Param,
-  UseGuards,
   Logger,
+  Param,
+  Post,
+  UseGuards,
 } from '@nestjs/common';
 import { WeakAreaService } from './weak-area.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CheckQuota } from '../common/decorators/check-quota.decorator';
-import { QuotaService } from '../common/services/quota.service';
+
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { EntitlementKeys } from '../subscription/constants/entitlement-keys';
+import { RequireEntitlement } from '../subscription/decorators/require-entitlement.decorator';
 
 @Controller('weak-areas')
 @UseGuards(JwtAuthGuard)
 export class WeakAreaController {
   private readonly logger = new Logger(WeakAreaController.name);
 
-  constructor(
-    private readonly weakAreaService: WeakAreaService,
-    private readonly quotaService: QuotaService
-  ) {}
+  constructor(private readonly weakAreaService: WeakAreaService) {}
 
   @Get()
   async getWeakAreas(@CurrentUser('sub') userId: string) {
@@ -50,7 +48,10 @@ export class WeakAreaController {
   }
 
   @Post(':id/practice')
-  @CheckQuota('weakAreaAnalysis')
+  @RequireEntitlement({
+    key: EntitlementKeys.WEAK_AREA_ANALYSIS,
+    consume: true,
+  })
   async generatePracticeQuiz(
     @Param('id') id: string,
     @CurrentUser('sub') userId: string
@@ -58,10 +59,6 @@ export class WeakAreaController {
     this.logger.log(`POST /weak-areas/${id}/practice - User: ${userId}`);
 
     const quiz = await this.weakAreaService.generatePracticeQuiz(userId, id);
-
-    // Increment quota after successful generation
-    await this.quotaService.incrementQuota(userId, 'weakAreaAnalysis');
-
     return quiz;
   }
 }
