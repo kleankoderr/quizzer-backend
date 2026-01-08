@@ -171,7 +171,7 @@ export class RecommendationService {
    *
    * SMART BEHAVIOR:
    * - Only generates after every 3rd attempt (not every single one)
-   * - Requires latest score < 70% (stricter than before)
+   * - Requires latest score < 70%
    * - 24-hour cooldown between generations
    */
   async generateAndStoreRecommendations(userId: string) {
@@ -245,7 +245,7 @@ export class RecommendationService {
       const latestPercentage =
         (latestAttempt.score / latestAttempt.totalQuestions) * 100;
 
-      // Only generate if score is below 70% (stricter threshold)
+      // Only generate if score is below 70%
       if (latestPercentage >= 70) {
         this.logger.debug(
           `Latest attempt score (${latestPercentage.toFixed(
@@ -296,7 +296,7 @@ export class RecommendationService {
       }
     }
 
-    // Find topics with average score < 70% (stricter threshold)
+    // Find topics with average score < 70%
     for (const [topic, stats] of topicScores.entries()) {
       const average = stats.total / stats.count;
       if (average < 70) {
