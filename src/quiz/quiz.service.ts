@@ -8,6 +8,7 @@ import { RecommendationService } from '../recommendation/recommendation.service'
 import { StreakService } from '../streak/streak.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { StudyService } from '../study/study.service';
+import { CacheService } from '../common/services/cache.service';
 import { GenerateQuizDto, SubmitQuizDto } from './dto/quiz.dto';
 import {
   IFileStorageService,
@@ -69,6 +70,7 @@ export class QuizService {
     private readonly challengeService: ChallengeService,
     private readonly studyService: StudyService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
     @Inject('GOOGLE_FILE_STORAGE_SERVICE')
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
@@ -1115,8 +1117,7 @@ export class QuizService {
   }
 
   private async invalidateUserCache(userId: string): Promise<void> {
-    const cacheKey = `quizzes:all:${userId}`;
-    await this.cacheManager.del(cacheKey);
+    await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
   }
 
   private async invalidateChallengeCache(userId: string): Promise<void> {

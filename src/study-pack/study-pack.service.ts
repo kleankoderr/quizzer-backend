@@ -8,6 +8,7 @@ import {
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../common/services/cache.service';
 import {
   CreateStudyPackDto,
   UpdateStudyPackDto,
@@ -19,7 +20,8 @@ export class StudyPackService {
   private readonly logger = new Logger(StudyPackService.name);
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService
   ) {}
 
   private getListVersionKey(userId: string): string {
@@ -367,13 +369,12 @@ export class StudyPackService {
       );
     }
 
-    // Invalidate the specific entity list cache
     if (type === 'quiz') {
-      await this.cacheManager.del(`quizzes:all:${userId}`);
+      await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
     } else if (type === 'flashcard') {
-      await this.cacheManager.del(`flashcards:all:${userId}`);
+      await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
     } else if (type === 'content') {
-      await this.cacheManager.del(`content:all:${userId}`);
+      await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
     }
 
     await this.incrementListVersion(userId);
@@ -419,13 +420,12 @@ export class StudyPackService {
 
     await this.cacheManager.del(`study_packs:${id}:${userId}`);
 
-    // Invalidate the specific entity list cache
     if (type === 'quiz') {
-      await this.cacheManager.del(`quizzes:all:${userId}`);
+      await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
     } else if (type === 'flashcard') {
-      await this.cacheManager.del(`flashcards:all:${userId}`);
+      await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
     } else if (type === 'content') {
-      await this.cacheManager.del(`content:all:${userId}`);
+      await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
     }
 
     await this.incrementListVersion(userId);

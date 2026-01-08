@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
+import { CacheService } from '../common/services/cache.service';
 import { GenerateQuizDto } from './dto/quiz.dto';
 import { QuizType } from '@prisma/client';
 import { EventFactory } from '../events/events.types';
@@ -45,7 +46,8 @@ export class QuizProcessor extends WorkerHost {
     private readonly eventEmitter: EventEmitter2,
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
-    private readonly studyPackService: StudyPackService
+    private readonly studyPackService: StudyPackService,
+    private readonly cacheService: CacheService
   ) {
     super();
   }
@@ -107,7 +109,11 @@ export class QuizProcessor extends WorkerHost {
 
       await this.quotaService.incrementQuota(userId, 'quiz');
 
-      await this.studyPackService.invalidateUserCache(userId).catch(() => {});
+      await Promise.all([
+        this.studyPackService.invalidateUserCache(userId),
+        this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`),
+        this.cacheService.invalidateByPattern(`quiz:*:${userId}`),
+      ]);
 
       await job.updateProgress(100);
 
@@ -221,7 +227,7 @@ export class QuizProcessor extends WorkerHost {
     return this.prisma.quiz.create({
       data: {
         title,
-        topic,
+        topic: topic.trim(),
         difficulty: dto.difficulty,
         quizType,
         timeLimit: dto.timeLimit,
