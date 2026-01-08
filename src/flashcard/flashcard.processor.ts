@@ -1,14 +1,13 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger, Inject } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EVENTS } from '../events/events.constants';
 import { EventFactory } from '../events/events.types';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
+import { CacheService } from '../common/services/cache.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
@@ -37,7 +36,7 @@ export class FlashcardProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
     private readonly studyPackService: StudyPackService
@@ -105,7 +104,7 @@ export class FlashcardProcessor extends WorkerHost {
       const flashcardSet = await this.prisma.flashcardSet.create({
         data: {
           title,
-          topic: topic || dto.topic,
+          topic: (topic || dto.topic).trim(),
           cards: cards as any,
           userId,
           contentId: dto.contentId,
@@ -124,11 +123,13 @@ export class FlashcardProcessor extends WorkerHost {
         this.logger.debug(`Job ${jobId}: Linked to content ${dto.contentId}`);
       }
 
-      await this.cacheManager.del(`flashcards:all:${userId}`);
-
       await this.quotaService.incrementQuota(userId, 'flashcard');
 
-      await this.studyPackService.invalidateUserCache(userId).catch(() => {});
+      await Promise.all([
+        this.studyPackService.invalidateUserCache(userId),
+        this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`),
+        this.cacheService.invalidateByPattern(`flashcard:*:${userId}`),
+      ]);
 
       await job.updateProgress(100);
       this.logger.log(

@@ -7,13 +7,12 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecommendationService } from '../recommendation/recommendation.service';
 import { StreakService } from '../streak/streak.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { StudyService } from '../study/study.service';
+import { CacheService } from '../common/services/cache.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
 import {
   IFileStorageService,
@@ -42,7 +41,7 @@ export class FlashcardService {
     private readonly streakService: StreakService,
     private readonly challengeService: ChallengeService,
     private readonly studyService: StudyService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
     @Inject('GOOGLE_FILE_STORAGE_SERVICE')
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
@@ -147,7 +146,7 @@ export class FlashcardService {
     limit: number = 20
   ) {
     const cacheKey = `flashcards:all:${userId}:${page}:${limit}`;
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
 
     if (cached) {
       this.logger.debug(`Cache hit for user ${userId}`);
@@ -212,7 +211,7 @@ export class FlashcardService {
       },
     };
 
-    await this.cacheManager.set(cacheKey, result, CACHE_TTL_MS);
+    await this.cacheService.set(cacheKey, result, CACHE_TTL_MS);
     this.logger.debug(
       `Cached ${transformedSets.length} sets for user ${userId}`
     );
@@ -599,8 +598,7 @@ export class FlashcardService {
    * Invalidate user's flashcard cache
    */
   private async invalidateUserCache(userId: string): Promise<void> {
-    const cacheKey = `flashcards:all:${userId}`;
-    await this.cacheManager.del(cacheKey);
+    await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
   }
 
   /**
