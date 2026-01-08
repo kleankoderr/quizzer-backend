@@ -1,8 +1,6 @@
 import { Injectable, NotFoundException, Logger, Inject } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecommendationService } from '../recommendation/recommendation.service';
 import { StreakService } from '../streak/streak.service';
@@ -69,7 +67,6 @@ export class QuizService {
     private readonly streakService: StreakService,
     private readonly challengeService: ChallengeService,
     private readonly studyService: StudyService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly cacheService: CacheService,
     @Inject('GOOGLE_FILE_STORAGE_SERVICE')
     private readonly googleFileStorageService: IFileStorageService,
@@ -164,7 +161,7 @@ export class QuizService {
 
   async getAllQuizzes(userId: string, page: number = 1, limit: number = 20) {
     const cacheKey = `quizzes:all:${userId}:${page}:${limit}`;
-    const cached = await this.getFromCache<any>(cacheKey);
+    const cached = await this.cacheService.get<any>(cacheKey);
 
     if (cached) {
       this.logger.debug(`Cache hit for user ${userId}`);
@@ -187,7 +184,7 @@ export class QuizService {
           quizType: true,
           timeLimit: true,
           createdAt: true,
-          questions: true, // Select only to count, not to return
+          questions: true,
           _count: {
             select: {
               attempts: true,
@@ -206,7 +203,6 @@ export class QuizService {
       }),
     ]);
 
-    // Transform to QuizListItemDto format - parse questions only for count
     const transformedQuizzes = quizzes.map((quiz) => {
       const questions = Array.isArray(quiz.questions)
         ? quiz.questions
@@ -220,7 +216,7 @@ export class QuizService {
         quizType: this.transformQuizType(quiz.quizType),
         timeLimit: quiz.timeLimit,
         createdAt: quiz.createdAt,
-        questionCount: questions.length, // Only return the count
+        questionCount: questions.length,
         attemptCount: quiz._count.attempts,
         studyPack: quiz.studyPack,
       };
@@ -236,7 +232,7 @@ export class QuizService {
       },
     };
 
-    await this.setCache(cacheKey, result);
+    await this.cacheService.set(cacheKey, result, CACHE_TTL_MS);
     this.logger.debug(
       `Cached ${transformedQuizzes.length} quizzes for user ${userId}`
     );
@@ -245,9 +241,8 @@ export class QuizService {
   }
 
   async getQuizById(id: string, userId: string) {
-    //Check cache first
     const cacheKey = `quiz:${id}:${userId}`;
-    const cached = await this.getFromCache<any>(cacheKey);
+    const cached = await this.cacheService.get<any>(cacheKey);
 
     if (cached) {
       this.logger.debug(`Cache hit for quiz ${id}`);
@@ -262,8 +257,7 @@ export class QuizService {
 
     const sanitized = this.sanitizeQuizForDisplay(quiz);
 
-    // Cache for 5 minutes
-    await this.setCache(cacheKey, sanitized);
+    await this.cacheService.set(cacheKey, sanitized, CACHE_TTL_MS);
 
     return sanitized;
   }
@@ -1126,27 +1120,10 @@ export class QuizService {
     const todayKey = today.toISOString();
 
     await Promise.all([
-      this.cacheManager.del(`challenges:daily:${userId}:${todayKey}`),
-      this.cacheManager.del(`challenges:all:${userId}`),
+      this.cacheService.invalidate(`challenges:daily:${userId}:${todayKey}`),
+      this.cacheService.invalidate(`challenges:all:${userId}`),
     ]);
 
     this.logger.debug(`Invalidated challenge cache for user ${userId}`);
-  }
-
-  private async getFromCache<T>(key: string): Promise<T | null> {
-    try {
-      return (await this.cacheManager.get(key)) as T | null;
-    } catch (error) {
-      this.logger.warn(`Cache retrieval failed for ${key}:`, error.message);
-      return null;
-    }
-  }
-
-  private async setCache(key: string, value: any): Promise<void> {
-    try {
-      await this.cacheManager.set(key, value, CACHE_TTL_MS);
-    } catch (error) {
-      this.logger.warn(`Cache storage failed for ${key}:`, error.message);
-    }
   }
 }

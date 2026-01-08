@@ -13,6 +13,23 @@ export class CacheService {
     @Inject(REDIS_CLIENT) private readonly redisClient: RedisClientType
   ) {}
 
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      return (await this.cacheManager.get(key)) as T | null;
+    } catch (error) {
+      this.logger.warn(`Cache get failed for ${key}: ${error.message}`);
+      return null;
+    }
+  }
+
+  async set(key: string, value: any, ttlMs?: number): Promise<void> {
+    try {
+      await this.cacheManager.set(key, value, ttlMs);
+    } catch (error) {
+      this.logger.warn(`Cache set failed for ${key}: ${error.message}`);
+    }
+  }
+
   async invalidateByPattern(pattern: string): Promise<void> {
     try {
       const keys: string[] = [];
