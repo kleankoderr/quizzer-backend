@@ -9,11 +9,10 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
+import { CacheService } from '../common/services/cache.service';
 import { CreateContentDto, UpdateContentDto } from './dto/content.dto';
 import { QuizService } from '../quiz/quiz.service';
 import { FlashcardService } from '../flashcard/flashcard.service';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import {
   IFileStorageService,
   FILE_STORAGE_SERVICE,
@@ -51,7 +50,7 @@ export class ContentService {
     private readonly aiService: AiService,
     private readonly quizService: QuizService,
     private readonly flashcardService: FlashcardService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
     @Inject('GOOGLE_FILE_STORAGE_SERVICE')
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
@@ -355,11 +354,9 @@ export class ContentService {
     sectionTitle: string,
     sectionContent: string
   ) {
-    // Cache key based on content and section
     const cacheKey = `explanation:${contentId}:${sectionTitle}`;
 
-    // Check cache
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit for explanation: ${cacheKey}`);
       return cached;
@@ -372,7 +369,7 @@ export class ContentService {
 
     await this.quotaService.incrementQuota(userId, 'conceptExplanation');
 
-    await this.cacheManager.set(cacheKey, result, 43200000);
+    await this.cacheService.set(cacheKey, result, 43200000);
 
     return result;
   }
@@ -386,11 +383,9 @@ export class ContentService {
     sectionTitle: string,
     sectionContent: string
   ) {
-    // Cache key
     const cacheKey = `example:${contentId}:${sectionTitle}`;
 
-    // Check cache
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit for example: ${cacheKey}`);
       return cached;
@@ -403,7 +398,7 @@ export class ContentService {
 
     await this.quotaService.incrementQuota(userId, 'conceptExplanation');
 
-    await this.cacheManager.set(cacheKey, result, 43200000);
+    await this.cacheService.set(cacheKey, result, 43200000);
 
     return result;
   }
@@ -622,7 +617,6 @@ export class ContentService {
    * Invalidate user cache
    */
   private async invalidateUserCache(userId: string): Promise<void> {
-    const cacheKey = `content:all:${userId}`;
-    await this.cacheManager.del(cacheKey);
+    await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
   }
 }
