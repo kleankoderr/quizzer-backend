@@ -1,8 +1,7 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { CacheService } from '../common/services/cache.service';
 import { createHash } from 'node:crypto';
 import JSON5 from 'json5';
 import { JSONParser } from '@streamparser/json';
@@ -65,7 +64,7 @@ export class GeminiAiService extends AiService {
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {
     super();
     const apiKey = this.configService.get<string>('GOOGLE_API_KEY');
@@ -1127,7 +1126,7 @@ export class GeminiAiService extends AiService {
    */
   private async getFromCache<T>(key: string): Promise<T | null> {
     try {
-      return (await this.cacheManager.get(key)) as T | null;
+      return (await this.cacheService.get(key)) as T | null;
     } catch (error) {
       this.logger.warn(`Cache retrieval failed for ${key}:`, error.message);
       return null;
@@ -1140,7 +1139,7 @@ export class GeminiAiService extends AiService {
   private async setCache(key: string, value: any, ttl?: number): Promise<void> {
     try {
       const cacheTTL = ttl || this.CACHE_TTLS.GENERIC_CONTENT; // Default to 1 hour
-      await this.cacheManager.set(key, value, cacheTTL);
+      await this.cacheService.set(key, value, cacheTTL);
       this.logger.debug(`Cached result: ${key} (TTL: ${cacheTTL}ms)`);
     } catch (error) {
       this.logger.warn(`Cache storage failed for ${key}:`, error.message);

@@ -1,6 +1,5 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Injectable } from '@nestjs/common';
+import { CacheService } from './cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PlatformSettings } from '@prisma/client';
 
@@ -17,11 +16,11 @@ export class PlatformSettingsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {}
 
   async getSettings(): Promise<PlatformSettings> {
-    const cached = await this.cacheManager.get<PlatformSettings>(
+    const cached = await this.cacheService.get<PlatformSettings>(
       this.CACHE_KEY
     );
     if (cached) {
@@ -35,7 +34,7 @@ export class PlatformSettingsService {
       });
     }
 
-    await this.cacheManager.set(this.CACHE_KEY, settings, this.CACHE_TTL);
+    await this.cacheService.set(this.CACHE_KEY, settings, this.CACHE_TTL);
     return settings;
   }
 
@@ -51,13 +50,13 @@ export class PlatformSettingsService {
 
     await this.invalidateCache();
     // Re-cache immediately
-    await this.cacheManager.set(this.CACHE_KEY, updated, this.CACHE_TTL);
+    await this.cacheService.set(this.CACHE_KEY, updated, this.CACHE_TTL);
 
     return updated;
   }
 
   async invalidateCache(): Promise<void> {
-    await this.cacheManager.del(this.CACHE_KEY);
+    await this.cacheService.invalidate(this.CACHE_KEY);
   }
 
   async getAiProviderConfig(): Promise<AiProviderConfig> {

@@ -2,13 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
-  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { CacheService } from '../common/services/cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaystackService } from './paystack.service';
 import { QuotaService } from '../common/services/quota.service';
@@ -29,7 +27,7 @@ export class SubscriptionService {
     private readonly paystackService: PaystackService,
     private readonly quotaService: QuotaService,
     private readonly lockService: LockService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {}
 
   /**
@@ -877,7 +875,7 @@ export class SubscriptionService {
       }
 
       // Mark as processing (short TTL to handle failures)
-      await this.cacheManager.set(
+      await this.cacheService.set(
         `webhook:processed:${eventId}`,
         'processing',
         300
@@ -924,7 +922,7 @@ export class SubscriptionService {
    */
   private async checkEventDuplicate(eventId: string): Promise<boolean> {
     const cacheKey = `webhook:processed:${eventId}`;
-    const alreadyProcessed = await this.cacheManager.get(cacheKey);
+    const alreadyProcessed = await this.cacheService.get(cacheKey);
     return !!alreadyProcessed;
   }
 
@@ -969,7 +967,7 @@ export class SubscriptionService {
 
       // Mark as successfully processed (24h TTL)
       if (eventId) {
-        await this.cacheManager.set(
+        await this.cacheService.set(
           `webhook:processed:${eventId}`,
           'completed',
           86400 // 24 hours

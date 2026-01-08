@@ -1,6 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Injectable } from '@nestjs/common';
+import { CacheService } from '../common/services/cache.service';
 
 export interface OtpCacheData {
   hashedOtp: string;
@@ -9,7 +8,7 @@ export interface OtpCacheData {
 
 @Injectable()
 export class OtpCacheService {
-  constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
+  constructor(private readonly cacheService: CacheService) {}
 
   private getOtpKey(email: string): string {
     return `otp:${email}`;
@@ -49,7 +48,7 @@ export class OtpCacheService {
       attempts: 0,
     };
     // cache-manager v5 set method takes ttl in milliseconds
-    await this.cacheManager.set(key, data, ttlSeconds * 1000);
+    await this.cacheService.set(key, data, ttlSeconds * 1000);
   }
 
   /**
@@ -58,7 +57,7 @@ export class OtpCacheService {
   async getCachedOtp(email: string): Promise<OtpCacheData | null> {
     const key = this.getOtpKey(email);
     // Use generics if available, otherwise cast
-    return await this.cacheManager.get<OtpCacheData>(key);
+    return await this.cacheService.get<OtpCacheData>(key);
   }
 
   /**
@@ -66,7 +65,7 @@ export class OtpCacheService {
    */
   async deleteCachedOtp(email: string): Promise<void> {
     const key = this.getOtpKey(email);
-    await this.cacheManager.del(key);
+    await this.cacheService.invalidate(key);
   }
 
   /**
@@ -85,7 +84,7 @@ export class OtpCacheService {
 
     data.attempts += 1;
     // Reset TTL to 10 mins (or original logic). keeping it simple.
-    await this.cacheManager.set(key, data, 600 * 1000);
+    await this.cacheService.set(key, data, 600 * 1000);
     return data.attempts;
   }
 
@@ -94,7 +93,7 @@ export class OtpCacheService {
    */
   async lockAccount(email: string, durationSeconds: number): Promise<void> {
     const key = this.getLockKey(email);
-    await this.cacheManager.set(key, true, durationSeconds * 1000);
+    await this.cacheService.set(key, true, durationSeconds * 1000);
   }
 
   /**
@@ -102,7 +101,7 @@ export class OtpCacheService {
    */
   async isAccountLocked(email: string): Promise<boolean> {
     const key = this.getLockKey(email);
-    const value = await this.cacheManager.get(key);
+    const value = await this.cacheService.get(key);
     return !!value;
   }
 
@@ -113,7 +112,7 @@ export class OtpCacheService {
     email: string
   ): Promise<{ allowed: boolean; remaining: number }> {
     const key = this.getRateLimitGenKey(email);
-    const count = (await this.cacheManager.get<number>(key)) || 0;
+    const count = (await this.cacheService.get<number>(key)) || 0;
     const maxAttempts = 3;
     const windowMs = 3600 * 1000; // 1 hour
 
@@ -130,7 +129,7 @@ export class OtpCacheService {
     // cache-manager `set` usually overwrites.
     // Simple approach: Always set 1 hour TTL from *last* attempt.
     // This is "Sliding Window" of sorts, safer against spam.
-    await this.cacheManager.set(key, newCount, windowMs);
+    await this.cacheService.set(key, newCount, windowMs);
 
     return { allowed: true, remaining: maxAttempts - newCount };
   }
@@ -142,7 +141,7 @@ export class OtpCacheService {
     email: string
   ): Promise<{ allowed: boolean; retryAfter: number }> {
     const key = this.getRateLimitResendKey(email);
-    const lastSent = await this.cacheManager.get<number>(key);
+    const lastSent = await this.cacheService.get<number>(key);
     const cooldownMs = 60 * 1000;
     const now = Date.now();
 
@@ -154,7 +153,7 @@ export class OtpCacheService {
     }
 
     // Allow and update timestamp
-    await this.cacheManager.set(key, now, cooldownMs); // TTL matches cooldown so it auto-expires
+    await this.cacheService.set(key, now, cooldownMs); // TTL matches cooldown so it auto-expires
     return { allowed: true, retryAfter: 0 };
   }
 
@@ -166,7 +165,7 @@ export class OtpCacheService {
     isVerified: boolean
   ): Promise<void> {
     const key = this.getVerifiedKey(email);
-    await this.cacheManager.set(key, isVerified, 24 * 3600 * 1000); // 24 hours
+    await this.cacheService.set(key, isVerified, 24 * 3600 * 1000); // 24 hours
   }
 
   /**
@@ -174,7 +173,7 @@ export class OtpCacheService {
    */
   async getVerificationStatus(email: string): Promise<boolean | null> {
     const key = this.getVerifiedKey(email);
-    const val = await this.cacheManager.get(key);
+    const val = await this.cacheService.get(key);
     // Explicit check because val could be false (which is valid)
     if (val === undefined || val === null) return null;
     return val as boolean;
@@ -193,7 +192,7 @@ export class OtpCacheService {
       hashedOtp,
       attempts: 0,
     };
-    await this.cacheManager.set(key, data, ttlSeconds * 1000);
+    await this.cacheService.set(key, data, ttlSeconds * 1000);
   }
 
   /**
@@ -201,7 +200,7 @@ export class OtpCacheService {
    */
   async getCachedPasswordResetOtp(email: string): Promise<OtpCacheData | null> {
     const key = this.getPasswordResetOtpKey(email);
-    return await this.cacheManager.get<OtpCacheData>(key);
+    return await this.cacheService.get<OtpCacheData>(key);
   }
 
   /**
@@ -209,7 +208,7 @@ export class OtpCacheService {
    */
   async deleteCachedPasswordResetOtp(email: string): Promise<void> {
     const key = this.getPasswordResetOtpKey(email);
-    await this.cacheManager.del(key);
+    await this.cacheService.invalidate(key);
   }
 
   /**
@@ -220,7 +219,7 @@ export class OtpCacheService {
     const data = await this.getCachedPasswordResetOtp(email);
     if (!data) return 0;
     data.attempts += 1;
-    await this.cacheManager.set(key, data, 600 * 1000);
+    await this.cacheService.set(key, data, 600 * 1000);
     return data.attempts;
   }
 }

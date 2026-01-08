@@ -1,9 +1,8 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { QuotaService } from '../common/services/quota.service';
+import { CacheService } from '../common/services/cache.service';
 
 @Injectable()
 export class RecommendationService {
@@ -13,7 +12,7 @@ export class RecommendationService {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly quotaService: QuotaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {}
 
   /**
@@ -26,7 +25,7 @@ export class RecommendationService {
     this.logger.debug(`Fetching recommendations for user ${userId}`);
 
     const cacheKey = `recommendations:${userId}`;
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
 
     if (cached) {
       this.logger.debug(`Cache hit for recommendations, user ${userId}`);
@@ -101,7 +100,7 @@ export class RecommendationService {
       }));
 
       // Cache the newly created defaults
-      await this.cacheManager.set(cacheKey, result, 600000);
+      await this.cacheService.set(cacheKey, result, 600000);
 
       return result;
     }
@@ -118,7 +117,7 @@ export class RecommendationService {
     }));
 
     // Cache recommendations for 10 minutes
-    await this.cacheManager.set(cacheKey, result, 600000);
+    await this.cacheService.set(cacheKey, result, 600000);
 
     return result;
   }
@@ -148,7 +147,7 @@ export class RecommendationService {
     });
 
     // Invalidate cache after dismissing
-    await this.cacheManager.del(`recommendations:${userId}`);
+    await this.cacheService.invalidate(`recommendations:${userId}`);
 
     this.logger.log(
       `Successfully dismissed recommendation ${recommendationId} for user ${userId}`
@@ -344,7 +343,7 @@ export class RecommendationService {
       );
 
       // Invalidate cache after generating new recommendations
-      await this.cacheManager.del(`recommendations:${userId}`);
+      await this.cacheService.invalidate(`recommendations:${userId}`);
 
       this.logger.log(
         `Successfully generated and stored ${limitedRecommendations.length} recommendations for user ${userId}`

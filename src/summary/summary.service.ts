@@ -4,14 +4,12 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
-  Inject,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../common/services/cache.service';
 import { customAlphabet } from 'nanoid';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 
 const nanoid = customAlphabet(
@@ -35,7 +33,7 @@ export class SummaryService {
     private readonly summaryQueue: Queue,
     private readonly prisma: PrismaService,
     private readonly subscriptionHelper: SubscriptionHelperService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {}
 
   /**
@@ -135,14 +133,13 @@ export class SummaryService {
    * Thread-safe with lock mechanism
    */
   async generateShortCode(): Promise<string> {
-    // Get cached short code pool
-    let codePool = await this.cacheManager.get<string[]>(SHORT_CODE_CACHE_KEY);
+    let codePool = await this.cacheService.get<string[]>(SHORT_CODE_CACHE_KEY);
 
     // If cache is empty, generate initial pool
     if (!codePool || codePool.length === 0) {
       this.logger.log('Short code pool empty, generating initial pool');
       codePool = await this.generateShortCodePool(SHORT_CODE_POOL_SIZE);
-      await this.cacheManager.set(
+      await this.cacheService.set(
         SHORT_CODE_CACHE_KEY,
         codePool,
         SHORT_CODE_CACHE_TTL * 1000
@@ -156,8 +153,7 @@ export class SummaryService {
       throw new Error('Failed to retrieve short code from pool');
     }
 
-    // Update cache with remaining codes
-    await this.cacheManager.set(
+    await this.cacheService.set(
       SHORT_CODE_CACHE_KEY,
       codePool,
       SHORT_CODE_CACHE_TTL * 1000
@@ -188,18 +184,16 @@ export class SummaryService {
    */
   private async generateShortCodePool(size: number): Promise<string[]> {
     const codes: string[] = [];
-    const maxAttempts = size * 3; // Allow retries
+    const maxAttempts = size * 3;
     let attempts = 0;
 
-    // Get existing codes from cache if available
     const cachedCodes =
-      (await this.cacheManager.get<string[]>(SHORT_CODE_CACHE_KEY)) || [];
+      (await this.cacheService.get<string[]>(SHORT_CODE_CACHE_KEY)) || [];
 
     while (codes.length < size && attempts < maxAttempts) {
       const code = nanoid();
       attempts++;
 
-      // Check if code is already in cache pool
       if (cachedCodes.includes(code)) {
         this.logger.debug(`Code collision in cache: ${code}`);
         continue;
@@ -245,11 +239,9 @@ export class SummaryService {
     try {
       this.generatingCodes = true;
 
-      // Get current pool
       const currentPool =
-        (await this.cacheManager.get<string[]>(SHORT_CODE_CACHE_KEY)) || [];
+        (await this.cacheService.get<string[]>(SHORT_CODE_CACHE_KEY)) || [];
 
-      // Calculate how many codes to generate
       const codesToGenerate = SHORT_CODE_POOL_SIZE - currentPool.length;
 
       if (codesToGenerate <= 0) {
@@ -265,8 +257,7 @@ export class SummaryService {
       // Merge with existing pool
       const updatedPool = [...currentPool, ...newCodes];
 
-      // Update cache
-      await this.cacheManager.set(
+      await this.cacheService.set(
         SHORT_CODE_CACHE_KEY,
         updatedPool,
         SHORT_CODE_CACHE_TTL * 1000
@@ -291,7 +282,7 @@ export class SummaryService {
     const cacheKey = `summary:${shortCode}`;
 
     if (!userId) {
-      const cached = await this.cacheManager.get<any>(cacheKey);
+      const cached = await this.cacheService.get<any>(cacheKey);
       if (cached?.isPublic) {
         this.logger.debug(`Cache hit for public summary: ${shortCode}`);
         return cached;
@@ -354,8 +345,7 @@ export class SummaryService {
       reactionCounts,
     };
 
-    // Cache the result
-    await this.cacheManager.set(cacheKey, result, SUMMARY_CACHE_TTL * 1000);
+    await this.cacheService.set(cacheKey, result, SUMMARY_CACHE_TTL * 1000);
 
     return result;
   }
@@ -617,7 +607,7 @@ export class SummaryService {
    */
   private async invalidateSummaryCache(shortCode: string): Promise<void> {
     const cacheKey = `summary:${shortCode}`;
-    await this.cacheManager.del(cacheKey);
+    await this.cacheService.invalidate(cacheKey);
     this.logger.debug(`Invalidated cache for summary: ${shortCode}`);
   }
 }

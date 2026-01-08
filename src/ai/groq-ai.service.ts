@@ -1,7 +1,6 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { CacheService } from '../common/services/cache.service';
 import Groq from 'groq-sdk';
 import { createHash } from 'node:crypto';
 import { AiPrompts } from './ai.prompts';
@@ -52,7 +51,7 @@ export class GroqAiService extends AiService {
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {
     super();
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
@@ -113,7 +112,7 @@ export class GroqAiService extends AiService {
 
   private async getFromCache<T>(key: string): Promise<T | null> {
     try {
-      const cached = await this.cacheManager.get<string>(key);
+      const cached = await this.cacheService.get<string>(key);
       return cached ? JSON.parse(cached) : null;
     } catch (error) {
       this.logger.warn(`Cache read failed: ${error.message}`);
@@ -123,7 +122,7 @@ export class GroqAiService extends AiService {
 
   private async setCache(key: string, value: any, ttl: number): Promise<void> {
     try {
-      await this.cacheManager.set(key, JSON.stringify(value), ttl);
+      await this.cacheService.set(key, JSON.stringify(value), ttl);
     } catch (error) {
       this.logger.warn(`Cache write failed: ${error.message}`);
     }

@@ -1,18 +1,17 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Injectable } from '@nestjs/common';
+import { CacheService } from '../common/services/cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class LeaderboardService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {}
 
   async getGlobalLeaderboard(currentUserId: string) {
     const cacheKey = `leaderboard:global:${currentUserId}`;
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
 
     if (cached) {
       return cached;
@@ -100,7 +99,7 @@ export class LeaderboardService {
     };
 
     // Cache leaderboard for 5 minutes (reduced database load)
-    await this.cacheManager.set(cacheKey, result, 300000);
+    await this.cacheService.set(cacheKey, result, 300000);
 
     return result;
   }
@@ -116,7 +115,7 @@ export class LeaderboardService {
     }
 
     const cacheKey = `leaderboard:school:${user.schoolName}:${userId}`;
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
 
     if (cached) {
       return cached;
@@ -206,7 +205,7 @@ export class LeaderboardService {
           })(),
     };
 
-    await this.cacheManager.set(cacheKey, result, 300000); // 5 minutes
+    await this.cacheService.set(cacheKey, result, 300000); // 5 minutes
     return result;
   }
 

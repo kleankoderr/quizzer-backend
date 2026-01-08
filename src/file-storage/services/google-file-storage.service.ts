@@ -1,7 +1,6 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { CacheService } from '../../common/services/cache.service';
 import * as crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import {
@@ -25,7 +24,7 @@ export class GoogleFileStorageService implements IFileStorageService {
   constructor(
     private readonly configService: ConfigService,
     private readonly fileCompressionService: FileCompressionService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {
     const apiKey = this.configService.get<string>('GOOGLE_API_KEY');
     this.genAI = new GoogleGenAI({ apiKey });
@@ -59,7 +58,7 @@ export class GoogleFileStorageService implements IFileStorageService {
       const cacheKey = `google-file:${fileHash}`;
 
       // Check if file already uploaded (cached by hash)
-      const cachedFile = await this.cacheManager.get<UploadResult>(cacheKey);
+      const cachedFile = await this.cacheService.get<UploadResult>(cacheKey);
       if (cachedFile) {
         this.logger.debug(
           `File already uploaded (hash: ${fileHash}), reusing cached URI: ${cachedFile.secureUrl}`
@@ -123,7 +122,7 @@ export class GoogleFileStorageService implements IFileStorageService {
       };
 
       // Cache for 48 hours (172800 seconds) - matching Google's retention
-      await this.cacheManager.set(cacheKey, result, 172800000); // 48 hours in ms
+      await this.cacheService.set(cacheKey, result, 172800000); // 48 hours in ms
 
       return result;
     } catch (error) {

@@ -1,9 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { Cache } from 'cache-manager';
-import { Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { CacheService } from '../common/services/cache.service';
 
 export interface Quote {
   q: string; // quote text
@@ -18,7 +16,7 @@ export class QuoteService {
 
   constructor(
     private readonly httpService: HttpService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {}
 
   /**
@@ -51,7 +49,7 @@ export class QuoteService {
     cacheKey: string
   ): Promise<{ text: string; author: string } | null> {
     try {
-      return await this.cacheManager.get<{ text: string; author: string }>(
+      return await this.cacheService.get<{ text: string; author: string }>(
         cacheKey
       );
     } catch (error) {
@@ -135,7 +133,7 @@ export class QuoteService {
     quote: { text: string; author: string }
   ): Promise<void> {
     try {
-      await this.cacheManager.set(cacheKey, quote, this.CACHE_TTL);
+      await this.cacheService.set(cacheKey, quote, this.CACHE_TTL);
     } catch (error) {
       this.logger.warn(`Failed to cache quote: ${error.message}`);
     }

@@ -8,15 +8,13 @@ import {
   Delete,
   UseGuards,
   Query,
-  Inject,
   Logger,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { CacheService } from '../common/services/cache.service';
 import {
   UserFilterDto,
   UpdateUserStatusDto,
@@ -37,7 +35,7 @@ export class AdminController {
 
   constructor(
     private readonly adminService: AdminService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    private readonly cacheService: CacheService
   ) {}
 
   @Delete('content/:id')
@@ -291,7 +289,7 @@ export class AdminController {
    */
   private async clearPlansCache(): Promise<void> {
     try {
-      await this.cacheManager.del('/subscription/plans');
+      await this.cacheService.invalidate('/subscription/plans');
       this.logger.log('Subscription plans cache cleared');
     } catch (error) {
       this.logger.error(

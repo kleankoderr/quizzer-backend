@@ -1,14 +1,12 @@
 import {
   Injectable,
   Logger,
-  Inject,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
+import { CacheService } from '../common/services/cache.service';
 import { LeaderboardService } from '../leaderboard/leaderboard.service';
 import { QuizType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
@@ -78,7 +76,7 @@ export class ChallengeService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
     private readonly aiService: AiService,
     private readonly leaderboardService: LeaderboardService,
     private readonly configService: ConfigService
@@ -86,7 +84,7 @@ export class ChallengeService {
 
   async getAllChallenges(userId: string) {
     const cacheKey = this.getCacheKey('all', userId);
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
 
     if (cached) {
       this.logger.debug(`Cache hit for all challenges, user ${userId}`);
@@ -129,7 +127,7 @@ export class ChallengeService {
       };
     });
 
-    await this.cacheManager.set(
+    await this.cacheService.set(
       cacheKey,
       challengesWithProgress,
       CACHE_TTL.ALL_CHALLENGES
@@ -143,7 +141,7 @@ export class ChallengeService {
 
     const { today, tomorrow } = this.getTodayDateRange();
     const cacheKey = this.getCacheKey('daily', userId, today);
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
 
     if (cached) {
       this.logger.debug(`Cache hit for daily challenges, user ${userId}`);
@@ -172,7 +170,7 @@ export class ChallengeService {
     });
 
     const ttl = tomorrow.getTime() - Date.now();
-    await this.cacheManager.set(cacheKey, result, ttl);
+    await this.cacheService.set(cacheKey, result, ttl);
 
     return result;
   }
@@ -315,7 +313,7 @@ export class ChallengeService {
       undefined,
       challengeId
     );
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
 
     if (cached) {
       this.logger.debug(
@@ -365,7 +363,7 @@ export class ChallengeService {
       completed: completion.completed,
     };
 
-    await this.cacheManager.set(cacheKey, result, 300000); // 5 minutes cache
+    await this.cacheService.set(cacheKey, result, 300000);
     return result;
   }
 
@@ -853,7 +851,7 @@ export class ChallengeService {
     });
 
     await this.invalidateUserCache(userId);
-    await this.cacheManager.del(
+    await this.cacheService.invalidate(
       this.getCacheKey('progress', userId, undefined, challengeId)
     );
 
@@ -922,8 +920,7 @@ export class ChallengeService {
           );
         }
 
-        // Invalidate specific challenge progress
-        await this.cacheManager.del(
+        await this.cacheService.invalidate(
           this.getCacheKey('progress', userId, undefined, challenge.id)
         );
       }
@@ -1406,6 +1403,6 @@ export class ChallengeService {
       this.getCacheKey('daily', userId, new Date()),
     ];
 
-    await Promise.all(keys.map((key) => this.cacheManager.del(key)));
+    await this.cacheService.invalidateMultiple(keys);
   }
 }

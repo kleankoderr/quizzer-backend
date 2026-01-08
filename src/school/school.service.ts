@@ -1,8 +1,7 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { CacheService } from '../common/services/cache.service';
 import { REDIS_CLIENT } from '../cache/cache.module';
 import { firstValueFrom } from 'rxjs';
 import { createClient } from 'redis';
@@ -14,14 +13,14 @@ export class SchoolService {
   private readonly logger = new Logger(SchoolService.name);
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
     @Inject(REDIS_CLIENT) private readonly redisClient: RedisClientType,
     private readonly httpService: HttpService
   ) {}
 
   async getTopSchools() {
     const cacheKey = 'schools:top:10';
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
     if (cached) {
       return cached;
     }
@@ -34,7 +33,7 @@ export class SchoolService {
     });
 
     // Cache for 24 hours
-    await this.cacheManager.set(cacheKey, schools, 24 * 60 * 60 * 1000);
+    await this.cacheService.set(cacheKey, schools, 24 * 60 * 60 * 1000);
 
     return schools;
   }
@@ -45,7 +44,7 @@ export class SchoolService {
     }
 
     const cacheKey = `schools:search:${query.toLowerCase()}`;
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
     if (cached) {
       return cached;
     }
@@ -104,7 +103,7 @@ export class SchoolService {
     }
 
     // Cache for 24 hours (in milliseconds)
-    await this.cacheManager.set(cacheKey, results, 24 * 60 * 60 * 1000);
+    await this.cacheService.set(cacheKey, results, 24 * 60 * 60 * 1000);
 
     return results;
   }

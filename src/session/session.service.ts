@@ -1,6 +1,5 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Injectable, Logger } from '@nestjs/common';
+import { CacheService } from '../common/services/cache.service';
 import { ConfigService } from '@nestjs/config';
 import { SessionData, CreateSessionDto } from './interfaces/session.interface';
 import { createHash } from 'crypto';
@@ -11,7 +10,7 @@ export class SessionService {
   private readonly sessionTTL: number;
 
   constructor(
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
     private readonly configService: ConfigService
   ) {
     // Default to 7 days (604800 seconds)
@@ -39,7 +38,7 @@ export class SessionService {
     };
 
     // Store session in Redis with TTL
-    await this.cacheManager.set(
+    await this.cacheService.set(
       `session:${sessionId}`,
       sessionData,
       this.sessionTTL * 1000 // Convert to milliseconds
@@ -56,14 +55,14 @@ export class SessionService {
    * Get session data by session ID
    */
   async getSession(sessionId: string): Promise<SessionData | null> {
-    const session = await this.cacheManager.get<SessionData>(
+    const session = await this.cacheService.get<SessionData>(
       `session:${sessionId}`
     );
 
     if (session) {
       // Update last activity timestamp
       session.lastActivity = new Date();
-      await this.cacheManager.set(
+      await this.cacheService.set(
         `session:${sessionId}`,
         session,
         this.sessionTTL * 1000
@@ -77,13 +76,13 @@ export class SessionService {
    * Invalidate a specific session
    */
   async invalidateSession(sessionId: string): Promise<void> {
-    const session = await this.cacheManager.get<SessionData>(
+    const session = await this.cacheService.get<SessionData>(
       `session:${sessionId}`
     );
 
     if (session) {
       await this.removeFromUserSessions(session.userId, sessionId);
-      await this.cacheManager.del(`session:${sessionId}`);
+      await this.cacheService.invalidate(`session:${sessionId}`);
       this.logger.log(`Session invalidated: ${sessionId}`);
     }
   }
@@ -95,10 +94,10 @@ export class SessionService {
     const sessionIds = await this.getUserSessions(userId);
 
     for (const sessionId of sessionIds) {
-      await this.cacheManager.del(`session:${sessionId}`);
+      await this.cacheService.invalidate(`session:${sessionId}`);
     }
 
-    await this.cacheManager.del(`user:sessions:${userId}`);
+    await this.cacheService.invalidate(`user:sessions:${userId}`);
     this.logger.log(`All sessions invalidated for user ${userId}`);
   }
 
@@ -107,7 +106,7 @@ export class SessionService {
    */
   async isTokenBlacklisted(token: string): Promise<boolean> {
     const tokenHash = this.hashToken(token);
-    const blacklisted = await this.cacheManager.get<boolean>(
+    const blacklisted = await this.cacheService.get<boolean>(
       `blacklist:${tokenHash}`
     );
     return !!blacklisted;
@@ -118,7 +117,7 @@ export class SessionService {
    */
   async blacklistToken(token: string, expiresIn: number): Promise<void> {
     const tokenHash = this.hashToken(token);
-    await this.cacheManager.set(
+    await this.cacheService.set(
       `blacklist:${tokenHash}`,
       true,
       expiresIn * 1000
@@ -130,7 +129,7 @@ export class SessionService {
    * Get all active sessions for a user
    */
   async getUserSessions(userId: string): Promise<string[]> {
-    const sessions = await this.cacheManager.get<string[]>(
+    const sessions = await this.cacheService.get<string[]>(
       `user:sessions:${userId}`
     );
     return sessions || [];
@@ -163,7 +162,7 @@ export class SessionService {
     const sessions = await this.getUserSessions(userId);
     sessions.push(sessionId);
 
-    await this.cacheManager.set(
+    await this.cacheService.set(
       `user:sessions:${userId}`,
       sessions,
       this.sessionTTL * 1000
@@ -181,13 +180,13 @@ export class SessionService {
     const filtered = sessions.filter((id) => id !== sessionId);
 
     if (filtered.length > 0) {
-      await this.cacheManager.set(
+      await this.cacheService.set(
         `user:sessions:${userId}`,
         filtered,
         this.sessionTTL * 1000
       );
     } else {
-      await this.cacheManager.del(`user:sessions:${userId}`);
+      await this.cacheService.invalidate(`user:sessions:${userId}`);
     }
   }
 
