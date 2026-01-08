@@ -1,12 +1,9 @@
 import {
   Injectable,
   NotFoundException,
-  Inject,
   ConflictException,
   Logger,
 } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../common/services/cache.service';
 import {
@@ -20,7 +17,6 @@ export class StudyPackService {
   private readonly logger = new Logger(StudyPackService.name);
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly cacheService: CacheService
   ) {}
 
@@ -30,10 +26,9 @@ export class StudyPackService {
 
   private async getListVersion(userId: string): Promise<number> {
     const key = this.getListVersionKey(userId);
-    const version = await this.cacheManager.get<number>(key);
+    const version = await this.cacheService.get<number>(key);
     if (version === undefined || version === null) {
-      // First time, set it to 1 and return 1
-      await this.cacheManager.set(key, 1, 86400000); // 24 hours
+      await this.cacheService.set(key, 1, 86400000);
       return 1;
     }
     return version;
@@ -42,7 +37,7 @@ export class StudyPackService {
   private async incrementListVersion(userId: string): Promise<void> {
     const key = this.getListVersionKey(userId);
     const version = await this.getListVersion(userId);
-    await this.cacheManager.set(key, version + 1, 86400000); // 24 hours
+    await this.cacheService.set(key, version + 1, 86400000);
   }
 
   async invalidateUserCache(userId: string): Promise<void> {
@@ -51,8 +46,8 @@ export class StudyPackService {
 
   async create(userId: string, createStudyPackDto: CreateStudyPackDto) {
     const normalizedTitle = createStudyPackDto.title.trim();
+    const normalizedDescription = createStudyPackDto.description?.trim();
 
-    // Check for existing study pack with same title (case-insensitive)
     const existing = await this.prisma.studyPack.findFirst({
       where: {
         userId,
@@ -69,8 +64,8 @@ export class StudyPackService {
 
     const created = await this.prisma.studyPack.create({
       data: {
-        ...createStudyPackDto,
         title: normalizedTitle,
+        description: normalizedDescription,
         userId,
       },
     });
@@ -87,7 +82,7 @@ export class StudyPackService {
     const version = await this.getListVersion(userId);
     const cacheKey = `study_packs:list:${userId}:${version}:${page}:${limit}:${search || ''}`;
 
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheService.get(cacheKey);
     if (cached) {
       return cached;
     }
@@ -137,13 +132,13 @@ export class StudyPackService {
       },
     };
 
-    await this.cacheManager.set(cacheKey, result, 60000); // Cache for 1 minute
+    await this.cacheService.set(cacheKey, result, 60000);
     return result;
   }
 
   async findOne(id: string, userId: string) {
     const cacheKey = `study_packs:${id}:${userId}`;
-    const pack = await this.cacheManager.get(cacheKey);
+    const pack = await this.cacheService.get(cacheKey);
     if (pack) return pack;
 
     const studyPack = await this.prisma.studyPack.findUnique({
@@ -261,7 +256,7 @@ export class StudyPackService {
       }),
     };
 
-    await this.cacheManager.set(cacheKey, transformedPack, 300000);
+    await this.cacheService.set(cacheKey, transformedPack, 300000);
     return transformedPack;
   }
 
@@ -278,7 +273,7 @@ export class StudyPackService {
       data: updateStudyPackDto,
     });
 
-    await this.cacheManager.del(`study_packs:${id}:${userId}`);
+    await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
     await this.incrementListVersion(userId);
 
     return updated;
@@ -291,7 +286,7 @@ export class StudyPackService {
       where: { id },
     });
 
-    await this.cacheManager.del(`study_packs:${id}:${userId}`);
+    await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
     await this.incrementListVersion(userId);
 
     return deleted;
@@ -362,9 +357,9 @@ export class StudyPackService {
         throw new Error('Invalid item type');
     }
 
-    await this.cacheManager.del(`study_packs:${id}:${userId}`);
+    await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
     if (previousStudyPackId && previousStudyPackId !== id) {
-      await this.cacheManager.del(
+      await this.cacheService.invalidate(
         `study_packs:${previousStudyPackId}:${userId}`
       );
     }
@@ -418,7 +413,7 @@ export class StudyPackService {
         throw new Error('Invalid item type');
     }
 
-    await this.cacheManager.del(`study_packs:${id}:${userId}`);
+    await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
 
     if (type === 'quiz') {
       await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
