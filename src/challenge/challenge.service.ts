@@ -102,10 +102,18 @@ export class ChallengeService {
           where: { userId },
           take: 1,
         },
-        quizzes: true,
+        quizzes: {
+          include: { quiz: { select: { topic: true } } },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    const userPrefs = await this.prisma.userPreference.findUnique({
+      where: { userId },
+      select: { interests: true },
+    });
+    const userInterests = (userPrefs?.interests as string[]) || [];
 
     // Filter out challenges without quizzes
     const validChallenges = challenges.filter(
@@ -115,17 +123,45 @@ export class ChallengeService {
 
     const challengesWithProgress = validChallenges.map((challenge) => {
       const completion = challenge.completions[0];
+
+      // Calculate relevance score
+      let relevanceScore = 0;
+      if (userInterests.length > 0) {
+        const challengeTopics = [
+          challenge.category,
+          challenge.title,
+          ...challenge.quizzes.map((q) => q.quiz.topic),
+        ]
+          .filter(Boolean)
+          .map((t) => t.toLowerCase());
+
+        const hasInterest = userInterests.some((interest) =>
+          challengeTopics.some((topic) =>
+            topic.includes(interest.toLowerCase())
+          )
+        );
+
+        if (hasInterest) relevanceScore += 10;
+      }
+
+      // Boost specific challenge types
+      if (challenge.type === 'hot') relevanceScore += 5;
+
       return {
         ...challenge,
         progress: completion?.progress || 0,
         completed: completion?.completed || false,
         joined: !!completion,
         participantCount: challenge._count.completions,
+        relevanceScore,
         // Remove completion array from response to keep it clean
         completions: undefined,
         _count: undefined,
       };
     });
+
+    // Sort by relevance (desc) then by creation date (desc - already filtered that way but sort is stable)
+    challengesWithProgress.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
     await this.cacheService.set(
       cacheKey,
@@ -375,46 +411,55 @@ export class ChallengeService {
         finalScore: { not: null },
       },
       include: {
-        challenge: {
-          select: { id: true, title: true },
+        user: {
+          select: {
+            id: true,
+            profile: {
+              select: {
+                name: true,
+                avatar: true,
+                schoolName: true,
+              },
+            },
+          },
         },
       },
       orderBy: [{ finalScore: 'desc' }, { completedAt: 'asc' }],
       take: 50,
     });
 
-    const entries = await Promise.all(
-      completions.map(async (completion, index) => {
-        const user = await this.prisma.user.findUnique({
-          where: { id: completion.userId },
-          select: { id: true, name: true, avatar: true, schoolName: true },
-        });
-
-        return {
-          userId: completion.userId,
-          userName: user?.name || 'Unknown',
-          avatar: user?.avatar,
-          schoolName: user?.schoolName,
-          score: completion.finalScore,
-          rank: index + 1,
-          completedAt: completion.completedAt?.toISOString(),
-        };
-      })
-    );
+    const entries = completions.map((completion, index) => ({
+      userId: completion.userId,
+      userName: completion.user?.profile?.name || 'Unknown',
+      avatar: completion.user?.profile?.avatar,
+      schoolName: completion.user?.profile?.schoolName,
+      score: completion.finalScore,
+      rank: index + 1,
+      completedAt: completion.completedAt?.toISOString(),
+    }));
 
     let currentUserEntry = entries.find((e) => e.userId === userId);
 
     if (!currentUserEntry) {
       const userCompletion = await this.prisma.challengeCompletion.findUnique({
         where: { challengeId_userId: { challengeId, userId } },
+        include: {
+          user: {
+            select: {
+              id: true,
+              profile: {
+                select: {
+                  name: true,
+                  avatar: true,
+                  schoolName: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (userCompletion) {
-        const user = await this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, name: true, avatar: true, schoolName: true },
-        });
-
         let rank = null;
         if (userCompletion.completed && userCompletion.finalScore !== null) {
           const betterScores = await this.prisma.challengeCompletion.count({
@@ -429,18 +474,18 @@ export class ChallengeService {
 
         currentUserEntry = {
           userId,
-          userName: user?.name || 'Unknown',
-          avatar: user?.avatar,
-          schoolName: user?.schoolName,
+          userName: userCompletion.user?.profile?.name || 'Unknown',
+          avatar: userCompletion.user?.profile?.avatar,
+          schoolName: userCompletion.user?.profile?.schoolName,
           score: userCompletion.finalScore || 0,
           rank,
           completedAt: userCompletion.completedAt?.toISOString(),
-        } as any;
+        } as any; // Cast to avoid strict type issues with frontend DTO if needed
       }
     }
 
     return {
-      entries: entries.slice(0, 11),
+      entries: entries.slice(0, 50),
       currentUser: currentUserEntry || null,
     };
   }
@@ -1016,7 +1061,11 @@ export class ChallengeService {
     const lastWeek = new Date(start);
     lastWeek.setDate(lastWeek.getDate() - 7);
 
-    const validQuizzes = await this.getPopularQuizzes(lastWeek);
+    const trendingInterests = await this.getTrendingInterests(lastWeek);
+    const validQuizzes = await this.getPopularQuizzes(
+      lastWeek,
+      trendingInterests
+    );
     const performanceByDifficulty =
       await this.analyzePerformanceByDifficulty(lastWeek);
     const optimalDifficulty = this.determineOptimalDifficulty(
@@ -1030,8 +1079,45 @@ export class ChallengeService {
     return { validQuizzes, optimalDifficulty };
   }
 
-  private async getPopularQuizzes(lastWeek: Date) {
-    const popularQuizzes = await this.prisma.attempt.groupBy({
+  private async getTrendingInterests(since: Date): Promise<string[]> {
+    // Find active users from recent attempts
+    const activeUserIds = await this.prisma.attempt.findMany({
+      where: { createdAt: { gte: since } },
+      select: { userId: true },
+      distinct: ['userId'],
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    if (activeUserIds.length === 0) return [];
+
+    const ids = activeUserIds.map((a) => a.userId);
+    const prefs = await this.prisma.userPreference.findMany({
+      where: { userId: { in: ids } },
+      select: { interests: true },
+    });
+
+    const interestCounts: Record<string, number> = {};
+    for (const p of prefs) {
+      if (!p.interests) continue;
+      const interests = Array.isArray(p.interests)
+        ? p.interests
+        : [p.interests as string];
+      for (const i of interests) {
+        const normalized = i.toLowerCase();
+        interestCounts[normalized] = (interestCounts[normalized] || 0) + 1;
+      }
+    }
+
+    return Object.entries(interestCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([interest]) => interest);
+  }
+
+  private async getPopularQuizzes(lastWeek: Date, trendingInterests: string[]) {
+    // 1. Get quizzes popular by attempts
+    const popularByType = await this.prisma.attempt.groupBy({
       by: ['quizId'],
       where: {
         createdAt: { gte: lastWeek },
@@ -1044,8 +1130,25 @@ export class ChallengeService {
       take: 20,
     });
 
+    // 2. Get quizzes matching trending interests
+    let interestBasedQuizzes: any[] = [];
+    if (trendingInterests.length > 0) {
+      interestBasedQuizzes = await this.prisma.quiz.findMany({
+        where: {
+          OR: trendingInterests.map((i) => ({
+            topic: { contains: i, mode: 'insensitive' },
+          })),
+          AND: {
+            OR: [{ isGlobal: true }, { isAdminCreated: true }],
+          },
+        },
+        take: 10,
+        select: { id: true, topic: true, difficulty: true, title: true },
+      });
+    }
+
     const quizDetails = await Promise.all(
-      popularQuizzes.map(async (pq) => {
+      popularByType.map(async (pq) => {
         if (!pq.quizId) return null;
         const quiz = await this.prisma.quiz.findUnique({
           where: { id: pq.quizId },
@@ -1056,20 +1159,37 @@ export class ChallengeService {
             title: true,
           },
         });
-        return quiz ? { ...quiz, attemptCount: pq._count.quizId } : null;
+        return quiz
+          ? { ...quiz, attemptCount: pq._count.quizId, source: 'popularity' }
+          : null;
       })
     );
 
-    const validDetails = quizDetails.filter((q) => q !== null);
+    // Combine and deduplicate
+    const allQuizzes = [
+      ...quizDetails.filter((q) => q !== null),
+      ...interestBasedQuizzes.map((q) => ({
+        ...q,
+        attemptCount: 0,
+        source: 'interest',
+      })),
+    ];
+    const uniqueQuizzes = Array.from(
+      new Map(allQuizzes.map((item) => [item.id, item])).values()
+    );
 
-    // Shuffle the array to reduce bias towards the absolute most popular quizzes
-    // This ensures variety in daily challenges while still keeping them relevant
+    // Shuffle/Sort
+    // We want a mix, maybe heavily weighted towards interests if they exist
+    // Simple shuffle for now as per original logic, but ensure interest/popular mix
+    const validDetails = uniqueQuizzes;
+
     for (let i = validDetails.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [validDetails[i], validDetails[j]] = [validDetails[j], validDetails[i]];
     }
 
-    return validDetails;
+    // Ensure we don't return too many
+    return validDetails.slice(0, 20);
   }
 
   private async analyzePerformanceByDifficulty(

@@ -129,9 +129,11 @@ export class AdminService {
       } else {
         // Text-based search across name, email, and school name
         where.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
+          { profile: { name: { contains: search, mode: 'insensitive' } } },
           { email: { contains: search, mode: 'insensitive' } },
-          { schoolName: { contains: search, mode: 'insensitive' } },
+          {
+            profile: { schoolName: { contains: search, mode: 'insensitive' } },
+          },
         ];
       }
     }
@@ -175,12 +177,16 @@ export class AdminService {
         select: {
           id: true,
           email: true,
-          name: true,
           role: true,
           isActive: true,
-          schoolName: true,
-          grade: true,
           createdAt: true,
+          profile: {
+            select: {
+              name: true,
+              schoolName: true,
+              grade: true,
+            },
+          },
           subscription: {
             select: {
               status: true,
@@ -205,7 +211,13 @@ export class AdminService {
     ]);
 
     return {
-      data: users,
+      data: users.map((u) => ({
+        ...u,
+        name: u.profile?.name,
+        schoolName: u.profile?.schoolName,
+        grade: u.profile?.grade,
+        profile: undefined,
+      })),
       meta: {
         total,
         page: pageNum,
@@ -449,7 +461,11 @@ export class AdminService {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { topic: { contains: search, mode: 'insensitive' } },
-        { user: { name: { contains: search, mode: 'insensitive' } } },
+        {
+          user: {
+            profile: { name: { contains: search, mode: 'insensitive' } },
+          },
+        },
         { user: { email: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -461,7 +477,9 @@ export class AdminService {
         take: limitNum,
         orderBy: { createdAt: 'desc' },
         include: {
-          user: { select: { name: true, email: true } },
+          user: {
+            select: { email: true, profile: { select: { name: true } } },
+          },
           _count: { select: { attempts: true } },
         },
       }),
@@ -492,7 +510,11 @@ export class AdminService {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { topic: { contains: search, mode: 'insensitive' } },
-        { user: { name: { contains: search, mode: 'insensitive' } } },
+        {
+          user: {
+            profile: { name: { contains: search, mode: 'insensitive' } },
+          },
+        },
         { user: { email: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -504,7 +526,9 @@ export class AdminService {
         take: limitNum,
         orderBy: { createdAt: 'desc' },
         include: {
-          user: { select: { name: true, email: true } },
+          user: {
+            select: { email: true, profile: { select: { name: true } } },
+          },
           _count: { select: { attempts: true } },
         },
       }),
@@ -564,7 +588,7 @@ export class AdminService {
   async getReportedContent() {
     return this.prisma.report.findMany({
       include: {
-        user: { select: { name: true, email: true } },
+        user: { select: { email: true, profile: { select: { name: true } } } },
         content: { select: { title: true } },
         quiz: { select: { title: true } },
       },
@@ -797,7 +821,7 @@ export class AdminService {
       take: 5,
       orderBy: { attempts: { _count: 'desc' } },
       include: {
-        user: { select: { name: true } },
+        user: { select: { profile: { select: { name: true } } } },
         _count: { select: { attempts: true } },
       },
     });
@@ -806,7 +830,7 @@ export class AdminService {
       take: 5,
       orderBy: { attempts: { _count: 'desc' } },
       include: {
-        user: { select: { name: true } },
+        user: { select: { profile: { select: { name: true } } } },
         _count: { select: { attempts: true } },
       },
     });
@@ -842,14 +866,14 @@ export class AdminService {
           id: q.id,
           title: q.title,
           topic: q.topic,
-          creator: q.user.name,
+          creator: q.user.profile?.name,
           attempts: q._count.attempts,
         })),
         topFlashcards: topFlashcards.map((f) => ({
           id: f.id,
           title: f.title,
           topic: f.topic,
-          creator: f.user.name,
+          creator: f.user.profile?.name,
           attempts: f._count.attempts,
         })),
       },
@@ -1234,7 +1258,11 @@ export class AdminService {
             select: {
               id: true,
               email: true,
-              name: true,
+              profile: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
           plan: true,

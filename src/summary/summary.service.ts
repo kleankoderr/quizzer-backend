@@ -301,8 +301,12 @@ export class SummaryService {
             user: {
               select: {
                 id: true,
-                name: true,
-                avatar: true,
+                profile: {
+                  select: {
+                    name: true,
+                    avatar: true,
+                  },
+                },
               },
             },
           },

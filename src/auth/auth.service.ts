@@ -79,8 +79,18 @@ export class AuthService {
       data: {
         email,
         password: hashedPassword,
-        name,
         emailVerified: false,
+        profile: {
+          create: {
+            name,
+          },
+        },
+        preference: {
+          create: {},
+        },
+      },
+      include: {
+        profile: true,
       },
     });
 
@@ -108,6 +118,7 @@ export class AuthService {
     // Find user
     const user = await this.prisma.user.findUnique({
       where: { email },
+      include: { profile: true },
     });
 
     if (!user?.password) {
@@ -190,6 +201,7 @@ export class AuthService {
     const user = await this.prisma.user.update({
       where: { email },
       data: { emailVerified: true },
+      include: { profile: true },
     });
 
     // Clear cache
@@ -203,7 +215,10 @@ export class AuthService {
 
   async resendOtp(email: string) {
     // Check user exists
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { profile: true },
+    });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -245,7 +260,7 @@ export class AuthService {
     await this.otpCacheService.cacheOtp(email, hashedOtp, 600);
     this.eventEmitter.emit(
       'otp.send',
-      new OtpEmailEvent(email, user.name, otp)
+      new OtpEmailEvent(email, user.profile?.name, otp)
     );
 
     return { message: 'OTP sent successfully' };
@@ -303,6 +318,7 @@ export class AuthService {
       // Check if user exists
       let user = await this.prisma.user.findUnique({
         where: { email },
+        include: { profile: true },
       });
 
       if (user) {
@@ -311,6 +327,7 @@ export class AuthService {
           user = await this.prisma.user.update({
             where: { id: user.id },
             data: { googleId: uid },
+            include: { profile: true },
           });
         }
       } else {
@@ -326,11 +343,21 @@ export class AuthService {
         user = await this.prisma.user.create({
           data: {
             email,
-            name: name || email.split('@')[0],
             googleId: uid,
-            avatar: picture,
             password: null, // No password for Google users
             emailVerified: true, // Google users are verified by default
+            profile: {
+              create: {
+                name: name || email.split('@')[0],
+                avatar: picture,
+              },
+            },
+            preference: {
+              create: {},
+            },
+          },
+          include: {
+            profile: true,
           },
         });
       }
@@ -376,14 +403,14 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
-        avatar: user.avatar,
-        schoolName: user.schoolName,
-        grade: user.grade,
+        name: user.profile?.name,
+        avatar: user.profile?.avatar,
+        schoolName: user.profile?.schoolName,
+        grade: user.profile?.grade,
         role: user.role,
         isPremium, // Replacing plan field with isPremium for backwards compatibility
-        onboardingCompleted: user.onboardingCompleted,
-        assessmentPopupShown: user.assessmentPopupShown,
+        onboardingCompleted: user.profile?.onboardingCompleted,
+        assessmentPopupShown: user.profile?.assessmentPopupShown,
         createdAt: user.createdAt,
       },
       accessToken,
@@ -393,17 +420,8 @@ export class AuthService {
   async getCurrentUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        schoolName: true,
-        grade: true,
-        role: true,
-        onboardingCompleted: true,
-        assessmentPopupShown: true,
-        createdAt: true,
+      include: {
+        profile: true,
       },
     });
 
@@ -414,6 +432,12 @@ export class AuthService {
 
     return {
       ...user,
+      name: user.profile?.name,
+      avatar: user.profile?.avatar,
+      schoolName: user.profile?.schoolName,
+      grade: user.profile?.grade,
+      onboardingCompleted: user.profile?.onboardingCompleted,
+      assessmentPopupShown: user.profile?.assessmentPopupShown,
       isPremium, // Add isPremium based on subscription status
     };
   }
@@ -449,7 +473,10 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { profile: true },
+    });
     if (!user) {
       return {
         message:
@@ -475,7 +502,7 @@ export class AuthService {
     // Send password reset email
     this.eventEmitter.emit(
       'password-reset.send',
-      new PasswordResetEvent(email, user.name, otp)
+      new PasswordResetEvent(email, user.profile?.name, otp)
     );
 
     return { message: 'Password reset code sent to your email.' };

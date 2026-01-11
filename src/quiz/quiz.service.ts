@@ -752,7 +752,13 @@ export class QuizService {
         ? this.prisma.user
             .update({
               where: { id: userId },
-              data: { onboardingAssessmentCompleted: true },
+              data: {
+                profile: {
+                  update: {
+                    onboardingAssessmentCompleted: true,
+                  },
+                },
+              },
             })
             .catch((err) =>
               this.logger.error(`Onboarding update failed: ${err.message}`)

@@ -43,11 +43,15 @@ async function seedSuperAdmin() {
     data: {
       email: adminEmail,
       password: hashedPassword,
-      name: 'Super Admin',
       role: UserRole.SUPER_ADMIN,
-      schoolName: 'Quizzer HQ',
-      grade: 'Admin',
       emailVerified: true,
+      profile: {
+        create: {
+          name: 'Super Admin',
+          schoolName: 'Quizzer HQ',
+          grade: 'Admin',
+        },
+      },
     },
   });
 

@@ -36,13 +36,25 @@ export class OnboardingService {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        grade,
-        schoolName,
-        schoolId,
-        preferences: {
-          subjects,
-          userType,
+        profile: {
+          update: {
+            grade,
+            schoolName,
+            schoolId,
+          },
         },
+        preference: {
+          update: {
+            preferences: {
+              subjects,
+              userType,
+            },
+          },
+        },
+      },
+      include: {
+        profile: true,
+        preference: true,
       },
     });
 
@@ -152,7 +164,7 @@ export class OnboardingService {
     // First check if user has completed onboarding
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { onboardingCompleted: true },
+      select: { profile: { select: { onboardingCompleted: true } } },
     });
 
     const task = await this.prisma.task.findFirst({
@@ -164,7 +176,7 @@ export class OnboardingService {
     });
 
     if (!task) {
-      if (user?.onboardingCompleted) {
+      if (user?.profile?.onboardingCompleted) {
         return { status: TaskStatus.COMPLETED, quizId: null };
       }
       return { status: 'NOT_STARTED' };
@@ -179,7 +191,13 @@ export class OnboardingService {
   async completeOnboarding(userId: string) {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { onboardingCompleted: true },
+      data: {
+        profile: {
+          update: {
+            onboardingCompleted: true,
+          },
+        },
+      },
     });
   }
 }

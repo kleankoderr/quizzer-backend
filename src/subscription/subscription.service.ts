@@ -665,7 +665,11 @@ export class SubscriptionService {
         },
       },
       include: {
-        user: true,
+        user: {
+          include: {
+            profile: true,
+          },
+        },
         plan: true,
       },
     });
@@ -730,7 +734,7 @@ export class SubscriptionService {
           }
 
           this.logger.log(
-            `Processed expiration for user ${subscription.user.email} (${subscription.user.name})`
+            `Processed expiration for user ${subscription.user.email} (${subscription.user.profile?.name})`
           );
         });
 
@@ -1005,7 +1009,11 @@ export class SubscriptionService {
           user: {
             select: {
               email: true,
-              name: true,
+              profile: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
           subscription: {

@@ -8,63 +8,87 @@ datasource db {
 }
 
 model User {
-  id                            String            @id @default(uuid())
-  email                         String            @unique
-  name                          String
-  password                      String?
-  emailVerified                 Boolean           @default(false)
-  avatar                        String?
-  googleId                      String?           @unique
-  accessToken                   String?
-  refreshToken                  String?
-  createdAt                     DateTime          @default(now())
-  updatedAt                     DateTime          @updatedAt
-  grade                         String?
-  preferences                   Json?
-  schoolName                    String?
-  fcmTokens                     String[]          @default([])
-  isActive                      Boolean           @default(true)
-  role                          UserRole          @default(USER)
-  onboardingCompleted           Boolean           @default(false)
-  onboardingAssessmentCompleted Boolean           @default(false)
-  schoolId                      String?
-  assessmentPopupShown          Boolean           @default(false)
-  plan                          UserPlan          @default(FREE)
-  attempts                      Attempt[]
-  contents                      Content[]
-  flashcardSets                 FlashcardSet[]
-  leaderboard                   LeaderboardEntry?
-  payments                      Payment[]
-  quizzes                       Quiz[]
-  reports                       Report[]
-  streak                        Streak?
-  studyPacks                    StudyPack[]
-  subscription                  Subscription?
-  summaryReactions              SummaryReaction[]
-  tasks                         Task[]
-  topicProgress                 TopicProgress[]
-  userDocuments                 UserDocument[]
-  quota                         UserQuota?
-  school                        School?           @relation(fields: [schoolId], references: [id])
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String?
+  googleId      String?  @unique
+  accessToken   String?
+  refreshToken  String?
+  role          UserRole @default(USER)
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  fcmTokens     String[] @default([])
+
+  profile    UserProfile?
+  preference UserPreference?
+
+  attempts             Attempt[]
+  contents             Content[]
+  flashcardSets        FlashcardSet[]
+  leaderboard          LeaderboardEntry?
+  payments             Payment[]
+  quizzes              Quiz[]
+  reports              Report[]
+  streak               Streak?
+  studyPacks           StudyPack[]
+  subscription         Subscription?
+  summaryReactions     SummaryReaction[]
+  tasks                Task[]
+  topicProgress        TopicProgress[]
+  userDocuments        UserDocument[]
+  quota                UserQuota?
+  challengeCompletions ChallengeCompletion[]
 
   @@map("users")
+}
+
+model UserProfile {
+  id                            String   @id @default(uuid())
+  userId                        String   @unique
+  name                          String
+  avatar                        String?
+  schoolName                    String?
+  schoolId                      String?
+  grade                         String?
+  onboardingCompleted           Boolean  @default(false)
+  onboardingAssessmentCompleted Boolean  @default(false)
+  assessmentPopupShown          Boolean  @default(false)
+  plan                          UserPlan @default(FREE)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School? @relation(fields: [schoolId], references: [id])
+
+  @@map("user_profiles")
+}
+
+model UserPreference {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  preferences Json?
+  interests   String[] @default([])
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
 }
 
 model UserQuota {
   id                              String   @id @default(uuid())
   userId                          String   @unique
-  isPremium                       Boolean  @default(false)
   monthlyResetAt                  DateTime @default(now())
-  createdAt                       DateTime @default(now())
-  updatedAt                       DateTime @updatedAt
+  monthlyQuizCount                Int      @default(0)
+  monthlyFlashcardCount           Int      @default(0)
+  monthlyStudyMaterialCount       Int      @default(0)
+  monthlyConceptExplanationCount  Int      @default(0)
+  monthlySmartRecommendationCount Int      @default(0)
+  monthlySmartCompanionCount      Int      @default(0)
   monthlyFileUploadCount          Int      @default(0)
   totalFileStorageMB              Float    @default(0)
-  monthlyConceptExplanationCount  Int      @default(0)
-  monthlyFlashcardCount           Int      @default(0)
-  monthlyQuizCount                Int      @default(0)
-  monthlySmartCompanionCount      Int      @default(0)
-  monthlySmartRecommendationCount Int      @default(0)
-  monthlyStudyMaterialCount       Int      @default(0)
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+  isPremium                       Boolean  @default(false)
   monthlyWeakAreaAnalysisCount    Int      @default(0)
   user                            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -77,21 +101,25 @@ model Quiz {
   title            String
   topic            String
   difficulty       String          @default("medium")
+  quizType         QuizType        @default(STANDARD)
+  tags             String[]        @default([])
+  timeLimit        Int?
   questions        Json
   userId           String
   sourceType       String?
   sourceFiles      String[]
+  contentId        String?         @unique
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
-  timeLimit        Int?
-  contentId        String?         @unique
-  quizType         QuizType        @default(STANDARD)
-  tags             String[]        @default([])
   studyPackId      String?
+  isAdminCreated   Boolean         @default(false)
+  isGlobal         Boolean         @default(false)
+  schoolId         String?
   attempts         Attempt[]
   challengeQuizzes ChallengeQuiz[]
   challenges       Challenge[]
   content          Content?        @relation(fields: [contentId], references: [id])
+  schools          School?         @relation(fields: [schoolId], references: [id])
   studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id])
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   reports          Report[]
@@ -99,29 +127,37 @@ model Quiz {
   @@index([studyPackId])
   @@index([userId])
   @@index([createdAt])
+  @@index([isAdminCreated])
+  @@index([schoolId])
   @@map("quizzes")
 }
 
 model FlashcardSet {
-  id          String     @id @default(uuid())
-  title       String
-  topic       String
-  cards       Json
-  userId      String
-  sourceType  String?
-  sourceFiles String[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  contentId   String?    @unique
-  studyPackId String?
-  attempts    Attempt[]
-  content     Content?   @relation(fields: [contentId], references: [id])
-  studyPack   StudyPack? @relation(fields: [studyPackId], references: [id])
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String     @id @default(uuid())
+  title          String
+  topic          String
+  cards          Json
+  userId         String
+  sourceType     String?
+  sourceFiles    String[]
+  contentId      String?    @unique
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  studyPackId    String?
+  isAdminCreated Boolean    @default(false)
+  isGlobal       Boolean    @default(false)
+  schoolId       String?
+  attempts       Attempt[]
+  content        Content?   @relation(fields: [contentId], references: [id])
+  schools        School?    @relation(fields: [schoolId], references: [id])
+  studyPack      StudyPack? @relation(fields: [studyPackId], references: [id])
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([studyPackId])
   @@index([userId])
   @@index([createdAt])
+  @@index([isAdminCreated])
+  @@index([schoolId])
   @@map("flashcard_sets")
 }
 
@@ -131,10 +167,10 @@ model Streak {
   currentStreak    Int      @default(0)
   longestStreak    Int      @default(0)
   lastActivityDate DateTime @default(now())
+  totalXP          Int      @default(0)
+  level            Int      @default(1)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  level            Int      @default(1)
-  totalXP          Int      @default(0)
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("streaks")
@@ -159,18 +195,18 @@ model Challenge {
   title           String
   description     String
   type            String
+  category        String?
   target          Int
   reward          Int
   startDate       DateTime
   endDate         DateTime
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  category        String?
-  format          String                @default("STANDARD")
-  quizId          String?
   rules           String?
   timeLimit       Int?
   maxParticipants Int?
+  format          String                @default("STANDARD")
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  quizId          String?
   attempts        Attempt[]
   completions     ChallengeCompletion[]
   quizzes         ChallengeQuiz[]
@@ -189,13 +225,14 @@ model ChallengeCompletion {
   progress         Int       @default(0)
   completed        Boolean   @default(false)
   completedAt      DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
   currentQuizIndex Int       @default(0)
+  quizAttempts     Json?
   finalScore       Int?
   percentile       Float?
-  quizAttempts     Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
   challenge        Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([challengeId, userId])
   @@index([userId])
@@ -224,15 +261,15 @@ model Attempt {
   userId            String
   quizId            String?
   flashcardSetId    String?
+  challengeId       String?
   type              String
   score             Int?
   totalQuestions    Int?
   answers           Json?
-  completedAt       DateTime      @default(now())
-  createdAt         DateTime      @default(now())
   confidenceRatings Json?
   timeSpent         Int?
-  challengeId       String?
+  completedAt       DateTime      @default(now())
+  createdAt         DateTime      @default(now())
   challenge         Challenge?    @relation(fields: [challengeId], references: [id])
   flashcardSet      FlashcardSet? @relation(fields: [flashcardSetId], references: [id], onDelete: Cascade)
   quiz              Quiz?         @relation(fields: [quizId], references: [id], onDelete: Cascade)
@@ -266,16 +303,20 @@ model Content {
   id               String          @id @default(uuid())
   title            String
   content          String
+  description      String?
+  learningGuide    Json?
   topic            String
   userId           String
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
-  flashcardSetId   String?
-  learningGuide    Json?
   quizId           String?
+  flashcardSetId   String?
   lastReadPosition Float           @default(0)
-  description      String?
   studyPackId      String?
+  isAdminCreated   Boolean         @default(false)
+  isGlobal         Boolean         @default(false)
+  schoolId         String?
+  schools          School?         @relation(fields: [schoolId], references: [id])
   studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id])
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   flashcardSet     FlashcardSet?
@@ -286,18 +327,20 @@ model Content {
 
   @@index([studyPackId])
   @@index([userId])
+  @@index([isAdminCreated])
+  @@index([schoolId])
   @@map("contents")
 }
 
 model Task {
   id        String     @id @default(uuid())
   userId    String
+  type      TaskType
+  status    TaskStatus @default(PENDING)
   result    Json?
   error     String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-  status    TaskStatus @default(PENDING)
-  type      TaskType
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -381,11 +424,16 @@ model StudySession {
 }
 
 model School {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
+  id             String         @id @default(uuid())
+  name           String         @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  contents       Content[]
+  flashcard_sets FlashcardSet[]
+  quizzes        Quiz[]
+  study_packs    StudyPack[]
+  summaries      Summary[]
+  userProfiles   UserProfile[]
 
   @@index([name])
   @@map("schools")
@@ -454,39 +502,45 @@ model PlatformSettings {
   maintenanceMode   Boolean  @default(false)
   supportEmail      String?
   aiPrompts         Json?
-  aiProviderConfig  Json?
   updatedAt         DateTime @updatedAt
+  aiProviderConfig  Json?
 
   @@map("platform_settings")
 }
 
 model StudyPack {
-  id            String         @id @default(uuid())
-  title         String
-  description   String?
-  coverImage    String?
-  userId        String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  contents      Content[]
-  flashcardSets FlashcardSet[]
-  quizzes       Quiz[]
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userDocuments UserDocument[]
+  id             String         @id @default(uuid())
+  title          String
+  description    String?
+  coverImage     String?
+  userId         String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  isAdminCreated Boolean        @default(false)
+  isGlobal       Boolean        @default(false)
+  schoolId       String?
+  contents       Content[]
+  flashcardSets  FlashcardSet[]
+  quizzes        Quiz[]
+  schools        School?        @relation(fields: [schoolId], references: [id])
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userDocuments  UserDocument[]
 
   @@index([userId])
+  @@index([isAdminCreated])
+  @@index([schoolId])
   @@map("study_packs")
 }
 
 model SubscriptionPlan {
   id            String         @id @default(uuid())
+  name          PlanType
   price         Float
   interval      String
   quotas        Json
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  name          PlanType
   subscriptions Subscription[]
 
   @@map("subscription_plans")
@@ -547,6 +601,10 @@ model Summary {
   generatedAt     DateTime          @default(now())
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+  isAdminCreated  Boolean           @default(false)
+  isGlobal        Boolean           @default(false)
+  schoolId        String?
+  schools         School?           @relation(fields: [schoolId], references: [id])
   studyMaterial   Content           @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
   reactions       SummaryReaction[]
   views           SummaryView[]
@@ -554,6 +612,8 @@ model Summary {
   @@index([shortCode])
   @@index([studyMaterialId])
   @@index([isPublic])
+  @@index([isAdminCreated])
+  @@index([schoolId])
   @@map("summaries")
 }
 
