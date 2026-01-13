@@ -23,8 +23,15 @@ export class CampaignSchedulerService implements OnModuleInit {
 
   private scheduleCampaign(strategy: CampaignStrategy) {
     try {
-      const job = new CronJob(strategy.getCronExpression(), () => {
-        this.campaignService.executeCampaign(strategy);
+      const job = new CronJob(strategy.getCronExpression(), async () => {
+        try {
+          await this.campaignService.executeCampaign(strategy);
+        } catch (error) {
+          this.logger.error(
+            `Campaign '${strategy.id}' execution failed: ${error.message}`,
+            error.stack
+          );
+        }
       });
 
       this.registry.addCronJob(strategy.id, job);
