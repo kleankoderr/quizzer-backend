@@ -33,7 +33,6 @@
   "dependencies": {
     "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
-    "cache-manager-redis-yet": "^5.1.5",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/bullmq": "^11.0.0",
     "@nestjs/common": "^11.1.8",
@@ -53,10 +52,12 @@
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.28.3",
+    "cache-manager-redis-yet": "^5.1.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "cloudinary": "^2.8.0",
     "cookie-parser": "^1.4.7",
+    "cron": "^4.3.5",
     "csrf-csrf": "^4.0.3",
     "express": "^5.2.1",
     "ghostscript-node": "^1.5.0",
@@ -92,7 +93,6 @@
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
     "cache-manager": "^7.2.7",
-
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
