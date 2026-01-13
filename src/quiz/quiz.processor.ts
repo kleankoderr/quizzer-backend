@@ -13,6 +13,8 @@ import { EVENTS } from '../events/events.constants';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { AiPrompts } from '../ai/ai.prompts';
+import { DocumentIngestionService } from '../rag/document-ingestion.service';
 
 export interface FileReference {
   originalname: string;
@@ -48,7 +50,8 @@ export class QuizProcessor extends WorkerHost {
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
     private readonly studyPackService: StudyPackService,
-    private readonly cacheService: CacheService
+    private readonly cacheService: CacheService,
+    private readonly documentIngestionService: DocumentIngestionService
   ) {
     super();
   }
@@ -62,15 +65,12 @@ export class QuizProcessor extends WorkerHost {
     );
 
     try {
-      // Step 1: Initialize and prepare
       const fileReferences = this.prepareFileReferences(files);
 
-      // Create UserDocument references for uploaded files
       if (files && files.length > 0) {
         await this.createUserDocumentReferences(userId, files, jobId);
       }
 
-      // Step 2: Fetch content and learning guide if contentId is provided
       let contentForAI = dto.content;
       if (contentId) {
         const fetchedContent =
@@ -81,7 +81,6 @@ export class QuizProcessor extends WorkerHost {
         );
       }
 
-      // Step 3: Generate quiz with LangChain
       const { questions, title, topic } = await this.generateQuizWithAI(
         dto,
         contentForAI,
@@ -148,10 +147,6 @@ export class QuizProcessor extends WorkerHost {
     }
   }
 
-  /**
-   * Prepare file references for AI service
-   */
-
   private prepareFileReferences(files?: FileReference[]): FileReference[] {
     if (!files || files.length === 0) {
       return [];
@@ -190,18 +185,20 @@ export class QuizProcessor extends WorkerHost {
     });
   }
 
-  /**
-   * Generate quiz using LangChain service
-   */
   private async generateQuizWithAI(
     dto: GenerateQuizDto,
     content: string | undefined,
     fileReferences: FileReference[]
   ) {
-    // Build prompt for quiz generation
-    const prompt = this.buildQuizPrompt(dto, content);
+    let sourceContent = content || '';
 
-    // Use LangChain with structured output
+    if (fileReferences.length > 0) {
+      const fileContents = await this.extractFileContents(fileReferences);
+      sourceContent = fileContents + (content ? `\n\n${content}` : '');
+    }
+
+    const prompt = this.buildQuizPrompt(dto, sourceContent);
+
     const result = await this.langchainService.invokeWithStructure(
       QuizGenerationSchema,
       prompt,
@@ -212,12 +209,53 @@ export class QuizProcessor extends WorkerHost {
       }
     );
 
-    // Extract questions and metadata
     const questions = result.questions;
     const title = dto.topic || 'Quiz';
     const topic = dto.topic || 'General';
 
     return { questions, title, topic };
+  }
+
+  private async extractFileContents(
+    fileReferences: FileReference[]
+  ): Promise<string> {
+    const contents: string[] = [];
+
+    for (const fileRef of fileReferences) {
+      try {
+        if (!fileRef.googleFileUrl) {
+          this.logger.warn(
+            `Skipping file ${fileRef.originalname}: no file URL`
+          );
+          continue;
+        }
+
+        const tempFile: Express.Multer.File = {
+          fieldname: 'file',
+          originalname: fileRef.originalname,
+          encoding: '7bit',
+          mimetype: fileRef.mimetype || 'application/octet-stream',
+          size: 0,
+          stream: null as any,
+          destination: '',
+          filename: fileRef.originalname,
+          path: fileRef.googleFileUrl,
+          buffer: Buffer.from(''),
+        };
+
+        const fileContent =
+          await this.documentIngestionService.extractFileContent(tempFile);
+        contents.push(
+          `\n\n=== Content from ${fileRef.originalname} ===\n${fileContent}`
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to extract content from ${fileRef.originalname}: ${error.message}`
+        );
+      }
+    }
+
+    return contents.join('\n\n');
   }
 
   /**
@@ -227,27 +265,25 @@ export class QuizProcessor extends WorkerHost {
     dto: GenerateQuizDto,
     content: string | undefined
   ): string {
-    let prompt = `Generate ${dto.numberOfQuestions} quiz questions`;
+    const questionTypeInstructions = this.buildQuestionTypeInstructions(
+      dto.questionTypes
+    );
 
-    if (dto.topic) {
-      prompt += ` about ${dto.topic}`;
+    return AiPrompts.generateQuiz(
+      dto.topic || '',
+      dto.numberOfQuestions,
+      dto.difficulty || 'medium',
+      dto.quizType || 'standard',
+      questionTypeInstructions,
+      content || ''
+    );
+  }
+
+  private buildQuestionTypeInstructions(questionTypes?: string[]): string {
+    if (!questionTypes || questionTypes.length === 0) {
+      return 'Mix of multiple choice, true/false, and fill-in-the-blank';
     }
-
-    if (content) {
-      prompt += `. Base the questions on the following content:\n\n${content}`;
-    }
-
-    if (dto.difficulty) {
-      prompt += `\n\nDifficulty: ${dto.difficulty}`;
-    }
-
-    if (dto.questionTypes && dto.questionTypes.length > 0) {
-      prompt += `\n\nQuestion types: ${dto.questionTypes.join(', ')}`;
-    }
-
-    prompt += `\n\nProvide detailed explanations for each question.`;
-
-    return prompt;
+    return questionTypes.join(', ');
   }
 
   /**

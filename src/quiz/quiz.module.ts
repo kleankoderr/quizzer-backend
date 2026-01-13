@@ -12,6 +12,8 @@ import { FileStorageModule } from '../file-storage/file-storage.module';
 import { UserDocumentModule } from '../user-document/user-document.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
+import { AiModule } from '../ai/ai.module';
+import { RagModule } from '../rag/rag.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { StudyPackModule } from '../study-pack/study-pack.module';
     }),
     PrismaModule,
     LangChainModule,
+    AiModule,
+    RagModule,
     RecommendationModule,
     StreakModule,
     ChallengeModule,

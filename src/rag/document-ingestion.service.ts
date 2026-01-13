@@ -3,6 +3,7 @@ import { VectorStoreService } from './vector-store.service';
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { Document } from '@langchain/core/documents';
+import fs from 'node:fs/promises';
 
 @Injectable()
 export class DocumentIngestionService {
@@ -51,13 +52,18 @@ export class DocumentIngestionService {
       topic?: string;
     }
   ): Promise<void> {
-    const splitter = new RecursiveCharacter TextSplitter({
+    const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
       chunkOverlap: 200,
     });
 
     const docs = await splitter.createDocuments([content]);
     await this.vectorStore.addDocuments(docs, metadata);
+  }
+
+  async extractFileContent(file: Express.Multer.File): Promise<string> {
+    const docs = await this.loadDocument(file);
+    return docs.map((doc) => doc.pageContent).join('\n\n');
   }
 
   private async loadDocument(file: Express.Multer.File): Promise<Document[]> {
@@ -70,9 +76,13 @@ export class DocumentIngestionService {
 
     // For text files, read content directly
     if (fileType.startsWith('text/')) {
-      const fs = await import('fs/promises');
       const content = await fs.readFile(file.path, 'utf-8');
-      return [new Document({ pageContent: content, metadata: { source: file.originalname } })];
+      return [
+        new Document({
+          pageContent: content,
+          metadata: { source: file.originalname },
+        }),
+      ];
     }
 
     throw new Error(`Unsupported file type: ${fileType}`);
