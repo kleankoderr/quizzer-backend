@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { QuotaService } from '../common/services/quota.service';
 import { PlatformSettingsService } from '../common/services/platform-settings.service';
@@ -24,7 +24,7 @@ import {
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly challengeService: ChallengeService,
     private readonly quotaService: QuotaService,
     private readonly platformSettingsService: PlatformSettingsService

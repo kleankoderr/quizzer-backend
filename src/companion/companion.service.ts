@@ -288,8 +288,13 @@ The question should be encouraging, help them think about their learning process
 
   /**
    * Generate daily motivation
+   * TODO: Migrate to LangChain
    */
   async getDailyMotivation(userId: string): Promise<string> {
+    // TODO: Implement with LangChain
+    this.logger.debug('Using fallback daily motivation - AI migration pending');
+    return "Every step forward is progress. Let's make today count! 🌟";
+    /* Temporary disabled pending LangChain migration
     try {
       const [streak, performance] = await Promise.all([
         this.prisma.streak.findUnique({ where: { userId } }),
@@ -303,14 +308,15 @@ The question should be encouraging, help them think about their learning process
 
 Keep it to 1-2 sentences, friendly and encouraging. Tailor the tone to be universally relatable and encouraging.`;
 
-      const motivation = await this.aiService.generateContent({
-        prompt,
-        maxTokens: 100,
+      const motivation = await this.langchainService.invoke(prompt, {
+        task: 'motivation',
+        complexity: 'simple'
       });
       return motivation.trim();
     } catch (error) {
       this.logger.error('Error generating daily motivation:', error);
       return "Every step forward is progress. Let's make today count! 🌟";
     }
+    */
   }
 }

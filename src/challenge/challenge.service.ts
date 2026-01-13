@@ -5,7 +5,6 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
 import { CacheService } from '../common/services/cache.service';
 import { LeaderboardService } from '../leaderboard/leaderboard.service';
 import { QuizType } from '@prisma/client';
@@ -77,7 +76,7 @@ export class ChallengeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cacheService: CacheService,
-    private readonly aiService: AiService,
+    // private readonly aiService: AiService, // TODO: Migrate to LangChain
     private readonly leaderboardService: LeaderboardService,
     private readonly configService: ConfigService
   ) {}

@@ -5,7 +5,7 @@ import { EVENTS } from '../events/events.constants';
 import { EventFactory } from '../events/events.types';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
 import { CacheService } from '../common/services/cache.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
 import { UserDocumentService } from '../user-document/user-document.service';
@@ -34,7 +34,7 @@ export class FlashcardProcessor extends WorkerHost {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly eventEmitter: EventEmitter2,
     private readonly cacheService: CacheService,
     private readonly userDocumentService: UserDocumentService,

@@ -740,68 +740,16 @@ CORE TEACHING PHILOSOPHY
 CONTENT QUALITY RULES
 ═══════════════════════════════════════════════════════════════════════════════
 
-TERMINOLOGY HANDLING (CRITICAL):
-Every field has its own vocabulary. Your guide must:
+FORMULAS & MATHEMATICAL NOTATION:
+✓ Include formulas ONLY when the concept naturally involves them
+✓ Always explain what each symbol represents
+✓ Clarify when and WHY the formula is used
+✗ Don't dump formulas without context or explanation
+✗ Don't use math notation when plain language suffices
 
-✓ IDENTIFY key terminology early in the guide
-✓ CREATE a dedicated terminology section if the topic has 4+ essential terms
-✓ DEFINE terms when first introduced using **bold** formatting
-✓ PROVIDE etymology or context when it aids understanding
-✓ SHOW how terms relate to each other
-
-Terminology Section Guidelines:
-- Place early in the guide (typically section 1 or 2)
-- Title it clearly: "Key Terminology in [Topic]" or "Understanding [Topic] Vocabulary"
-- For each term, provide:
-  * Clear definition in plain language
-  * Why the term matters
-  * Example usage in context
-  * Common confusion or misconception (if applicable)
-
-Example Structure:
-"In statistics, several terms form the foundation of understanding:
-- **Population**: The complete set of all items or individuals you want to study. For example, if you're researching college students' study habits, the population is ALL college students.
-- **Sample**: A subset of the population that you actually collect data from. You might survey 500 students instead of millions."
-
-FORMULAS & MATHEMATICAL NOTATION (ENHANCED):
-Formulas are powerful tools when presented correctly.
-
-✓ ALWAYS include formulas when the concept involves mathematical relationships
-✓ PRESENT formulas in a structured, readable format
-✓ EXPLAIN each component of the formula clearly
-✓ SHOW the formula's purpose and when to use it
-✓ PROVIDE a worked example with actual numbers
-✓ USE proper mathematical notation
-
-Formula Presentation Template:
-1. **Formula name and purpose**
-2. The formula itself (use proper notation)
-3. **Where:** When and why you'd use this formula
-4. **What each symbol means:**
-   - Variable 1: explanation
-   - Variable 2: explanation
-5. **Worked example** with step-by-step calculation
-
-Example of Proper Formula Presentation:
-"**The Mean (Average) Formula**
-
-μ = (Σx) / n
-
-**Where:** Use this when you want to find the central tendency of a dataset - the typical or average value.
-
-**What each symbol means:**
-- μ (mu): The mean or average value
-- Σ (sigma): The sum of all values (add them all up)
-- x: Each individual value in your dataset
-- n: The total number of values
-
-**Worked Example:**
-You track your daily steps for 5 days: 8,000, 10,500, 7,200, 9,800, 8,500
-- Σx = 8,000 + 10,500 + 7,200 + 9,800 + 8,500 = 44,000
-- n = 5 (five days)
-- μ = 44,000 / 5 = 8,800 steps
-
-Your average daily steps are 8,800."
+Example:
+Good: "The mean (average) is calculated by adding all values and dividing by how many values you have. If you have test scores of 80, 85, and 90, you'd add them (255) and divide by 3, giving you 85."
+Bad: "μ = (Σx)/n where μ is mean, Σ is sum, x is each value, n is count"
 
 CODE USAGE GUIDELINES (CRITICAL):
 ✓ ONLY include code when the concept:
@@ -810,7 +758,7 @@ CODE USAGE GUIDELINES (CRITICAL):
     - Is about a programming language, framework, or software tool
 
 ✗ DO NOT use code for:
-    - Statistical concepts (use formulas and explanations instead)
+    - Statistical concepts (use explanations and examples instead)
     - Mathematical theories (use formulas with explanations)
     - Business concepts, psychological theories, historical events
     - General science topics that don't require computation
@@ -851,65 +799,22 @@ DESCRIPTION (2-4 sentences):
 - Set expectations: "By the end, you'll be able to..."
 - Make it inviting, not intimidating
 
-SECTION TITLES (CRITICAL - NO GENERIC TITLES):
-Section titles must be SPECIFIC and DESCRIPTIVE, following a logical pedagogical flow.
-
-✗ BAD TITLES (too vague):
-- "Introduction"
-- "Overview"
-- "Basics"
-- "Getting Started"
-- "Advanced Concepts"
-- "Section 1"
-
-✓ GOOD TITLES (specific and descriptive):
-- "Introduction to Statistical Thinking"
-- "Key Terminology in Statistics"
-- "Understanding Measures of Central Tendency"
-- "How to Calculate and Interpret Standard Deviation"
-- "The Normal Distribution: What It Is and Why It Matters"
-- "Applying Statistical Concepts to Real Data"
-
-SECTION ORDERING GUIDELINES:
-Follow this proven pedagogical sequence:
-
-For Technical/Scientific Topics:
-1. Introduction to [Topic] / What is [Topic]?
-2. Key Terminology in [Topic] (if 4+ essential terms)
-3. Fundamental Principles of [Topic]
-4. [Specific Concept 1]: How It Works
-5. [Specific Concept 2]: Practical Applications
-6. Common Pitfalls and How to Avoid Them / Advanced Considerations
-
-For Skill-Based Topics:
-1. Understanding [Skill]: Purpose and Benefits
-2. Essential Terminology and Concepts
-3. The Basic Process: Step-by-Step
-4. Techniques for [Specific Aspect]
-5. Practical Applications and Examples
-6. Mastery Tips and Common Mistakes
-
-For Historical/Conceptual Topics:
-1. Introduction to [Topic]: Context and Significance
-2. Key Terms and Definitions
-3. The Origins of [Topic]
-4. Core Principles and Mechanisms
-5. Impact and Applications
-6. Modern Perspectives and Debates
-
 SECTIONS (3-6 recommended):
 
 Each section should follow this flow: Concept → Intuition → Details → Application
 
-# CONTENT (300-500 words):
+# TITLE:
+- Clear, descriptive, non-intimidating
+- Reflects the actual learning objective
+- Avoid vague titles like "Introduction" or "Overview"
+
+# CONTENT (250-400 words):
 Structure your explanation as:
 1. Opening hook (why this matters)
 2. Core concept in plain language
-3. Key terminology definitions (if applicable)
-4. Formulas or mathematical relationships (if applicable, with full explanation)
-5. Key details and nuance
-6. Common misconceptions (if applicable)
-7. Connection to related ideas (briefly)
+3. Key details and nuance
+4. Common misconceptions (if applicable)
+5. Connection to related ideas (briefly)
 
 Formatting Guidelines:
 - **Bold** for key terms when first introduced
@@ -918,56 +823,33 @@ Formatting Guidelines:
 - > Use blockquotes for important principles, warnings, or key takeaways
 - Use numbered lists for sequential steps
 - Use bulleted lists for related features or characteristics
-- Break content into 4-6 paragraphs for readability
-- For formulas, use the structured template provided above
+- Break content into 3-5 paragraphs for readability
 
 Progressive Disclosure:
-- Section 1: Introduction and context (what is this topic and why does it matter?)
-- Section 2: Terminology (if needed) or Fundamental concepts
-- Section 3-4: Core mechanisms, formulas, and detailed explanations
-- Section 5: Applications and practical usage
-- Section 6: Advanced nuance, edge cases, or synthesis (if needed)
+- Section 1: Fundamentals and intuition
+- Section 2-3: Core mechanisms and details
+- Section 4-5: Applications and advanced nuance
+- Section 6: Synthesis or edge cases (if needed)
 
 # EXAMPLE:
 Each section needs ONE detailed, practical example that:
 - Uses a scenario the learner can visualize
 - Shows the concept in action
 - Includes a mini-walkthrough of key steps
-- For formulas, shows the complete calculation with numbers
 - Explicitly states: "This demonstrates [concept] because..."
 
-For formula examples:
-"**Example: Calculating Standard Deviation for Test Scores**
+For code examples:
+\`\`\`javascript
+// Use meaningful variable names
+const studentGrades = [85, 92, 78, 90];
 
-Five students took a test with scores: 85, 90, 78, 92, 88
-
-Step 1: Find the mean
-Mean = (85 + 90 + 78 + 92 + 88) / 5 = 433 / 5 = 86.6
-
-Step 2: Find each deviation from the mean
-- 85 - 86.6 = -1.6
-- 90 - 86.6 = 3.4
-- 78 - 86.6 = -8.6
-- 92 - 86.6 = 5.4
-- 88 - 86.6 = 1.4
-
-Step 3: Square each deviation
-- (-1.6)² = 2.56
-- (3.4)² = 11.56
-- (-8.6)² = 73.96
-- (5.4)² = 29.16
-- (1.4)² = 1.96
-
-Step 4: Find the average of squared deviations (variance)
-Variance = (2.56 + 11.56 + 73.96 + 29.16 + 1.96) / 5 = 119.2 / 5 = 23.84
-
-Step 5: Take the square root
-Standard Deviation = √23.84 = 4.88
-
-This demonstrates that the test scores vary by about 4.88 points from the average, indicating moderate spread in performance."
+// Calculate average - this is applying the mean concept
+const average = studentGrades.reduce((sum, grade) => sum + grade, 0) / studentGrades.length;
+// Result: 86.25
+\`\`\`
 
 For non-code examples:
-Walk through the scenario step-by-step with clear narration and specific details.
+Walk through the scenario step-by-step with clear narration.
 
 # KNOWLEDGE CHECK:
 Create questions that test UNDERSTANDING, not just recall.
@@ -1003,9 +885,9 @@ Return ONLY valid JSON (no markdown fences, no preamble, no code blocks around i
   "learningGuide": {
     "sections": [
       {
-        "title": "Specific, Descriptive Section Title (e.g., 'Introduction to Statistical Thinking' NOT 'Introduction')",
-        "content": "Comprehensive explanation (300-500 words) following the Concept → Intuition → Details → Application flow. Include terminology definitions with **bold** formatting. For formulas, use the structured template: formula name, the formula itself, where it's used, what each symbol means, and a worked example. Use clear paragraphs with good flow.",
-        "example": "Detailed, relatable example with step-by-step walkthrough. For mathematical concepts, show complete calculations with actual numbers. For formulas, demonstrate every step of the calculation process. Use narrative walkthrough with concrete details.",
+        "title": "Clear, Descriptive Section Title",
+        "content": "Comprehensive explanation (250-400 words) following the Concept → Intuition → Details → Application flow. Use **bold** for key terms, \`inline code\` only for technical terms in programming contexts, and \`\`\`language for code blocks. Write in clear paragraphs with good flow.",
+        "example": "Detailed, relatable example with step-by-step walkthrough. If code is necessary and appropriate for this concept, format it as: \`\`\`javascript\\n// Commented code here\\nconst example = 'with explanation';\\n\`\`\` Otherwise, use a narrative walkthrough with concrete details.",
         "knowledgeCheck": {
           "question": "Scenario-based question testing understanding, not just recall",
           "options": ["Plain text option 1", "Plain text option 2", "Plain text option 3", "Plain text option 4"],
@@ -1021,45 +903,28 @@ Return ONLY valid JSON (no markdown fences, no preamble, no code blocks around i
 QUALITY ASSURANCE CHECKLIST
 ═══════════════════════════════════════════════════════════════════════════════
 
-SECTION TITLES:
-- Is every title specific and descriptive (no "Introduction", "Overview", "Basics")?
-- Do titles follow logical pedagogical order?
-- Do titles accurately reflect section content?
-- Is there a terminology section if the topic has 4+ essential terms?
-
-TERMINOLOGY:
-- Are all key terms defined when first introduced?
-- Are terms formatted with **bold**?
-- Is the relationship between terms explained?
-- Would a complete beginner understand each term?
-
-FORMULAS:
-- Is every relevant formula included?
-- Does each formula follow the structured template?
-- Is every symbol explained?
-- Is there a worked example with actual numbers?
-- Are the steps of calculation shown clearly?
-
-CONTENT QUALITY:
+Before finalizing, verify EVERY section has:
 - Concept explained in plain language before technical terms
 - Clear explanation of WHY the concept matters
 - Intuitive explanation before diving into mechanics
 - At least one common misconception addressed (if applicable)
 - Example that's relatable and clearly connected to concept
 - Knowledge check that tests understanding, not memorization
-- Proper Markdown formatting
+- Proper Markdown formatting (especially code blocks with language tags)
 - Logical flow that builds on previous sections
 - No hallucinated information beyond the source material
+- Code included ONLY if genuinely necessary for this concept type
 
-EXAMPLES:
-- Are examples concrete with specific numbers/details?
-- Do examples include step-by-step walkthroughs?
-- For formulas, is the complete calculation shown?
-- Is the connection to the concept explicitly stated?
+Content Quality:
+- Could a curious beginner understand this without prior knowledge?
+- Are examples concrete and relatable (not abstract)?
+- Is jargon defined before being used?
+- Does each section add clear value to understanding?
 
-TECHNICAL QUALITY:
+Technical Quality:
 - All required JSON fields present
 - 3-6 sections included
+- Code blocks have language specified: \`\`\`javascript not just \`\`\`
 - JSON is valid and parseable
 - No outer markdown code fences wrapping the JSON response
 - correctAnswer uses index 0-3, not text
@@ -1075,10 +940,9 @@ Prioritize:
 2. Intuition over technical precision
 3. Understanding over memorization
 4. Relatability over academic rigor
-5. Proper structure over generic organization
-6. Teaching over telling
+5. Teaching over telling
 
-Create a guide that respects the learner's intelligence while honoring their beginner status. Ensure every section title is specific and descriptive, every term is clearly defined, and every formula is fully explained with worked examples.`;
+Create a guide that respects the learner's intelligence while honoring their beginner status.`;
   }
 
   static extractTitle(content: string) {

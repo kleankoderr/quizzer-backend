@@ -4,7 +4,7 @@ import { SummaryService } from './summary.service';
 import { SummaryProcessor } from './summary.processor';
 import { SummaryController } from './summary.controller';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AiModule } from '../ai/ai.module';
+import { LangChainModule } from '../langchain/langchain.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -13,7 +13,7 @@ import { AuthModule } from '../auth/auth.module';
       name: 'summary-generation',
     }),
     PrismaModule,
-    AiModule,
+    LangChainModule,
     AuthModule,
   ],
   controllers: [SummaryController],

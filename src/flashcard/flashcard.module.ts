@@ -3,7 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { FlashcardController } from './flashcard.controller';
 import { FlashcardService } from './flashcard.service';
 import { FlashcardProcessor } from './flashcard.processor';
-import { AiModule } from '../ai/ai.module';
+import { LangChainModule } from '../langchain/langchain.module';
 import { RecommendationModule } from '../recommendation/recommendation.module';
 import { StreakModule } from '../streak/streak.module';
 import { ChallengeModule } from '../challenge/challenge.module';
@@ -19,7 +19,7 @@ import { StudyPackModule } from '../study-pack/study-pack.module';
       name: 'flashcard-generation',
     }),
     PrismaModule, // Added PrismaModule
-    AiModule,
+    LangChainModule,
     RecommendationModule,
     StreakModule,
     ChallengeModule,

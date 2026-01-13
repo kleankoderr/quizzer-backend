@@ -3,7 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { QuizController } from './quiz.controller';
 import { QuizService } from './quiz.service';
 import { QuizProcessor } from './quiz.processor';
-import { AiModule } from '../ai/ai.module';
+import { LangChainModule } from '../langchain/langchain.module';
 import { RecommendationModule } from '../recommendation/recommendation.module';
 import { StreakModule } from '../streak/streak.module';
 import { ChallengeModule } from '../challenge/challenge.module';
@@ -19,7 +19,7 @@ import { StudyPackModule } from '../study-pack/study-pack.module';
       name: 'quiz-generation',
     }),
     PrismaModule,
-    AiModule,
+    LangChainModule,
     RecommendationModule,
     StreakModule,
     ChallengeModule,

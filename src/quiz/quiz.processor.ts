@@ -3,7 +3,8 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
+import { QuizGenerationSchema } from '../langchain/schemas/quiz.schema';
 import { CacheService } from '../common/services/cache.service';
 import { GenerateQuizDto } from './dto/quiz.dto';
 import { QuizType } from '@prisma/client';
@@ -42,7 +43,7 @@ export class QuizProcessor extends WorkerHost {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
@@ -80,7 +81,7 @@ export class QuizProcessor extends WorkerHost {
         );
       }
 
-      // Step 3: Generate quiz with AI
+      // Step 3: Generate quiz with LangChain
       const { questions, title, topic } = await this.generateQuizWithAI(
         dto,
         contentForAI,
@@ -190,22 +191,63 @@ export class QuizProcessor extends WorkerHost {
   }
 
   /**
-   * Generate quiz using AI service
+   * Generate quiz using LangChain service
    */
   private async generateQuizWithAI(
     dto: GenerateQuizDto,
     content: string | undefined,
     fileReferences: FileReference[]
   ) {
-    return this.aiService.generateQuiz({
-      topic: dto.topic,
-      content: content || dto.content,
-      fileReferences,
-      numberOfQuestions: dto.numberOfQuestions,
-      difficulty: dto.difficulty,
-      quizType: dto.quizType,
-      questionTypes: dto.questionTypes,
-    });
+    // Build prompt for quiz generation
+    const prompt = this.buildQuizPrompt(dto, content);
+
+    // Use LangChain with structured output
+    const result = await this.langchainService.invokeWithStructure(
+      QuizGenerationSchema,
+      prompt,
+      {
+        task: 'quiz',
+        hasFiles: fileReferences.length > 0,
+        complexity: dto.difficulty === 'hard' ? 'complex' : 'simple',
+      }
+    );
+
+    // Extract questions and metadata
+    const questions = result.questions;
+    const title = dto.topic || 'Quiz';
+    const topic = dto.topic || 'General';
+
+    return { questions, title, topic };
+  }
+
+  /**
+   * Build quiz generation prompt
+   */
+  private buildQuizPrompt(
+    dto: GenerateQuizDto,
+    content: string | undefined
+  ): string {
+    let prompt = `Generate ${dto.numberOfQuestions} quiz questions`;
+
+    if (dto.topic) {
+      prompt += ` about ${dto.topic}`;
+    }
+
+    if (content) {
+      prompt += `. Base the questions on the following content:\n\n${content}`;
+    }
+
+    if (dto.difficulty) {
+      prompt += `\n\nDifficulty: ${dto.difficulty}`;
+    }
+
+    if (dto.questionTypes && dto.questionTypes.length > 0) {
+      prompt += `\n\nQuestion types: ${dto.questionTypes.join(', ')}`;
+    }
+
+    prompt += `\n\nProvide detailed explanations for each question.`;
+
+    return prompt;
   }
 
   /**

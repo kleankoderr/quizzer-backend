@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
 import { SummaryService } from './summary.service';
 import { EventFactory, EVENTS } from '../events/events.types';
 
@@ -18,7 +18,7 @@ export class SummaryProcessor extends WorkerHost {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly summaryService: SummaryService,
     private readonly eventEmitter: EventEmitter2
   ) {

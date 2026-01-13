@@ -8,7 +8,6 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { CacheModule } from './cache/cache.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
-import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { QuizModule } from './quiz/quiz.module';
 import { FlashcardModule } from './flashcard/flashcard.module';
@@ -43,6 +42,8 @@ import { WeakAreaModule } from './weak-area/weak-area.module';
 import { SummaryModule } from './summary/summary.module';
 import { EmailModule } from './email/email.module';
 import { OtpModule } from './otp/otp.module';
+import { LangChainModule } from './langchain/langchain.module';
+import { RagModule } from './rag/rag.module';
 
 @Module({
   imports: [
@@ -92,7 +93,8 @@ import { OtpModule } from './otp/otp.module';
     FileStorageModule,
     CacheModule,
     SessionModule,
-    AiModule,
+    LangChainModule,
+    RagModule,
     AuthModule,
     QuizModule,
     FlashcardModule,
