@@ -14,9 +14,6 @@ importers:
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
-      '@keyv/redis':
-        specifier: ^5.1.5
-        version: 5.1.5(keyv@5.5.5)
       '@nestjs/axios':
         specifier: ^4.0.1
         version: 4.0.1(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(axios@1.13.2)(rxjs@7.8.2)
@@ -74,6 +71,9 @@ importers:
       bullmq:
         specifier: ^5.28.3
         version: 5.66.4
+      cache-manager-redis-yet:
+        specifier: ^5.1.5
+        version: 5.1.5
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
@@ -186,9 +186,6 @@ importers:
       cache-manager:
         specifier: ^7.2.7
         version: 7.2.7
-      cache-manager-redis-yet:
-        specifier: ^5.1.5
-        version: 5.1.5
       eslint:
         specifier: ^9.39.1
         version: 9.39.2(jiti@2.6.1)
@@ -911,12 +908,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
-
-  '@keyv/redis@5.1.5':
-    resolution: {integrity: sha512-8tD98mQoZTHHHFG7bcI2T4gkvAL9YsBI7TqCW4sXbx33WmAaPQ+JofxdN+rCu5LKxiboapfS8swZWJ7Tl/XbQg==}
-    engines: {node: '>= 18'}
-    peerDependencies:
-      keyv: ^5.5.5
 
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
@@ -5024,13 +5015,6 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
-
-  '@keyv/redis@5.1.5(keyv@5.5.5)':
-    dependencies:
-      '@redis/client': 5.10.0
-      cluster-key-slot: 1.1.2
-      hookified: 1.14.0
-      keyv: 5.5.5
 
   '@keyv/serialize@1.1.1': {}
 
