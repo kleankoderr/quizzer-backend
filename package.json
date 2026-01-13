@@ -33,7 +33,7 @@
   "dependencies": {
     "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
-    "@keyv/redis": "^5.1.5",
+    "cache-manager-redis-yet": "^5.1.5",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/bullmq": "^11.0.0",
     "@nestjs/common": "^11.1.8",
@@ -92,7 +92,7 @@
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
     "cache-manager": "^7.2.7",
-    "cache-manager-redis-yet": "^5.1.5",
+
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",

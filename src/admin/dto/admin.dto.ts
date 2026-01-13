@@ -111,7 +111,15 @@ export class PlatformSettingsDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
   aiProviderConfig?: Record<string, any>;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  enableWelcomeEmailCampaign?: boolean;
 }
 
 export class ModerationActionDto {

@@ -1,7 +1,7 @@
 import { Module, Global } from '@nestjs/common';
 import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import KeyvRedis from '@keyv/redis';
+import { redisStore } from 'cache-manager-redis-yet';
 import { createClient } from 'redis';
 
 export const REDIS_CLIENT = 'REDIS_CLIENT';
@@ -16,8 +16,9 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           'REDIS_URL',
           'redis://localhost:6379'
         );
+        const store = await redisStore({ url: redisUrl });
         return {
-          stores: [new KeyvRedis(redisUrl)],
+          store,
           ttl: 300000, // 5 minutes in milliseconds
         };
       },
