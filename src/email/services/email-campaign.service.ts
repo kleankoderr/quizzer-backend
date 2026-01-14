@@ -139,13 +139,26 @@ export class EmailCampaignService {
         this.logger.debug(
           `Email sent to ${user.email} for campaign ${strategy.id}`
         );
+
+        // Rate limiting: 2 requests per second = 500ms delay between sends
+        await this.sleep(800);
       } catch (error) {
         stats.emailsFailed++;
         this.logger.error(
           `Failed to send email to ${user.email} for campaign ${strategy.id}: ${error.message}`
         );
+
+        // Still respect rate limits even on error to avoid hammering the API
+        await this.sleep(800);
       }
     }
+  }
+
+  /**
+   * Sleep utility for rate limiting
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

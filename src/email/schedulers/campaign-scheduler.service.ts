@@ -15,14 +15,23 @@ export class CampaignSchedulerService implements OnModuleInit {
     private readonly strategies: CampaignStrategy[]
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     for (const strategy of this.strategies) {
-      this.scheduleCampaign(strategy);
+      await this.scheduleCampaign(strategy);
     }
   }
 
-  private scheduleCampaign(strategy: CampaignStrategy) {
+  private async scheduleCampaign(strategy: CampaignStrategy) {
     try {
+      const isEnabled = await strategy.isEnabled();
+
+      if (!isEnabled) {
+        this.logger.log(
+          `Campaign '${strategy.id}' is disabled - skipping scheduling`
+        );
+        return;
+      }
+
       const job = new CronJob(strategy.getCronExpression(), async () => {
         try {
           await this.campaignService.executeCampaign(strategy);
