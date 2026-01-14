@@ -1,7 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { User, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PlatformSettingsService } from '../../common/services/platform-settings.service';
 import { CampaignStrategy, EmailContent } from './campaign.strategy';
 import { getWelcomeBackEmailTemplate } from '../templates/welcome-back.template';
 import { ConfigService } from '@nestjs/config';
@@ -11,12 +10,10 @@ import { CronExpression } from '@nestjs/schedule';
 export class WelcomeBackCampaign implements CampaignStrategy {
   readonly id = 'welcome-back-2026-01';
   readonly description = 'Welcome back email for inactive users';
-  private readonly logger = new Logger(WelcomeBackCampaign.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
-    private readonly platformSettingsService: PlatformSettingsService
+    private readonly configService: ConfigService
   ) {}
 
   getCronExpression(): string {
@@ -27,14 +24,7 @@ export class WelcomeBackCampaign implements CampaignStrategy {
   }
 
   async isEnabled(): Promise<boolean> {
-    // Check environment variable first
-    if (this.configService.get('WELCOME_BACK_CAMPAIGN_DISABLED') === 'true') {
-      return false;
-    }
-
-    // Check platform settings
-    const settings = await this.platformSettingsService.getSettings();
-    return settings.enableWelcomeEmailCampaign;
+    return this.configService.get('ENABLE_WELCOME_BACK_CAMPAIGN') === 'true';
   }
 
   async getEligibleUsers(): Promise<Partial<User>[]> {
