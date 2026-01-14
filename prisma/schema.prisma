@@ -449,14 +449,13 @@ model UserDocument {
 }
 
 model PlatformSettings {
-  id                         String   @id @default(uuid())
-  allowRegistration          Boolean  @default(true)
-  maintenanceMode            Boolean  @default(false)
-  supportEmail               String?
-  aiPrompts                  Json?
-  aiProviderConfig           Json?
-  enableWelcomeEmailCampaign Boolean  @default(false)
-  updatedAt                  DateTime @updatedAt
+  id                String   @id @default(uuid())
+  allowRegistration Boolean  @default(true)
+  maintenanceMode   Boolean  @default(false)
+  supportEmail      String?
+  aiPrompts         Json?
+  aiProviderConfig  Json?
+  updatedAt         DateTime @updatedAt
 
   @@map("platform_settings")
 }
