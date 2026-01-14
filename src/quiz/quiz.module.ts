@@ -12,6 +12,7 @@ import { FileStorageModule } from '../file-storage/file-storage.module';
 import { UserDocumentModule } from '../user-document/user-document.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
+import { QuizGenerationStrategy } from './strategies/quiz-generation.strategy';
 import { AiModule } from '../ai/ai.module';
 import { RagModule } from '../rag/rag.module';
 
@@ -33,7 +34,7 @@ import { RagModule } from '../rag/rag.module';
     StudyPackModule,
   ],
   controllers: [QuizController],
-  providers: [QuizService, QuizProcessor],
+  providers: [QuizService, QuizProcessor, QuizGenerationStrategy],
   exports: [QuizService],
 })
 export class QuizModule {}

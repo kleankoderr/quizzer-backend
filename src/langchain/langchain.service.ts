@@ -1,12 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ModelConfigService } from './model-config.service';
 import { z } from 'zod';
+import { ModelRoutingOptions } from './types';
 
-export interface ChainInvokeOptions {
-  task: string; // 'quiz', 'flashcard', 'learning-guide', etc.
-  hasFiles?: boolean; // For multimodal routing
-  complexity?: 'simple' | 'medium' | 'complex';
-}
+export interface ChainInvokeOptions extends ModelRoutingOptions {}
 
 @Injectable()
 export class LangChainService {
@@ -21,11 +18,8 @@ export class LangChainService {
     prompt: string,
     options: ChainInvokeOptions
   ): Promise<T> {
-    // Get routing configuration
-    const routingConfig = this.modelConfig.getRoutingConfig(options);
-
-    // Get the appropriate model
-    const model = this.modelConfig.getModel(routingConfig);
+    // Get the appropriate model (now async and handles routing)
+    const model = await this.modelConfig.getModel(options);
 
     // Create structured model
     const structuredModel = model.withStructuredOutput(schema);
@@ -38,8 +32,7 @@ export class LangChainService {
    * Invoke without structure (returns string)
    */
   async invoke(prompt: string, options: ChainInvokeOptions): Promise<string> {
-    const routingConfig = this.modelConfig.getRoutingConfig(options);
-    const model = this.modelConfig.getModel(routingConfig);
+    const model = await this.modelConfig.getModel(options);
 
     const response = await model.invoke(prompt);
 
@@ -53,8 +46,7 @@ export class LangChainService {
     prompt: string,
     options: ChainInvokeOptions
   ): AsyncIterable<string> {
-    const routingConfig = this.modelConfig.getRoutingConfig(options);
-    const model = this.modelConfig.getModel(routingConfig);
+    const model = await this.modelConfig.getModel(options);
 
     const stream = await model.stream(prompt);
 

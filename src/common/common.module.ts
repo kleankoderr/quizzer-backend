@@ -8,9 +8,12 @@ import { PremiumGuard } from './guards/premium.guard';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 
+import { PlatformSettingsController } from './controllers/platform-settings.controller';
+
 @Global()
 @Module({
   imports: [PrismaModule, CacheModule],
+  controllers: [PlatformSettingsController],
   providers: [
     QuotaService,
     SubscriptionHelperService,

@@ -22,12 +22,10 @@ export class RagService {
       filter?: Record<string, any>;
     }
   ): Promise<{ answer: string; sources: any[] }> {
-    const routingConfig = this.modelConfig.getRoutingConfig({
+    const model = await this.modelConfig.getModel({
       task: options.task,
       complexity: 'medium',
     });
-
-    const model = this.modelConfig.getModel(routingConfig);
 
     // Get relevant documents
     const docs = await this.vectorStore.similaritySearch(
@@ -81,12 +79,10 @@ Answer:`;
     const context = docs.map((doc) => doc.pageContent).join('\n\n');
 
     // Get model with structured output
-    const routingConfig = this.modelConfig.getRoutingConfig({
+    const model = await this.modelConfig.getModel({
       task: options.task,
       complexity: 'medium',
     });
-
-    const model = this.modelConfig.getModel(routingConfig);
     const structuredModel = model.withStructuredOutput(schema);
 
     // Create prompt with context

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { VectorStoreService } from './vector-store.service';
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { Document } from '@langchain/core/documents';
 import fs from 'node:fs/promises';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 
 @Injectable()
 export class DocumentIngestionService {

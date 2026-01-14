@@ -5,6 +5,7 @@ import { ContentController } from './content.controller';
 import { ContentProcessor } from './content.processor';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LangChainModule } from '../langchain/langchain.module';
+import { AiModule } from '../ai/ai.module';
 import { QuizModule } from '../quiz/quiz.module';
 import { FlashcardModule } from '../flashcard/flashcard.module';
 import { FileStorageModule } from '../file-storage/file-storage.module';
@@ -19,6 +20,7 @@ import { StudyPackModule } from '../study-pack/study-pack.module';
     ),
     PrismaModule,
     LangChainModule,
+    AiModule,
     QuizModule,
     FlashcardModule,
     FileStorageModule,

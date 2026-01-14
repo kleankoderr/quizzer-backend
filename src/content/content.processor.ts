@@ -9,6 +9,9 @@ import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { AiService } from '../ai/ai.service';
+import { LearningGuideSchema } from '../langchain/schemas/learning-guide.schema';
+import { AiPrompts } from '../ai/ai.prompts';
 
 export interface ContentJobData {
   userId: string;
@@ -35,6 +38,7 @@ export class ContentProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
+    private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
@@ -86,13 +90,27 @@ export class ContentProcessor extends WorkerHost {
       );
       await job.updateProgress(30);
 
-      // Use the unified single-call generation strategy
-      await job.updateProgress(60);
+      const prompt =
+        this.aiService[
+          'AiPrompts' as any
+        ]?.generateComprehensiveLearningGuide?.(
+          dto.topic || '',
+          dto.content || '',
+          fileReferences.length > 0 ? 'See attached files for context.' : ''
+        ) ||
+        AiPrompts.generateComprehensiveLearningGuide(
+          dto.topic || '',
+          dto.content || '',
+          fileReferences.length > 0 ? 'See attached files for context.' : ''
+        );
 
-      const result = await this.aiService.generateLearningGuideFromInputs(
-        dto.topic,
-        dto.content,
-        fileReferences
+      const result = await this.langchainService.invokeWithStructure(
+        LearningGuideSchema,
+        prompt,
+        {
+          task: 'learning-guide',
+          hasFiles: fileReferences.length > 0,
+        }
       );
 
       // Extract generated data from the unified response
@@ -105,7 +123,7 @@ export class ContentProcessor extends WorkerHost {
           title: title?.trim() || dto.title || 'Untitled Study Guide',
           topic: topic?.trim() || dto.topic || 'General',
           description: description?.trim(),
-          learningGuide,
+          learningGuide: learningGuide as any,
           userId,
           content: '',
           studyPackId: dto.studyPackId,

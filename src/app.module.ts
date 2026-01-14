@@ -31,7 +31,6 @@ import { QuoteModule } from './quote/quote.module';
 import { SearchModule } from './search/search.module';
 import { SchoolModule } from './school/school.module';
 import { CoachingModule } from './coaching/coaching.module';
-import { SettingsModule } from './settings/settings.module';
 import { EventsModule } from './events/events.module';
 import { UserDocumentModule } from './user-document/user-document.module';
 import { StudyPackModule } from './study-pack/study-pack.module';
@@ -116,7 +115,6 @@ import { RagModule } from './rag/rag.module';
     QuoteModule,
     SchoolModule,
     CoachingModule,
-    SettingsModule,
     OnboardingModule,
     SearchModule,
     EventsModule,

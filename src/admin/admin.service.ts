@@ -4,10 +4,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LangChainService } from '../langchain/langchain.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { QuotaService } from '../common/services/quota.service';
-import { PlatformSettingsService } from '../common/services/platform-settings.service';
 import { UserRole, Prisma } from '@prisma/client';
 import {
   UserFilterDto,
@@ -17,17 +15,14 @@ import {
   ModerationActionDto,
   CreateSchoolDto,
   UpdateSchoolDto,
-  PlatformSettingsDto,
 } from './dto/admin.dto';
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly langchainService: LangChainService,
     private readonly challengeService: ChallengeService,
     private readonly quotaService: QuotaService,
-    private readonly platformSettingsService: PlatformSettingsService
   ) {}
 
   async deleteContent(contentId: string) {
@@ -639,14 +634,6 @@ export class AdminService {
         count: t._count._all,
       })),
     };
-  }
-
-  async getSettings() {
-    return this.platformSettingsService.getSettings();
-  }
-
-  async updateSettings(dto: PlatformSettingsDto) {
-    return this.platformSettingsService.updateSettings(dto);
   }
 
   async deleteFlashcardSet(flashcardSetId: string) {

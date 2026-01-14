@@ -3,11 +3,14 @@ import { CacheService } from './cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PlatformSettings } from '@prisma/client';
 
-export interface AiProviderConfig {
-  files?: 'groq' | 'gemini';
-  content?: 'groq' | 'gemini';
-  [key: string]: string | undefined;
-}
+import { AIModelStrategy } from '../../langchain/types';
+import {
+  AI_PROVIDER_OPTIONS,
+  AI_TASK_OPTIONS,
+  AI_COMPLEXITY_LEVELS,
+} from '../constants/ai-options';
+
+export type AiProviderConfig = AIModelStrategy;
 
 @Injectable()
 export class PlatformSettingsService {
@@ -59,8 +62,25 @@ export class PlatformSettingsService {
     await this.cacheService.invalidate(this.CACHE_KEY);
   }
 
-  async getAiProviderConfig(): Promise<AiProviderConfig> {
+  async getPublicSettings() {
     const settings = await this.getSettings();
-    return (settings.aiProviderConfig as AiProviderConfig) || {};
+    return {
+      allowRegistration: settings.allowRegistration,
+      maintenanceMode: settings.maintenanceMode,
+      supportEmail: settings.supportEmail,
+    };
+  }
+
+  async getAiProviderConfig(): Promise<AiProviderConfig | null> {
+    const settings = await this.getSettings();
+    return settings.aiProviderConfig as unknown as AiProviderConfig;
+  }
+
+  getAiOptions() {
+    return {
+      providers: AI_PROVIDER_OPTIONS,
+      tasks: AI_TASK_OPTIONS,
+      complexities: AI_COMPLEXITY_LEVELS,
+    };
   }
 }

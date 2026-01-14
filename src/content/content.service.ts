@@ -25,6 +25,7 @@ import {
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { AiService } from '../ai/ai.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -46,7 +47,7 @@ export class ContentService {
     @InjectQueue('content-generation')
     private readonly contentQueue: Queue,
     private readonly prisma: PrismaService,
-    // private readonly aiService: AiService, // TODO: Migrate to LangChain
+    private readonly aiService: AiService,
     private readonly quizService: QuizService,
     private readonly flashcardService: FlashcardService,
     private readonly cacheService: CacheService,

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { AssessmentService } from '../assessment/assessment.service';
 import { RetentionLevel } from '@prisma/client';
+import { AiService } from '../ai/ai.service';
 
 export interface StudyInsights {
   understanding: {
@@ -47,6 +48,7 @@ export class InsightsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
+    private readonly aiService: AiService,
     private readonly assessmentService: AssessmentService
   ) {}
 

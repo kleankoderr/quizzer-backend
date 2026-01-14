@@ -9,6 +9,7 @@ import { CacheService } from '../common/services/cache.service';
 import { LeaderboardService } from '../leaderboard/leaderboard.service';
 import { QuizType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
+import { AiService } from '../ai/ai.service';
 
 /**
  * Transform Prisma QuizType enum to frontend-compatible format
@@ -76,7 +77,7 @@ export class ChallengeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cacheService: CacheService,
-    // private readonly aiService: AiService, // TODO: Migrate to LangChain
+    private readonly aiService: AiService,
     private readonly leaderboardService: LeaderboardService,
     private readonly configService: ConfigService
   ) {}

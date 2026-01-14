@@ -1,120 +1,126 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatGroq } from '@langchain/groq';
-import { ChatOpenAI } from '@langchain/openai';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { PlatformSettingsService } from '../common/services/platform-settings.service';
+import { AIModelSettings, AIModelStrategy, ModelRoutingOptions } from './types';
 
 @Injectable()
 export class ModelConfigService {
-  constructor(private readonly config: ConfigService) {}
+  private readonly logger = new Logger(ModelConfigService.name);
+
+  // Hardcoded fallback strategy in case DB is empty
+  private readonly fallbackStrategy: AIModelStrategy = {
+    routing: {
+      defaultModel: 'gemini-flash',
+      taskOverrides: {
+        quiz: 'groq-fast',
+        flashcard: 'groq-fast',
+        summary: 'groq-fast',
+        recommendation: 'groq-fast',
+        'study-material': 'gemini-flash',
+      },
+      complexityOverrides: {
+        simple: 'groq-fast',
+        medium: 'gemini-flash',
+        complex: 'gemini-flash',
+      },
+    },
+    models: {
+      'gemini-flash': {
+        provider: 'gemini',
+        modelName: 'gemini-2.0-flash-exp',
+        temperature: 0.7,
+      },
+      'groq-fast': {
+        provider: 'groq',
+        modelName: 'llama-3.3-70b-versatile',
+        temperature: 0.7,
+      },
+    },
+  };
+
+  constructor(
+    private readonly config: ConfigService,
+    private readonly platformSettings: PlatformSettingsService
+  ) {}
 
   /**
-   * Create a configurable model that can switch between providers
-   * Uses LangChain's native configurable_alternatives pattern
+   * Get the appropriate model based on routing options and platform settings
    */
-  createConfigurableModel(): BaseChatModel {
-    // Initialize all models with correct API parameters
-    const gemini = new ChatGoogleGenerativeAI({
-      apiKey: this.config.get('GOOGLE_AI_API_KEY'),
-      model: this.config.get('GEMINI_MODEL', 'gemini-2.0-flash-exp'),
-      temperature: 0.7,
-    });
-
-    const groq = new ChatGroq({
-      apiKey: this.config.get('GROQ_API_KEY'),
-      model: this.config.get('GROQ_MODEL', 'llama-3.1-70b-versatile'),
-      temperature: 0.7,
-    });
-
-    const openai = new ChatOpenAI({
-      apiKey: this.config.get('OPENAI_API_KEY'),
-      model: this.config.get('OPENAI_MODEL', 'gpt-4o'),
-      temperature: 0.7,
-    });
-
-    // For now, return a single model
-    // LangChain's configurable_alternatives may not be available in current version
-    // We'll use a simpler approach: return the configured model directly
-    return gemini;
+  async getModel(options: ModelRoutingOptions): Promise<BaseChatModel> {
+    const settings = await this.resolveModelSettings(options);
+    return this.instantiateModel(settings);
   }
 
   /**
-   * Get the appropriate model based on routing config
+   * Resolves the model settings based on strategy
    */
-  getModel(routingConfig: { model: string }): BaseChatModel {
-    const modelName = routingConfig.model;
+  async resolveModelSettings(
+    options: ModelRoutingOptions
+  ): Promise<AIModelSettings> {
+    const strategy = await this.getStrategy();
+    const { task, complexity, hasFiles } = options;
 
-    switch (modelName) {
+    let modelAlias = strategy.routing.defaultModel;
+
+    // 1. Multimodal priority
+    if (hasFiles) {
+      modelAlias = 'gemini-flash'; // Hard priority for multimodal
+    }
+    // 2. Task-specific override
+    else if (task && strategy.routing.taskOverrides[task]) {
+      modelAlias = strategy.routing.taskOverrides[task];
+    }
+    // 3. Complexity-based mapping
+    else if (complexity && strategy.routing.complexityOverrides[complexity]) {
+      modelAlias = strategy.routing.complexityOverrides[complexity];
+    }
+
+    const settings =
+      strategy.models[modelAlias] ||
+      strategy.models[strategy.routing.defaultModel];
+
+    this.logger.debug(
+      `Resolved model: ${modelAlias} (${settings.provider}) for task: ${task || 'none'}`
+    );
+
+    return settings;
+  }
+
+  private async getStrategy(): Promise<AIModelStrategy> {
+    const dbConfig = await this.platformSettings.getAiProviderConfig();
+
+    // If the DB config has the new structure, use it
+    if (dbConfig?.routing && dbConfig?.models) {
+      return dbConfig as unknown as AIModelStrategy;
+    }
+
+    // Otherwise, return fallback
+    return this.fallbackStrategy;
+  }
+
+  /**
+   * Creates the LangChain model instance
+   */
+  private instantiateModel(settings: AIModelSettings): BaseChatModel {
+    const { provider, modelName, temperature } = settings;
+
+    switch (provider) {
       case 'groq':
         return new ChatGroq({
           apiKey: this.config.get('GROQ_API_KEY'),
-          model: this.config.get('GROQ_MODEL', 'llama-3.1-70b-versatile'),
-          temperature: 0.7,
+          model: modelName,
+          temperature,
         });
-
-      case 'openai':
-        return new ChatOpenAI({
-          apiKey: this.config.get('OPENAI_API_KEY'),
-          model: this.config.get('OPENAI_MODEL', 'gpt-4o'),
-          temperature: 0.7,
-        });
-
       case 'gemini':
       default:
-        // Gemini is the default model for unknown model names
         return new ChatGoogleGenerativeAI({
           apiKey: this.config.get('GOOGLE_AI_API_KEY'),
-          model: this.config.get('GEMINI_MODEL', 'gemini-2.0-flash-exp'),
-          temperature: 0.7,
+          model: modelName,
+          temperature,
         });
     }
-  }
-
-  /**
-   * Get routing config based on task metadata
-   * This determines which model to use
-   */
-  getRoutingConfig(metadata: {
-    task: string;
-    hasFiles?: boolean;
-    complexity?: 'simple' | 'medium' | 'complex';
-  }): { model: string } {
-    // File-based routing (Gemini for multimodal)
-    if (metadata.hasFiles) {
-      return { model: 'gemini' };
-    }
-
-    // Task-specific routing (from environment config)
-    const taskConfig = this.getTaskConfig(metadata.task);
-    if (taskConfig) {
-      return { model: taskConfig };
-    }
-
-    // Complexity-based routing (cost optimization)
-    if (metadata.complexity) {
-      return {
-        model: {
-          simple: 'groq', // Fast & cheap
-          medium: 'gemini', // Balanced
-          complex: 'openai', // Most capable
-        }[metadata.complexity],
-      };
-    }
-
-    // Default
-    return { model: 'gemini' };
-  }
-
-  private getTaskConfig(task: string): string | null {
-    // Task-specific routing from environment variables
-    const taskMapping: Record<string, string> = {
-      quiz: this.config.get('AI_PROVIDER_QUIZ', 'groq'),
-      flashcard: this.config.get('AI_PROVIDER_FLASHCARD', 'groq'),
-      'learning-guide': this.config.get('AI_PROVIDER_LEARNING_GUIDE', 'gemini'),
-      explanation: this.config.get('AI_PROVIDER_EXPLANATION', 'groq'),
-    };
-
-    return taskMapping[task] || null;
   }
 }

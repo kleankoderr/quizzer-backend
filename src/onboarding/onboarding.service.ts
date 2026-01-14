@@ -4,6 +4,7 @@ import { LangChainService } from '../langchain/langchain.service';
 import { QuizType, TaskStatus, TaskType } from '@prisma/client';
 
 import { SchoolService } from '../school/school.service';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class OnboardingService {
@@ -12,6 +13,7 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
+    private readonly aiService: AiService,
     private readonly schoolService: SchoolService
   ) {}
 

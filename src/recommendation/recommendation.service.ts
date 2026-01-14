@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuotaService } from '../common/services/quota.service';
 import { CacheService } from '../common/services/cache.service';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class RecommendationService {
@@ -11,6 +12,7 @@ export class RecommendationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
+    private readonly aiService: AiService,
     private readonly quotaService: QuotaService,
     private readonly cacheService: CacheService
   ) {}

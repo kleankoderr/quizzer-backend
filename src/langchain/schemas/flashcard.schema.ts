@@ -5,7 +5,8 @@ import { z } from 'zod';
  */
 export const FlashcardSchema = z.object({
   front: z.string().min(5, 'Front must be at least 5 characters'),
-  back: z.string().min(10, 'Back must be at least 10 characters'),
+  back: z.string().min(5, 'Back must be at least 5 characters'),
+  explanation: z.string().optional(),
   tags: z.array(z.string()).optional(),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
 });

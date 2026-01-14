@@ -109,12 +109,33 @@ async function seedPlans() {
 
 async function seedPlatformSettings() {
   const defaultAiConfig = {
-    files: 'gemini',
-    content: 'groq',
-    explanation: 'groq',
-    example: 'groq',
-    recommendations: 'groq',
-    summary: 'groq',
+    routing: {
+      defaultModel: 'gemini-flash',
+      taskOverrides: {
+        quiz: 'groq-fast',
+        flashcard: 'groq-fast',
+        summary: 'groq-fast',
+        recommendation: 'groq-fast',
+        'study-material': 'gemini-flash',
+      },
+      complexityOverrides: {
+        simple: 'groq-fast',
+        medium: 'gemini-flash',
+        complex: 'gemini-flash',
+      },
+    },
+    models: {
+      'gemini-flash': {
+        provider: 'gemini',
+        modelName: 'gemini-2.0-flash-exp',
+        temperature: 0.7,
+      },
+      'groq-fast': {
+        provider: 'groq',
+        modelName: 'llama-3.3-70b-versatile',
+        temperature: 0.7,
+      },
+    },
   };
 
   const existing = await prisma.platformSettings.findFirst();

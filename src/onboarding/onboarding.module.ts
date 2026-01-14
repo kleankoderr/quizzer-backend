@@ -3,11 +3,12 @@ import { OnboardingController } from './onboarding.controller';
 import { OnboardingService } from './onboarding.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LangChainModule } from '../langchain/langchain.module';
+import { AiModule } from '../ai/ai.module';
 
 import { SchoolModule } from '../school/school.module';
 
 @Module({
-  imports: [PrismaModule, LangChainModule, SchoolModule],
+  imports: [PrismaModule, LangChainModule, AiModule, SchoolModule],
   controllers: [OnboardingController],
   providers: [OnboardingService],
   exports: [OnboardingService],

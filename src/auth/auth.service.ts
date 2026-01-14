@@ -13,7 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { SignupDto, LoginDto, GoogleAuthDto } from './dto/auth.dto';
-import { SettingsService } from '../settings/settings.service';
+import { PlatformSettingsService } from '../common/services/platform-settings.service';
 import { SessionService } from '../session/session.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import axios from 'axios';
@@ -31,7 +31,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly settingsService: SettingsService,
+    private readonly platformSettingsService: PlatformSettingsService,
     private readonly sessionService: SessionService,
     private readonly subscriptionHelper: SubscriptionHelperService,
     private readonly eventEmitter: EventEmitter2,
@@ -43,7 +43,7 @@ export class AuthService {
 
   async signup(signupDto: SignupDto) {
     // Check if registration is allowed
-    const settings = await this.settingsService.getPublicSettings();
+    const settings = await this.platformSettingsService.getPublicSettings();
     if (!settings.allowRegistration) {
       throw new ForbiddenException(
         'Registration is currently disabled. Please check back later or contact support.'
@@ -315,7 +315,7 @@ export class AuthService {
         }
       } else {
         // Check if registration is allowed
-        const settings = await this.settingsService.getPublicSettings();
+        const settings = await this.platformSettingsService.getPublicSettings();
         if (!settings.allowRegistration) {
           throw new ForbiddenException(
             'Registration is currently disabled. Please check back later or contact support.'

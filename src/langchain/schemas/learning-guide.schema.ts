@@ -4,10 +4,17 @@ import { z } from 'zod';
  * Learning guide section schema
  */
 export const LearningGuideSectionSchema = z.object({
-  heading: z.string(),
+  title: z.string(),
   content: z.string().min(50, 'Section content must be at least 50 characters'),
-  keyPoints: z.array(z.string()),
-  examples: z.array(z.string()).optional(),
+  example: z.string().optional(),
+  knowledgeCheck: z
+    .object({
+      question: z.string(),
+      options: z.array(z.string()).length(4),
+      correctAnswer: z.number().min(0).max(3),
+      explanation: z.string(),
+    })
+    .optional(),
 });
 
 /**
@@ -15,13 +22,13 @@ export const LearningGuideSectionSchema = z.object({
  */
 export const LearningGuideSchema = z.object({
   title: z.string(),
-  overview: z.string().min(100, 'Overview must be at least 100 characters'),
-  sections: z
-    .array(LearningGuideSectionSchema)
-    .min(1, 'Must have at least 1 section'),
-  summary: z.string().min(50, 'Summary must be at least 50 characters'),
-  suggestedTopics: z.array(z.string()).optional(),
-  prerequisites: z.array(z.string()).optional(),
+  topic: z.string(),
+  description: z.string().min(50, 'Description must be at least 50 characters'),
+  learningGuide: z.object({
+    sections: z
+      .array(LearningGuideSectionSchema)
+      .min(1, 'Must have at least 1 section'),
+  }),
 });
 
 export type LearningGuideSection = z.infer<typeof LearningGuideSectionSchema>;

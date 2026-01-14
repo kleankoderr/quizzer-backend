@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
+import { AiService } from '../ai/ai.service';
 
 export interface WeakAreaStats {
   totalWeakAreas: number;
@@ -24,7 +25,8 @@ export class WeakAreaService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly langchainService: LangChainService
+    private readonly langchainService: LangChainService,
+    private readonly aiService: AiService,
   ) {}
 
   /**
