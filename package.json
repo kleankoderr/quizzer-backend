@@ -23,8 +23,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset --force",
-    "prisma:seed": "ts-node prisma/seed.ts",
-    "db:seed": "node dist/prisma/seed.js",
+    "prisma:seed": "ts-node src/seed.ts",
+    "db:seed": "node dist/seed.js",
     "check-user": "ts-node scripts/check-user.ts",
     "decode-jwt": "ts-node scripts/decode-jwt.ts",
     "postinstall": "prisma generate"
