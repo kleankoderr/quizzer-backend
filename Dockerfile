@@ -8,17 +8,15 @@ RUN apk add --no-cache \
     ghostscript \
     ghostscript-fonts
 
-# Copy package files first for caching
+# Copy package files and prisma schema first for caching
 COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma/
 
 # Install pnpm and dependencies
 RUN corepack enable && pnpm install --frozen-lockfile
 
 # Copy the full project
 COPY . .
-
-# Generate Prisma Client
-RUN npx prisma generate
 
 # Build the NestJS project
 RUN pnpm run build
