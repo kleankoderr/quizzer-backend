@@ -3,7 +3,11 @@ name: Validate Backend
 on:
   push:
     branches:
+      - '**'
+  pull_request:
+    branches:
       - main
+      - dev
 
 jobs:
   validate:
