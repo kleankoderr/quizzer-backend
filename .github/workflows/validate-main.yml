@@ -14,26 +14,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: quizzer-backend/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install
+        working-directory: quizzer-backend
 
       - name: Run Prettier auto-fix
-        run: npm run format:write
+        run: pnpm run format:write
+        working-directory: quizzer-backend
 
       - name: Run ESLint
-        run: npm run lint:check
+        run: pnpm run lint:check
+        working-directory: quizzer-backend
 
       - name: Run tests
-        run: npm run test:ci
+        run: pnpm run test:ci
+        working-directory: quizzer-backend
 
       - name: Build project
-        run: npm run build
+        run: pnpm run build
+        working-directory: quizzer-backend
 
       - name: Validation complete
         run: echo "✅ All validation checks passed! Render will now deploy automatically."
