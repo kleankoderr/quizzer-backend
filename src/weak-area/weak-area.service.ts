@@ -1,23 +1,11 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
-import { AiService } from '../ai/ai.service';
-
-export interface WeakAreaStats {
-  totalWeakAreas: number;
-  totalErrors: number;
-  byTopic: {
-    topic: string;
-    count: number;
-    totalErrors: number;
-    concepts: string[];
-  }[];
-}
+import {
+  QuizGenerationSchema,
+  ConceptListSchema,
+} from '../langchain/schemas/quiz.schema';
+import { AiPrompts } from '../ai/ai.prompts';
 
 @Injectable()
 export class WeakAreaService {
@@ -25,157 +13,144 @@ export class WeakAreaService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly langchainService: LangChainService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService
   ) {}
+
+  /**
+   * Generate a practice quiz focused on user's weak areas
+   */
+  async generatePracticeQuiz(userId: string, weakAreaId: string) {
+    try {
+      const weakArea = await this.prisma.weakArea.findUnique({
+        where: { id: weakAreaId },
+      });
+
+      if (!weakArea) {
+        throw new Error('Weak area not found');
+      }
+
+      // Generate quiz using LangChain
+      const prompt = AiPrompts.generateQuiz(
+        weakArea.topic,
+        5,
+        'medium',
+        'standard',
+        'single-select',
+        ''
+      );
+
+      const generatedQuiz = await this.langchainService.invokeWithStructure(
+        QuizGenerationSchema,
+        prompt,
+        {
+          task: 'quiz',
+          complexity: 'simple',
+        }
+      );
+
+      // Save quiz to DB
+      const quiz = await this.prisma.quiz.create({
+        data: {
+          title: `Practice: ${weakArea.topic} - ${weakArea.concept}`,
+          topic: weakArea.topic,
+          difficulty: 'medium',
+          quizType: 'STANDARD',
+          userId,
+          questions: generatedQuiz.questions.map((q: any) => ({
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            explanation: q.explanation,
+            difficulty: q.difficulty || 'medium',
+          })),
+        },
+      });
+
+      return quiz;
+    } catch (error) {
+      this.logger.error('Error generating practice quiz:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract concepts from questions using AI
+   */
+  async extractConceptsFromQuestions(
+    questions: { question: string }[],
+    topic: string
+  ): Promise<string[]> {
+    if (questions.length === 0) return [];
+
+    try {
+      const prompt = AiPrompts.extractConceptsFromQuestions(
+        questions.map((q) => q.question)
+      );
+      const concepts = await this.langchainService.invokeWithStructure(
+        ConceptListSchema,
+        prompt,
+        {
+          task: 'concept_extraction',
+          complexity: 'simple',
+        }
+      );
+
+      if (Array.isArray(concepts)) {
+        return concepts.map((c) => c.substring(0, 100));
+      }
+      return questions.map((q) => q.question.substring(0, 100));
+    } catch (error) {
+      this.logger.error('Error extracting concepts:', error);
+      return questions.map((q) => q.question.substring(0, 100));
+    }
+  }
 
   /**
    * Get weak areas for a user
    */
   async getWeakAreas(userId: string, resolved: boolean = false) {
-    this.logger.log(
-      `Getting weak areas for user ${userId}, resolved: ${resolved}`
-    );
-
     return this.prisma.weakArea.findMany({
-      where: { userId, resolved },
-      orderBy: [{ errorCount: 'desc' }, { lastErrorAt: 'desc' }],
+      where: {
+        userId,
+        resolved,
+      },
+      orderBy: { lastErrorAt: 'desc' },
     });
   }
 
   /**
-   * Mark weak area as resolved
+   * Get stats for weak areas
    */
-  async resolveWeakArea(userId: string, weakAreaId: string) {
-    this.logger.log(`Resolving weak area ${weakAreaId} for user ${userId}`);
-
-    // Verify ownership
-    const weakArea = await this.prisma.weakArea.findUnique({
-      where: { id: weakAreaId },
-    });
-
-    if (!weakArea) {
-      throw new NotFoundException('Weak area not found');
-    }
-
-    if (weakArea.userId !== userId) {
-      throw new ForbiddenException(
-        'You do not have permission to modify this weak area'
-      );
-    }
-
-    return this.prisma.weakArea.update({
-      where: { id: weakAreaId },
-      data: { resolved: true },
-    });
-  }
-
-  /**
-   * Get weak area statistics grouped by topic
-   */
-  async getWeakAreaStats(userId: string): Promise<WeakAreaStats> {
-    this.logger.log(`Getting weak area statistics for user ${userId}`);
-
-    const weakAreas = await this.prisma.weakArea.findMany({
-      where: { userId, resolved: false },
-    });
-
-    // Group by topic
-    const topicMap = new Map<
-      string,
-      {
-        count: number;
-        totalErrors: number;
-        concepts: string[];
-      }
-    >();
-
-    let totalErrors = 0;
-
-    for (const weakArea of weakAreas) {
-      totalErrors += weakArea.errorCount;
-
-      if (!topicMap.has(weakArea.topic)) {
-        topicMap.set(weakArea.topic, {
-          count: 0,
-          totalErrors: 0,
-          concepts: [],
-        });
-      }
-
-      const topicStats = topicMap.get(weakArea.topic);
-      topicStats.count += 1;
-      topicStats.totalErrors += weakArea.errorCount;
-      topicStats.concepts.push(weakArea.concept);
-    }
-
-    // Convert map to array
-    const byTopic = Array.from(topicMap.entries())
-      .map(([topic, stats]) => ({
-        topic,
-        ...stats,
-      }))
-      .sort((a, b) => b.totalErrors - a.totalErrors);
+  async getWeakAreaStats(userId: string) {
+    const [total, resolved] = await Promise.all([
+      this.prisma.weakArea.count({
+        where: { userId },
+      }),
+      this.prisma.weakArea.count({
+        where: { userId, resolved: true },
+      }),
+    ]);
 
     return {
-      totalWeakAreas: weakAreas.length,
-      totalErrors,
-      byTopic,
+      total,
+      resolved,
+      pending: total - resolved,
+      resolutionRate: total > 0 ? (resolved / total) * 100 : 0,
     };
   }
 
   /**
-   * Generate practice quiz for a specific weak area (Premium feature)
+   * Mark a weak area as resolved
    */
-  async generatePracticeQuiz(userId: string, weakAreaId: string) {
-    this.logger.log(
-      `Generating practice quiz for weak area ${weakAreaId}, user ${userId}`
-    );
-
-    // Verify ownership and get weak area
-    const weakArea = await this.prisma.weakArea.findUnique({
-      where: { id: weakAreaId },
-    });
-
-    if (!weakArea) {
-      throw new NotFoundException('Weak area not found');
-    }
-
-    if (weakArea.userId !== userId) {
-      throw new ForbiddenException(
-        'You do not have permission to access this weak area'
-      );
-    }
-
-    // Generate quiz focused on this specific concept
-    const prompt = `Generate 5 targeted practice questions about "${weakArea.concept}" within the topic of "${weakArea.topic}". 
-    Focus on helping the user master this specific concept they've struggled with.`;
-
-    const quizResponse = await this.aiService.generateQuiz({
-      topic: weakArea.topic,
-      content: prompt,
-      numberOfQuestions: 5,
-      difficulty: 'medium',
-      quizType: 'standard',
-    });
-
-    // Create quiz
-    const quiz = await this.prisma.quiz.create({
+  async resolveWeakArea(userId: string, id: string) {
+    return this.prisma.weakArea.updateMany({
+      where: {
+        id,
+        userId,
+      },
       data: {
-        title: quizResponse.title || `Practice: ${weakArea.concept}`,
-        topic: quizResponse.topic || weakArea.topic,
-        difficulty: 'medium',
-        quizType: 'STANDARD',
-        questions: quizResponse.questions as any, // Cast to JSON format for Prisma
-        userId: userId,
-        sourceType: 'weak-area',
+        resolved: true,
       },
     });
-
-    this.logger.log(
-      `Created practice quiz ${quiz.id} for weak area ${weakAreaId}`
-    );
-
-    return quiz;
   }
 }

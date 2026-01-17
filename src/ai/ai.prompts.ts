@@ -1598,4 +1598,37 @@ VALIDATION CHECKLIST:
 ✓ No invented information if source content provided
 ✓ No markdown formatting or code fences in output`;
   }
+
+  static extractConceptsFromQuestions(questions: any[]) {
+    return `Analyze the following quiz questions and extract a concise list of the core concepts being tested.
+
+QUESTIONS:
+${JSON.stringify(questions, null, 2)}
+
+REQUIREMENTS:
+- Identify the 3-5 most important conceptual pillars
+- Use clear, professional terminology
+- Return ONLY a JSON array of strings
+- No preamble or commentary
+
+OUTPUT FORMAT:
+["Concept 1", "Concept 2", "Concept 3"]`;
+  }
+
+  static generateUnderstandingSummary(topic: string, performance: any) {
+    return `Generate a concise, encouraging summary of a student's understanding of "${topic}" based on their recent performance data.
+
+PERFORMANCE DATA:
+${JSON.stringify(performance, null, 2)}
+
+REQUIREMENTS:
+- Be encouraging and growth-oriented
+- Highlighting strengths and specific areas for improvement
+- Keep it under 150 words
+- Use Markdown for formatting
+- Start directly with the summary content
+
+TONE:
+Professional, supportive, and data-driven.`;
+  }
 }

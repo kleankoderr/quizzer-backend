@@ -5,7 +5,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('challenges')
 @UseGuards(JwtAuthGuard)
-class ChallengeController {
+export class ChallengeController {
   constructor(private readonly challengeService: ChallengeService) {}
 
   @Get()
@@ -105,5 +105,3 @@ class ChallengeController {
     return this.challengeService.getChallengeLeaderboard(id, userId);
   }
 }
-
-export default ChallengeController;

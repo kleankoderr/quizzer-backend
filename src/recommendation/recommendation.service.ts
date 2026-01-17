@@ -3,7 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuotaService } from '../common/services/quota.service';
 import { CacheService } from '../common/services/cache.service';
-import { AiService } from '../ai/ai.service';
+import { AiPrompts } from '../ai/ai.prompts';
+import { RecommendationListSchema } from '../langchain/schemas/recommendation.schema';
 
 @Injectable()
 export class RecommendationService {
@@ -12,7 +13,6 @@ export class RecommendationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
-    private readonly aiService: AiService,
     private readonly quotaService: QuotaService,
     private readonly cacheService: CacheService
   ) {}
@@ -294,16 +294,26 @@ export class RecommendationService {
       this.logger.debug(
         `Calling AI service to generate ${recommendationLimit} recommendations for ${isPremium ? 'premium' : 'free'} user`
       );
-      const recommendations = await this.aiService.generateRecommendations({
-        weakTopics: weakTopics.slice(0, recommendationLimit), // Get topics based on tier
-        recentAttempts: attempts.map((a) => ({
+
+      const prompt = AiPrompts.generateRecommendations(
+        weakTopics.slice(0, recommendationLimit),
+        attempts.map((a) => ({
           topic: a.quiz?.topic,
           score: a.score,
           total: a.totalQuestions,
-        })),
-      });
+        }))
+      );
 
-      // Limit recommendations based on user tier
+      const recommendations = await this.langchainService.invokeWithStructure(
+        RecommendationListSchema,
+        prompt,
+        {
+          task: 'recommendation',
+          complexity: 'simple',
+        }
+      );
+
+      // Limit recommendations based on user tier (just in case)
       const limitedRecommendations = recommendations.slice(
         0,
         recommendationLimit
@@ -326,11 +336,11 @@ export class RecommendationService {
               userId,
               topic: rec.topic,
               reason: rec.reason,
-              priority: rec.priority,
+              priority: rec.priority as any,
             },
             update: {
               reason: rec.reason,
-              priority: rec.priority,
+              priority: rec.priority as any,
               visible: true, // Reset visibility when regenerating
               updatedAt: new Date(), // Ensure updatedAt is refreshed for cooldown tracking
             },

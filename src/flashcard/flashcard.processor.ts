@@ -16,6 +16,7 @@ export interface ProcessedFileData {
   googleFileId?: string;
   mimetype?: string;
   documentId?: string;
+  size?: number;
 }
 
 export interface FlashcardJobData {

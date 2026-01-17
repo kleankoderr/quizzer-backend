@@ -43,7 +43,7 @@ export class OnboardingController {
     }
 
     // Save preferences and trigger assessment
-    await this.onboardingService.savePreferences(user.id, body);
+    await this.onboardingService.saveUserPreferences(user.id, body);
 
     // Mark onboarding as complete
     await this.onboardingService.completeOnboarding(user.id);

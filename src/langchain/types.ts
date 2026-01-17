@@ -23,4 +23,5 @@ export interface ModelRoutingOptions {
   task?: string;
   complexity?: ModelComplexity;
   hasFiles?: boolean;
+  excludeModels?: string[];
 }

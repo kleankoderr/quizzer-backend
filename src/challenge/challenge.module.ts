@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
-import ChallengeController from './challenge.controller';
+import { ChallengeController } from './challenge.controller';
 import { ChallengeService } from './challenge.service';
 import { ChallengeScheduler } from './challenge.scheduler';
 import { LangChainModule } from '../langchain/langchain.module';
-import { AiModule } from '../ai/ai.module';
 import { LeaderboardModule } from '../leaderboard/leaderboard.module';
 
 @Module({
-  imports: [LangChainModule, AiModule, LeaderboardModule],
+  imports: [LangChainModule, LeaderboardModule],
   controllers: [ChallengeController],
   providers: [ChallengeService, ChallengeScheduler],
   exports: [ChallengeService],

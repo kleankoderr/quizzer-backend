@@ -42,10 +42,11 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     // Prepare file references
     const fileReferences =
       files?.map((file) => ({
-        googleFileUrl: file.googleFileUrl,
-        googleFileId: file.googleFileId,
+        cloudinaryUrl: file.cloudinaryUrl,
+        cloudinaryId: file.cloudinaryId,
         originalname: file.originalname,
         mimetype: file.mimetype,
+        size: file.size,
       })) || [];
 
     // Create UserDocument references for uploaded files
@@ -106,8 +107,8 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     const { cards, title, topic } = result;
 
     const sourceType = this.determineSourceType(dto, files);
-    const googleFileUrls =
-      files?.map((f) => f.googleFileUrl).filter(Boolean) || [];
+    const cloudinaryUrls =
+      files?.map((f) => f.cloudinaryUrl).filter(Boolean) || [];
 
     const flashcardSet = await this.prisma.flashcardSet.create({
       data: {
@@ -117,7 +118,7 @@ export class FlashcardGenerationStrategy implements JobStrategy<
         userId,
         contentId: dto.contentId,
         sourceType,
-        sourceFiles: googleFileUrls.length > 0 ? googleFileUrls : undefined,
+        sourceFiles: cloudinaryUrls.length > 0 ? cloudinaryUrls : undefined,
         studyPackId: dto.studyPackId,
       },
     });
@@ -181,18 +182,12 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     const contents: string[] = [];
     for (const fileRef of fileReferences) {
       try {
-        if (!fileRef.googleFileUrl) continue;
-        const tempFile: Express.Multer.File = {
-          fieldname: 'file',
+        if (!fileRef.cloudinaryUrl) continue;
+        const tempFile: any = {
           originalname: fileRef.originalname,
-          encoding: '7bit',
           mimetype: fileRef.mimetype || 'application/octet-stream',
-          size: 0,
-          stream: null as any,
-          destination: '',
-          filename: fileRef.originalname,
-          path: fileRef.googleFileUrl,
-          buffer: Buffer.from(''),
+          size: fileRef.size || 0,
+          path: fileRef.cloudinaryUrl,
         };
         const fileContent =
           await this.documentIngestionService.extractFileContent(tempFile);

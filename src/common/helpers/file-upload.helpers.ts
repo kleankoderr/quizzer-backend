@@ -16,7 +16,9 @@ export interface ProcessedDocument {
   googleFileId?: string;
   hash: string;
   isDuplicate: boolean;
-  documentId: string; // Database document ID for creating UserDocument references
+  documentId: string;
+  mimeType: string;
+  size: number;
 }
 
 export async function processFileUploads(
@@ -85,6 +87,8 @@ export async function processFileUploads(
           hash,
           isDuplicate: true,
           documentId,
+          mimeType: existingDoc.mimeType,
+          size: existingDoc.sizeBytes || file.size || 0,
         });
       } else {
         const urls = await uploadToProviders(
@@ -108,6 +112,8 @@ export async function processFileUploads(
           hash,
           isDuplicate: false,
           documentId,
+          mimeType: file.mimetype,
+          size: file.size,
         });
       }
     } catch (error) {

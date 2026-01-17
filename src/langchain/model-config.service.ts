@@ -30,7 +30,7 @@ export class ModelConfigService {
     models: {
       'gemini-flash': {
         provider: 'gemini',
-        modelName: 'gemini-2.0-flash-exp',
+        modelName: 'gemini-2.5-flash',
         temperature: 0.7,
       },
       'groq-fast': {

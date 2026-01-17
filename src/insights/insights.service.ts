@@ -3,42 +3,24 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { AssessmentService } from '../assessment/assessment.service';
 import { RetentionLevel } from '@prisma/client';
-import { AiService } from '../ai/ai.service';
+import { AiPrompts } from '../ai/ai.prompts';
 
 export interface StudyInsights {
   understanding: {
+    overall: number;
     summary: string;
-    masteredTopics: string[];
-    learningTopics: string[];
-    progressPercentage: number;
+    focusAreas: string[];
   };
-  toRevise: {
-    topics: Array<{
-      topic: string;
-      reason: string;
-      priority: 'high' | 'medium' | 'low';
-    }>;
+  consistency: {
+    streak: number;
+    lastStudyDate: Date;
+    studyFrequency: string;
   };
-  focusAreas: {
-    weakConcepts: Array<{
-      topic: string;
-      concept: string;
-      errorCount: number;
-    }>;
-    recommendations: string[];
-  };
-  practice: {
-    suggestedQuizzes: Array<{
-      topic: string;
-      quizType: string;
-      reason: string;
-    }>;
-  };
-  trends: {
-    weeklyProgress: number;
-    streakDays: number;
-    totalStudyTime: number;
-  };
+  recommendations: {
+    topic: string;
+    priority: 'high' | 'medium' | 'low';
+    reason: string;
+  }[];
 }
 
 @Injectable()
@@ -48,253 +30,165 @@ export class InsightsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
-    private readonly aiService: AiService,
     private readonly assessmentService: AssessmentService
   ) {}
 
   /**
    * Generate comprehensive study insights for a user
    */
-  async generateInsights(userId: string): Promise<StudyInsights> {
+  async getStudyInsights(userId: string): Promise<StudyInsights> {
     this.logger.log(`Generating study insights for user ${userId}`);
 
-    const [performance, topicProgress, weakAreas, streak, recentAttempts] =
-      await Promise.all([
-        this.assessmentService.analyzePerformance(userId),
-        this.prisma.topicProgress.findMany({ where: { userId } }),
-        this.assessmentService.getWeakAreas(userId, false),
-        this.prisma.streak.findUnique({ where: { userId } }),
-        this.prisma.attempt.findMany({
-          where: {
-            userId,
-            completedAt: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            },
-          },
-          include: { quiz: true },
-        }),
-      ]);
+    const [performance, streak, topicProgress] = await Promise.all([
+      this.assessmentService.analyzePerformance(userId),
+      this.prisma.streak.findUnique({ where: { userId } }),
+      this.prisma.topicProgress.findMany({
+        where: { userId },
+        orderBy: { strength: 'asc' },
+        take: 5,
+      }),
+    ]);
 
-    // Understanding summary
-    const masteredTopics = topicProgress
-      .filter((tp) => tp.retentionLevel === RetentionLevel.MASTERY)
-      .map((tp) => tp.topic);
-
-    const learningTopics = topicProgress
-      .filter(
-        (tp) =>
-          tp.retentionLevel === RetentionLevel.LEARNING ||
-          tp.retentionLevel === RetentionLevel.REINFORCEMENT
-      )
-      .map((tp) => tp.topic);
-
-    const progressPercentage =
-      topicProgress.length > 0
-        ? (masteredTopics.length / topicProgress.length) * 100
-        : 0;
-
-    // Topics to revise
-    const dueTopics = topicProgress.filter(
-      (tp) => new Date(tp.nextReviewAt) <= new Date()
-    );
-
-    const toRevise = dueTopics.map((tp) => ({
-      topic: tp.topic,
-      reason: this.getRevisionReason(tp.retentionLevel, tp.strength),
-      priority: this.getRevisionPriority(tp.retentionLevel, tp.strength),
-    }));
-
-    // Focus areas
-    const weakConcepts = weakAreas.slice(0, 5).map((wa) => ({
-      topic: wa.topic,
-      concept: wa.concept,
-      errorCount: wa.errorCount,
-    }));
-
-    const recommendations = await this.generateFocusRecommendations(
-      performance,
-      weakAreas
-    );
-
-    // Practice suggestions
-    const quizRecommendations =
-      await this.assessmentService.recommendQuizTypes(userId);
-    const suggestedQuizzes = quizRecommendations.slice(0, 3).map((rec) => ({
-      topic: rec.suggestedTopics[0] || 'General',
-      quizType: rec.quizType,
-      reason: rec.reason,
-    }));
-
-    // Trends
-    const weeklyProgress = this.calculateWeeklyProgress(recentAttempts);
-    const totalStudyTime = recentAttempts.reduce(
-      (sum, a) => sum + (a.timeSpent || 0),
-      0
-    );
-
-    // Generate AI-powered summary
+    // Generate understanding summary using AI
     const understandingSummary = await this.generateUnderstandingSummary(
-      masteredTopics,
-      learningTopics,
-      progressPercentage
+      performance.weakTopics[0] || 'your study areas',
+      performance.averageScore
     );
+
+    // Build recommendations
+    const recommendations = topicProgress.map((tp) => ({
+      topic: tp.topic,
+      priority: this.getPriority(tp.retentionLevel),
+      reason: this.getRecommendationReason(tp.topic, tp.retentionLevel),
+    }));
 
     return {
       understanding: {
+        overall: performance.averageScore,
         summary: understandingSummary,
-        masteredTopics,
-        learningTopics,
-        progressPercentage: Math.round(progressPercentage),
+        focusAreas: performance.weakTopics,
       },
-      toRevise: {
-        topics: toRevise,
+      consistency: {
+        streak: streak?.currentStreak || 0,
+        lastStudyDate: streak?.lastActivityDate || new Date(),
+        studyFrequency: this.calculateFrequency(streak),
       },
-      focusAreas: {
-        weakConcepts,
-        recommendations,
-      },
-      practice: {
-        suggestedQuizzes,
-      },
-      trends: {
-        weeklyProgress: Math.round(weeklyProgress),
-        streakDays: streak?.currentStreak || 0,
-        totalStudyTime: Math.round(totalStudyTime / 60), // Convert to minutes
-      },
+      recommendations: recommendations as any[],
     };
   }
 
   /**
-   * Get revision reason based on retention level and strength
+   * Generate a summary of user understanding for a topic
    */
-  private getRevisionReason(level: RetentionLevel, strength: number): string {
-    if (level === RetentionLevel.LEARNING) {
-      return 'Still learning - needs regular practice';
-    }
-    if (level === RetentionLevel.REINFORCEMENT) {
-      return 'Building confidence - review to strengthen memory';
-    }
-    if (level === RetentionLevel.RECALL) {
-      return 'Due for spaced repetition review';
-    }
-    if (strength < 70) {
-      return 'Memory strength declining - review recommended';
-    }
-    return 'Scheduled review to maintain mastery';
-  }
-
-  /**
-   * Get revision priority
-   */
-  private getRevisionPriority(
-    level: RetentionLevel,
-    strength: number
-  ): 'high' | 'medium' | 'low' {
-    if (level === RetentionLevel.LEARNING || strength < 50) return 'high';
-    if (level === RetentionLevel.REINFORCEMENT || strength < 70)
-      return 'medium';
-    return 'low';
-  }
-
-  /**
-   * Generate focus recommendations
-   */
-  private async generateFocusRecommendations(
-    performance: any,
-    weakAreas: any[]
-  ): Promise<string[]> {
-    const recommendations: string[] = [];
-
-    if (weakAreas.length > 0) {
-      const topWeakTopic = weakAreas[0].topic;
-      recommendations.push(
-        `Focus on ${topWeakTopic} - you've struggled with this ${weakAreas[0].errorCount} times`
-      );
-    }
-
-    if (performance.weakTopics.length > 0) {
-      recommendations.push(
-        `Review ${performance.weakTopics.join(', ')} - your scores are below 60%`
-      );
-    }
-
-    if (performance.averageScore < 70) {
-      recommendations.push(
-        'Consider taking more Quick Check quizzes to build confidence'
-      );
-    } else if (performance.averageScore > 85) {
-      recommendations.push(
-        'Great progress! Try Timed Tests to challenge yourself'
-      );
-    }
-
-    return recommendations;
-  }
-
-  /**
-   * Calculate weekly progress
-   */
-  private calculateWeeklyProgress(attempts: any[]): number {
-    if (attempts.length === 0) return 0;
-
-    const scores = attempts
-      .filter((a) => a.score != null && a.totalQuestions != null)
-      .map((a) => (a.score / a.totalQuestions) * 100);
-
-    if (scores.length === 0) return 0;
-
-    const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
-    return avgScore;
-  }
-
-  /**
-   * Generate AI-powered understanding summary
-   */
-  private async generateUnderstandingSummary(
-    masteredTopics: string[],
-    learningTopics: string[],
-    progressPercentage: number
+  async generateUnderstandingSummary(
+    topic: string,
+    performance: number
   ): Promise<string> {
     try {
-      const prompt = `Generate a brief, encouraging summary of a learner's progress:
-- Mastered topics: ${masteredTopics.join(', ') || 'None yet'}
-- Currently learning: ${learningTopics.join(', ') || 'None yet'}
-- Overall progress: ${progressPercentage.toFixed(0)}%
-
-Write a 2-3 sentence summary that is warm, encouraging, and specific. Focus on achievements and next steps. Tailor the tone to be motivating and inclusive.`;
-
-      const summary = await this.aiService.generateContent({
-        prompt,
-        maxTokens: 150,
+      const prompt = AiPrompts.generateUnderstandingSummary(topic, performance);
+      const summary = await this.langchainService.invoke(prompt, {
+        task: 'summary',
+        complexity: 'simple',
       });
-      return summary.trim();
+      return summary;
     } catch (error) {
       this.logger.error('Error generating understanding summary:', error);
-      return this.getDefaultSummary(
-        masteredTopics,
-        learningTopics,
-        progressPercentage
-      );
+      return `Based on your performance in ${topic}, you have a good understanding of the material but could benefit from more practice in some areas.`;
     }
   }
 
   /**
-   * Get default summary if AI fails
+   * Generate focus recommendations based on study patterns
    */
-  private getDefaultSummary(
-    masteredTopics: string[],
-    learningTopics: string[],
-    progressPercentage: number
+  async getFocusRecommendations(userId: string): Promise<string> {
+    try {
+      const insights = await this.prisma.topicProgress.findMany({
+        where: { userId },
+        orderBy: [{ strength: 'asc' }, { updatedAt: 'desc' }],
+        take: 3,
+        select: { topic: true, strength: true },
+      });
+
+      if (insights.length === 0) {
+        return 'Start your learning journey by taking a quiz or creating flashcards!';
+      }
+
+      const prompt = `Based on these study insights, provide 2 targeted focus recommendations for the user:
+${insights.map((i) => `- ${i.topic}: ${i.strength}%`).join('\n')}
+
+Each recommendation should be 1 sentence, practical and actionable.`;
+
+      const focusText = await this.langchainService.invoke(prompt, {
+        task: 'focus_recommendation',
+        complexity: 'simple',
+      });
+      return focusText;
+    } catch (error) {
+      this.logger.error('Error generating focus recommendations:', error);
+      return 'Keep up the consistent effort! Focus on topics with the lowest scores to see the biggest improvement.';
+    }
+  }
+
+  private getPriority(level: RetentionLevel): 'high' | 'medium' | 'low' {
+    switch (level) {
+      case RetentionLevel.LEARNING:
+        return 'high';
+      case RetentionLevel.REINFORCEMENT:
+        return 'high';
+      case RetentionLevel.RECALL:
+        return 'medium';
+      case RetentionLevel.MASTERY:
+        return 'low';
+      default:
+        return 'medium';
+    }
+  }
+
+  private getRecommendationReason(
+    topic: string,
+    level: RetentionLevel
   ): string {
-    if (progressPercentage === 0) {
-      return "You're just getting started! Keep practicing and you'll see progress soon.";
+    switch (level) {
+      case RetentionLevel.LEARNING:
+        return `You're just starting with ${topic}. Frequent practice will help build a strong foundation.`;
+      case RetentionLevel.REINFORCEMENT:
+        return `${topic} is still fresh. Practice now to move it into long-term memory.`;
+      case RetentionLevel.RECALL:
+        return `You have a good grasp of ${topic}. Review occasionally to maintain your knowledge.`;
+      case RetentionLevel.MASTERY:
+        return `You've mastered ${topic}! Great job. Just keep it in your rotation for long-term retention.`;
+      default:
+        return `Consistent practice in ${topic} will lead to significant improvements.`;
     }
-    if (progressPercentage < 30) {
-      return `You're making progress! You've mastered ${masteredTopics.length} topic(s) and are actively learning ${learningTopics.length} more. Keep up the consistent effort!`;
-    }
-    if (progressPercentage < 70) {
-      return `Great work! You're ${progressPercentage.toFixed(0)}% of the way there. You've mastered ${masteredTopics.join(', ')} and are building strong foundations in ${learningTopics.length} other topics.`;
-    }
-    return `Excellent progress! You've mastered ${masteredTopics.length} topics and are well on your way to complete mastery. Keep reviewing to maintain your knowledge!`;
+  }
+
+  private calculateFrequency(streak: any): string {
+    if (!streak) return 'Infrequent';
+    const streakDays = streak.currentStreak;
+    if (streakDays >= 5) return 'Daily Learner';
+    if (streakDays >= 3) return 'Consistent';
+    return 'Occasional';
+  }
+
+  /**
+   * Legacy method for backward compatibility with CompanionService and Controller
+   */
+  async generateInsights(userId: string) {
+    const topicProgress = await this.prisma.topicProgress.findMany({
+      where: { userId },
+      orderBy: { strength: 'asc' },
+      take: 10,
+    });
+
+    return {
+      toRevise: {
+        topics: topicProgress.map((tp) => tp.topic),
+      },
+      topicStats: topicProgress.map((tp) => ({
+        topic: tp.topic,
+        strength: tp.strength,
+        level: tp.retentionLevel,
+      })),
+    };
   }
 }

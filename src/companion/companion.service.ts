@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
 import { AssessmentService } from '../assessment/assessment.service';
 import { InsightsService } from '../insights/insights.service';
 import { RetentionLevel } from '@prisma/client';
@@ -27,7 +27,7 @@ export class CompanionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly assessmentService: AssessmentService,
     private readonly insightsService: InsightsService
   ) {}
@@ -177,9 +177,9 @@ export class CompanionService {
 
 The question should be encouraging, help them think about their learning process, and be 1-2 sentences max. Tailor the tone to be universally relatable and encouraging.`;
 
-      const question = await this.aiService.generateContent({
-        prompt,
-        maxTokens: 100,
+      const question = await this.langchainService.invoke(prompt, {
+        task: 'reflection',
+        complexity: 'simple',
       });
       return question.trim();
     } catch (error) {
@@ -288,13 +288,8 @@ The question should be encouraging, help them think about their learning process
 
   /**
    * Generate daily motivation
-   * TODO: Migrate to LangChain
    */
   async getDailyMotivation(userId: string): Promise<string> {
-    // TODO: Implement with LangChain
-    this.logger.debug('Using fallback daily motivation - AI migration pending');
-    return "Every step forward is progress. Let's make today count! 🌟";
-    /* Temporary disabled pending LangChain migration
     try {
       const [streak, performance] = await Promise.all([
         this.prisma.streak.findUnique({ where: { userId } }),
@@ -310,13 +305,12 @@ Keep it to 1-2 sentences, friendly and encouraging. Tailor the tone to be univer
 
       const motivation = await this.langchainService.invoke(prompt, {
         task: 'motivation',
-        complexity: 'simple'
+        complexity: 'simple',
       });
       return motivation.trim();
     } catch (error) {
       this.logger.error('Error generating daily motivation:', error);
       return "Every step forward is progress. Let's make today count! 🌟";
     }
-    */
   }
 }

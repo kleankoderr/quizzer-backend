@@ -4,7 +4,6 @@ import { FlashcardController } from './flashcard.controller';
 import { FlashcardService } from './flashcard.service';
 import { FlashcardProcessor } from './flashcard.processor';
 import { LangChainModule } from '../langchain/langchain.module';
-import { AiModule } from '../ai/ai.module';
 import { RecommendationModule } from '../recommendation/recommendation.module';
 import { StreakModule } from '../streak/streak.module';
 import { ChallengeModule } from '../challenge/challenge.module';
@@ -23,7 +22,6 @@ import { FlashcardGenerationStrategy } from './strategies/flashcard-generation.s
     }),
     PrismaModule,
     LangChainModule,
-    AiModule,
     RecommendationModule,
     StreakModule,
     ChallengeModule,

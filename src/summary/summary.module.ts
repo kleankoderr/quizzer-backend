@@ -5,7 +5,6 @@ import { SummaryProcessor } from './summary.processor';
 import { SummaryController } from './summary.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LangChainModule } from '../langchain/langchain.module';
-import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
 import { SummaryGenerationStrategy } from './strategies/summary-generation.strategy';
@@ -17,7 +16,6 @@ import { SummaryGenerationStrategy } from './strategies/summary-generation.strat
     }),
     PrismaModule,
     LangChainModule,
-    AiModule,
     AuthModule,
     StudyPackModule,
   ],

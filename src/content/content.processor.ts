@@ -9,7 +9,6 @@ import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
-import { AiService } from '../ai/ai.service';
 import { LearningGuideSchema } from '../langchain/schemas/learning-guide.schema';
 import { AiPrompts } from '../ai/ai.prompts';
 
@@ -28,6 +27,8 @@ export interface ContentJobData {
     googleFileUrl?: string;
     googleFileId?: string;
     documentId?: string;
+    mimetype?: string;
+    size?: number;
   }>;
 }
 
@@ -38,7 +39,6 @@ export class ContentProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
-    private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
@@ -90,19 +90,11 @@ export class ContentProcessor extends WorkerHost {
       );
       await job.updateProgress(30);
 
-      const prompt =
-        this.aiService[
-          'AiPrompts' as any
-        ]?.generateComprehensiveLearningGuide?.(
-          dto.topic || '',
-          dto.content || '',
-          fileReferences.length > 0 ? 'See attached files for context.' : ''
-        ) ||
-        AiPrompts.generateComprehensiveLearningGuide(
-          dto.topic || '',
-          dto.content || '',
-          fileReferences.length > 0 ? 'See attached files for context.' : ''
-        );
+      const prompt = AiPrompts.generateComprehensiveLearningGuide(
+        dto.topic || '',
+        dto.content || '',
+        fileReferences.length > 0 ? 'See attached files for context.' : ''
+      );
 
       const result = await this.langchainService.invokeWithStructure(
         LearningGuideSchema,

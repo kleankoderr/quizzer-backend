@@ -13,7 +13,6 @@ import { UserDocumentModule } from '../user-document/user-document.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
 import { QuizGenerationStrategy } from './strategies/quiz-generation.strategy';
-import { AiModule } from '../ai/ai.module';
 import { RagModule } from '../rag/rag.module';
 
 @Module({
@@ -23,7 +22,6 @@ import { RagModule } from '../rag/rag.module';
     }),
     PrismaModule,
     LangChainModule,
-    AiModule,
     RagModule,
     RecommendationModule,
     StreakModule,

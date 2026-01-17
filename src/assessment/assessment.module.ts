@@ -3,10 +3,9 @@ import { AssessmentController } from './assessment.controller';
 import { AssessmentService } from './assessment.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LangChainModule } from '../langchain/langchain.module';
-import { AiModule } from '../ai/ai.module';
 
 @Module({
-  imports: [PrismaModule, LangChainModule, AiModule],
+  imports: [PrismaModule, LangChainModule],
   controllers: [AssessmentController],
   providers: [AssessmentService],
   exports: [AssessmentService],

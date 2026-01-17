@@ -92,10 +92,10 @@ export class QuizGenerationStrategy implements JobStrategy<
     );
 
     const questions = this.shuffleQuestions(result.questions);
-    const title = dto.topic || 'Quiz';
-    const topic = dto.topic || 'General';
+    const title = result.title || dto.topic || 'Quiz';
+    const topic = result.topic || dto.topic || 'General';
 
-    return { questions, title, topic };
+    return { questions, title: title.trim(), topic: topic.trim() };
   }
 
   async postProcess(context: QuizContext, result: any): Promise<any> {
@@ -156,7 +156,7 @@ export class QuizGenerationStrategy implements JobStrategy<
     return [`quizzes:all:${userId}*`, `quiz:*:${userId}`];
   }
 
-  getQuotaType(context: QuizContext): string {
+  getQuotaType(_context: QuizContext): string {
     return 'quiz';
   }
 
@@ -172,10 +172,11 @@ export class QuizGenerationStrategy implements JobStrategy<
   private prepareFileReferences(files?: FileReference[]): FileReference[] {
     if (!files || files.length === 0) return [];
     return files.map((file) => ({
-      googleFileUrl: file.googleFileUrl,
-      googleFileId: file.googleFileId,
+      cloudinaryUrl: file.cloudinaryUrl,
+      cloudinaryId: file.cloudinaryId,
       originalname: file.originalname,
       mimetype: file.mimetype,
+      size: file.size,
     }));
   }
 
@@ -185,18 +186,12 @@ export class QuizGenerationStrategy implements JobStrategy<
     const contents: string[] = [];
     for (const fileRef of fileReferences) {
       try {
-        if (!fileRef.googleFileUrl) continue;
-        const tempFile: Express.Multer.File = {
-          fieldname: 'file',
+        if (!fileRef.cloudinaryUrl) continue;
+        const tempFile: any = {
           originalname: fileRef.originalname,
-          encoding: '7bit',
           mimetype: fileRef.mimetype || 'application/octet-stream',
-          size: 0,
-          stream: null as any,
-          destination: '',
-          filename: fileRef.originalname,
-          path: fileRef.googleFileUrl,
-          buffer: Buffer.from(''),
+          size: fileRef.size || 0,
+          path: fileRef.cloudinaryUrl,
         };
         const fileContent =
           await this.documentIngestionService.extractFileContent(tempFile);
@@ -223,12 +218,25 @@ export class QuizGenerationStrategy implements JobStrategy<
 
   private shuffleQuestions(questions: any[]): any[] {
     return this.shuffleArray(questions).map((q) => {
-      if (q.questionType === 'matching' && q.leftColumn && q.rightColumn) {
-        return {
-          ...q,
-          leftColumn: this.shuffleArray(q.leftColumn),
-          rightColumn: this.shuffleArray(q.rightColumn),
-        };
+      if (q.questionType === 'matching') {
+        // Transform correctAnswer from array of {key, value} to Record if needed (for Gemini workaround)
+        if (Array.isArray(q.correctAnswer)) {
+          q.correctAnswer = q.correctAnswer.reduce(
+            (acc: Record<string, string>, pair: any) => {
+              acc[pair.key] = pair.value;
+              return acc;
+            },
+            {}
+          );
+        }
+
+        if (q.leftColumn && q.rightColumn) {
+          return {
+            ...q,
+            leftColumn: this.shuffleArray(q.leftColumn),
+            rightColumn: this.shuffleArray(q.rightColumn),
+          };
+        }
       }
       return q;
     });
@@ -269,7 +277,7 @@ export class QuizGenerationStrategy implements JobStrategy<
 
   private extractFileUrls(files?: FileReference[]): string[] {
     if (!files || files.length === 0) return [];
-    return files.map((f) => f.googleFileUrl).filter(Boolean);
+    return files.map((f) => f.cloudinaryUrl).filter(Boolean);
   }
 
   private async linkToContent(

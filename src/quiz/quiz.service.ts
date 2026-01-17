@@ -110,6 +110,8 @@ export class QuizService {
           googleFileUrl: doc.googleFileUrl,
           googleFileId: doc.googleFileId,
           documentId: doc.documentId,
+          mimetype: doc.mimeType,
+          size: doc.size,
         })),
       });
 
@@ -812,6 +814,8 @@ export class QuizService {
         hash: '', // Not needed for existing files
         isDuplicate: true, // Mark as duplicate since it's already uploaded
         documentId: userDoc.document.id,
+        mimeType: userDoc.document.mimeType,
+        size: userDoc.document.sizeBytes || 0,
       }));
     } catch (error) {
       this.logger.warn(

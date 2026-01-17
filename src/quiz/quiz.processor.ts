@@ -16,6 +16,7 @@ export interface FileReference {
   googleFileId?: string;
   mimetype?: string;
   documentId?: string;
+  size?: number;
 }
 
 export interface QuizJobData {
@@ -26,7 +27,7 @@ export interface QuizJobData {
 }
 
 @Processor('quiz-generation')
-export class QuizProcessor extends BaseProcessor<QuizJobData, any> {
+export class QuizProcessor extends BaseProcessor<QuizJobData> {
   protected readonly logger = new Logger(QuizProcessor.name);
 
   constructor(

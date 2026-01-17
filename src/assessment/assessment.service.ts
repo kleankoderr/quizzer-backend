@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuizType, RetentionLevel } from '@prisma/client';
-import { AiService } from '../ai/ai.service';
+import { AiPrompts } from '../ai/ai.prompts';
+import { ConceptListSchema } from '../langchain/schemas/quiz.schema';
 
 export interface PerformancePattern {
   averageScore: number;
@@ -19,8 +20,7 @@ export class AssessmentService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly langchainService: LangChainService,
-    private readonly aiService: AiService
+    private readonly langchainService: LangChainService
   ) {}
 
   /**
@@ -341,29 +341,19 @@ export class AssessmentService {
     }
 
     try {
-      const prompt = `Extract the key learning concept being tested from each question.
-Return ONLY a JSON array of concept strings, one for each question.
-Keep each concept concise (max 50 characters).
-
-Topic: ${topic}
-
-Questions:
-${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
-
-Example output format:
-["Photosynthesis process", "Newton's laws of motion", "French verb conjugation"]`;
-
-      const response = await this.aiService.generateContent({
+      const prompt = AiPrompts.extractConceptsFromQuestions(questions);
+      const concepts = await this.langchainService.invokeWithStructure(
+        ConceptListSchema,
         prompt,
-        maxTokens: 500,
-      });
+        {
+          task: 'concept_extraction',
+          complexity: 'simple',
+        }
+      );
 
-      // Parse the AI response
-      const parsed = JSON.parse(response);
-
-      if (Array.isArray(parsed) && parsed.length === questions.length) {
+      if (Array.isArray(concepts) && concepts.length === questions.length) {
         // Truncate concepts to 100 chars to fit schema
-        return parsed.map((concept: string) =>
+        return concepts.map((concept: string) =>
           concept.substring(0, 100).trim()
         );
       }
