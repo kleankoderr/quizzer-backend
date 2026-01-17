@@ -22,15 +22,28 @@ export class VectorStoreService implements OnModuleInit {
     });
   }
 
-  async onModuleInit() {
-    // Initialize vector store on module startup
-    try {
-      const connectionString = this.config.get('DATABASE_URL');
+  async onModuleInit(): Promise<void> {
+    const enabled = this.config.get<boolean>('VECTOR_STORE_ENABLED', false);
 
+    if (!enabled) {
+      this.logger.log('Vector store initialization is disabled by configuration.');
+      this.initialized = false;
+      return;
+    }
+
+    const connectionString = this.config.get<string>('DATABASE_URL');
+
+    if (!connectionString) {
+      this.logger.warn(
+        'DATABASE_URL is not configured. Vector store initialization skipped.'
+      );
+      this.initialized = false;
+      return;
+    }
+
+    try {
       this.vectorStore = await PGVectorStore.initialize(this.embeddings, {
-        postgresConnectionOptions: {
-          connectionString,
-        },
+        postgresConnectionOptions: { connectionString },
         tableName: 'vector_documents',
         columns: {
           idColumnName: 'id',
@@ -41,15 +54,17 @@ export class VectorStoreService implements OnModuleInit {
       });
 
       this.initialized = true;
-      this.logger.log('Vector store initialized successfully');
+      this.logger.log('Vector store initialized successfully.');
     } catch (error) {
-      this.logger.warn(
-        'Failed to initialize vector store. pgvector extension may not be installed. RAG features will be disabled.',
-        error.message
-      );
       this.initialized = false;
+
+      this.logger.warn(
+        'Vector store initialization failed. pgvector may not be installed or accessible. RAG features will be disabled.',
+        error instanceof Error ? error.message : String(error)
+      );
     }
   }
+
 
   /**
    * Add documents to vector store

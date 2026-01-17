@@ -28,9 +28,6 @@
     "check-user": "ts-node scripts/check-user.ts",
     "decode-jwt": "ts-node scripts/decode-jwt.ts"
   },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
-  },
   "dependencies": {
     "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { VectorStoreService } from './vector-store.service';
 import { ModelConfigService } from '../langchain/model-config.service';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { z } from 'zod';
 
 @Injectable()
