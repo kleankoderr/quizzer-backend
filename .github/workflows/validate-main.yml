@@ -28,27 +28,22 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: quizzer-backend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install
-        working-directory: quizzer-backend
 
       - name: Run Prettier auto-fix
         run: pnpm run format:write
-        working-directory: quizzer-backend
 
       - name: Run ESLint
         run: pnpm run lint:check
-        working-directory: quizzer-backend
 
       - name: Run tests
         run: pnpm run test:ci
-        working-directory: quizzer-backend
 
       - name: Build project
         run: pnpm run build
-        working-directory: quizzer-backend
 
       - name: Validation complete
         run: echo "✅ All validation checks passed! Render will now deploy automatically."
