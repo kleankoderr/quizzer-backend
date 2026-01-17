@@ -22,7 +22,7 @@ COPY . .
 RUN pnpm run build
 
 # Verify the build output
-RUN ls -la dist/ && test -f dist/src/main.js && echo "✅ Build successful: dist/src/main.js exists"
+RUN ls -la dist/ && test -f dist/main.js && echo "✅ Build successful: dist/main.js exists"
 
 
 # ---- Production Image ----
