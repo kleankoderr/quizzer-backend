@@ -334,7 +334,7 @@ export class AssessmentService {
    */
   private async extractConceptsFromQuestions(
     questions: string[],
-    topic: string
+    _topic: string
   ): Promise<string[]> {
     if (questions.length === 0) {
       return [];

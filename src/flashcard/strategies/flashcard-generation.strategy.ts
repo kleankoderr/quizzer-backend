@@ -158,7 +158,7 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     return [`flashcards:all:${userId}*`, `flashcard:*:${userId}`];
   }
 
-  getQuotaType(context: FlashcardContext): string {
+  getQuotaType(_context: FlashcardContext): string {
     return 'flashcard';
   }
 

@@ -6,8 +6,6 @@ import { ForbiddenException } from '@nestjs/common';
 
 describe('QuotaService', () => {
   let service: QuotaService;
-  let prisma: PrismaService;
-  let subscriptionHelper: SubscriptionHelperService;
 
   const mockPrismaService = {
     userQuota: {
@@ -44,10 +42,6 @@ describe('QuotaService', () => {
     }).compile();
 
     service = module.get<QuotaService>(QuotaService);
-    prisma = module.get<PrismaService>(PrismaService);
-    subscriptionHelper = module.get<SubscriptionHelperService>(
-      SubscriptionHelperService
-    );
   });
 
   it('should be defined', () => {

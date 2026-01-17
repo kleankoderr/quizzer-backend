@@ -22,7 +22,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly challengeService: ChallengeService,
-    private readonly quotaService: QuotaService,
+    private readonly quotaService: QuotaService
   ) {}
 
   async deleteContent(contentId: string) {

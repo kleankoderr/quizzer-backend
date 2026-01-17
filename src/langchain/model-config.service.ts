@@ -67,7 +67,8 @@ export class ModelConfigService {
 
     // 1. Multimodal priority
     if (hasFiles) {
-      modelAlias = this.configService.get('MULTIMODAL_MODEL_ALIAS') || modelAlias;
+      modelAlias =
+        this.configService.get('MULTIMODAL_MODEL_ALIAS') || modelAlias;
     }
     // 2. Task-specific override
     else if (task && strategy.routing.taskOverrides[task]) {

@@ -165,11 +165,11 @@ export class SummaryGenerationStrategy implements JobStrategy<
     );
   }
 
-  getCachePatterns(context: SummaryContext): string[] {
+  getCachePatterns(_context: SummaryContext): string[] {
     return [];
   }
 
-  getQuotaType(context: SummaryContext): string {
+  getQuotaType(_context: SummaryContext): string {
     return '';
   }
 

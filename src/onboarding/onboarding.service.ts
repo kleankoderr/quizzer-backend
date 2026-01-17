@@ -11,7 +11,7 @@ export class OnboardingService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly langchainService: LangChainService,
+    private readonly langchainService: LangChainService
   ) {}
 
   async getUserPreferences(userId: string) {

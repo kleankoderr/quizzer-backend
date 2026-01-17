@@ -26,7 +26,9 @@ export class VectorStoreService implements OnModuleInit {
     const enabled = this.config.get<boolean>('VECTOR_STORE_ENABLED', false);
 
     if (!enabled) {
-      this.logger.log('Vector store initialization is disabled by configuration.');
+      this.logger.log(
+        'Vector store initialization is disabled by configuration.'
+      );
       this.initialized = false;
       return;
     }
@@ -64,7 +66,6 @@ export class VectorStoreService implements OnModuleInit {
       );
     }
   }
-
 
   /**
    * Add documents to vector store

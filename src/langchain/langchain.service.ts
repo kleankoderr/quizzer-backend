@@ -3,7 +3,7 @@ import { ModelConfigService } from './model-config.service';
 import { z } from 'zod';
 import { ModelRoutingOptions } from './types';
 
-export interface ChainInvokeOptions extends ModelRoutingOptions {}
+export type ChainInvokeOptions = ModelRoutingOptions;
 
 @Injectable()
 export class LangChainService {
@@ -42,7 +42,7 @@ export class LangChainService {
   /**
    * Stream responses
    */
-  async* stream(
+  async *stream(
     prompt: string,
     options: ChainInvokeOptions
   ): AsyncIterable<string> {
