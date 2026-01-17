@@ -42,7 +42,7 @@ export class ModelConfigService {
   };
 
   constructor(
-    private readonly config: ConfigService,
+    private readonly configService: ConfigService,
     private readonly platformSettings: PlatformSettingsService
   ) {}
 
@@ -67,7 +67,7 @@ export class ModelConfigService {
 
     // 1. Multimodal priority
     if (hasFiles) {
-      modelAlias = 'gemini-flash'; // Hard priority for multimodal
+      modelAlias = this.configService.get('MULTIMODAL_MODEL_ALIAS') || modelAlias;
     }
     // 2. Task-specific override
     else if (task && strategy.routing.taskOverrides[task]) {
@@ -110,14 +110,14 @@ export class ModelConfigService {
     switch (provider) {
       case 'groq':
         return new ChatGroq({
-          apiKey: this.config.get('GROQ_API_KEY'),
+          apiKey: this.configService.get('GROQ_API_KEY'),
           model: modelName,
           temperature,
         });
       case 'gemini':
       default:
         return new ChatGoogleGenerativeAI({
-          apiKey: this.config.get('GOOGLE_AI_API_KEY'),
+          apiKey: this.configService.get('GOOGLE_AI_API_KEY'),
           model: modelName,
           temperature,
         });
