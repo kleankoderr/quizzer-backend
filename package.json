@@ -26,7 +26,8 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "db:seed": "node dist/prisma/seed.js",
     "check-user": "ts-node scripts/check-user.ts",
-    "decode-jwt": "ts-node scripts/decode-jwt.ts"
+    "decode-jwt": "ts-node scripts/decode-jwt.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
