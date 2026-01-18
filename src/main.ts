@@ -69,15 +69,18 @@ async function bootstrap() {
   // Global response transform interceptor
   app.useGlobalInterceptors(new ResponseTransformInterceptor());
 
-  // Swagger setup
-  const config = new DocumentBuilder()
-    .setTitle('Quizzer API')
-    .setDescription('The Quizzer API description')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  // Swagger setup (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    const config = new DocumentBuilder()
+      .setTitle('Quizzer API')
+      .setDescription('The Quizzer API description')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+    console.log('📚 Swagger documentation available at /api');
+  }
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
