@@ -109,32 +109,54 @@ async function seedPlans() {
 
 async function seedPlatformSettings() {
   const defaultAiConfig = {
-    routing: {
-      defaultModel: 'gemini-flash',
-      taskOverrides: {
-        quiz: 'groq-fast',
-        flashcard: 'groq-fast',
-        summary: 'groq-fast',
-        recommendation: 'groq-fast',
-        'study-material': 'gemini-flash',
+    providers: {
+      groq: {
+        defaultModel: 'fast',
+        models: {
+          fast: {
+            modelName: 'llama-3.3-70b-versatile',
+            temperature: 0.7,
+          },
+        },
       },
-      complexityOverrides: {
-        simple: 'groq-fast',
-        medium: 'gemini-flash',
-        complex: 'gemini-flash',
+      gemini: {
+        defaultModel: 'flash',
+        models: {
+          flash: {
+            modelName: 'gemini-2.5-flash',
+            temperature: 0.7,
+          },
+          pro: {
+            modelName: 'gemini-2.5-pro',
+            temperature: 0.5,
+          },
+        },
+      },
+      openai: {
+        defaultModel: 'gpt4',
+        models: {
+          gpt4: {
+            modelName: 'gpt-4',
+            temperature: 0.7,
+          },
+        },
       },
     },
-    models: {
-      'gemini-flash': {
-        provider: 'gemini',
-        modelName: 'gemini-2.5-flash',
-        temperature: 0.7,
+    routing: {
+      defaultProvider: 'gemini',
+      taskRouting: {
+        quiz: 'groq',
+        summary: 'groq',
+        flashcard: 'groq',
+        recommendation: 'groq',
+        'study-material': 'groq',
       },
-      'groq-fast': {
-        provider: 'groq',
-        modelName: 'llama-3.3-70b-versatile',
-        temperature: 0.7,
+      complexityRouting: {
+        simple: 'groq',
+        medium: 'gemini',
+        complex: 'gemini',
       },
+      multimodalProvider: 'gemini',
     },
   };
 

@@ -356,6 +356,15 @@ export class ContentService {
     sectionTitle: string,
     sectionContent: string
   ) {
+    // Fetch the content
+    const content = await this.prisma.content.findUnique({
+      where: { id: contentId },
+    });
+
+    if (!content || content.userId !== userId) {
+      throw new NotFoundException('Content not found');
+    }
+
     const cacheKey = `explanation:${contentId}:${sectionTitle}`;
 
     const cached = await this.cacheService.get(cacheKey);
@@ -376,7 +385,32 @@ Provide a clear, detailed explanation suitable for a student. Keep it engaging a
 
     await this.quotaService.incrementQuota(userId, 'conceptExplanation');
 
+    // Update the learning guide with the generated explanation
+    if (content.learningGuide) {
+      const learningGuide = content.learningGuide as any;
+      if (learningGuide.sections && Array.isArray(learningGuide.sections)) {
+        const sectionIndex = learningGuide.sections.findIndex(
+          (section: any) => section.title === sectionTitle
+        );
+
+        if (sectionIndex !== -1) {
+          learningGuide.sections[sectionIndex].generatedExplanation = result;
+
+          // Persist to database
+          await this.prisma.content.update({
+            where: { id: contentId },
+            data: { learningGuide },
+          });
+
+          this.logger.log(
+            `Updated learning guide section ${sectionIndex} with explanation`
+          );
+        }
+      }
+    }
+
     await this.cacheService.set(cacheKey, result, 43200000);
+    await this.invalidateUserCache(userId);
 
     return result;
   }
@@ -390,6 +424,15 @@ Provide a clear, detailed explanation suitable for a student. Keep it engaging a
     sectionTitle: string,
     sectionContent: string
   ) {
+    // Fetch the content
+    const content = await this.prisma.content.findUnique({
+      where: { id: contentId },
+    });
+
+    if (!content || content.userId !== userId) {
+      throw new NotFoundException('Content not found');
+    }
+
     const cacheKey = `example:${contentId}:${sectionTitle}`;
 
     const cached = await this.cacheService.get(cacheKey);
@@ -410,7 +453,32 @@ The example should be relatable and help illustrate the concept clearly.`;
 
     await this.quotaService.incrementQuota(userId, 'conceptExplanation');
 
+    // Update the learning guide with the generated example
+    if (content.learningGuide) {
+      const learningGuide = content.learningGuide as any;
+      if (learningGuide.sections && Array.isArray(learningGuide.sections)) {
+        const sectionIndex = learningGuide.sections.findIndex(
+          (section: any) => section.title === sectionTitle
+        );
+
+        if (sectionIndex !== -1) {
+          learningGuide.sections[sectionIndex].generatedExample = result;
+
+          // Persist to database
+          await this.prisma.content.update({
+            where: { id: contentId },
+            data: { learningGuide },
+          });
+
+          this.logger.log(
+            `Updated learning guide section ${sectionIndex} with example`
+          );
+        }
+      }
+    }
+
     await this.cacheService.set(cacheKey, result, 43200000);
+    await this.invalidateUserCache(userId);
 
     return result;
   }

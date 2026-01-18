@@ -132,21 +132,6 @@ Best Practices:
 - Place options in logical order (e.g., numerical, alphabetical, chronological)
 - Avoid patterns (e.g., "C" is never correct)
 
-Example:
-{
-  "questionType": "single-select",
-  "question": "Which process is primarily responsible for creating ATP in animal cells?",
-  "options": [
-    "Cellular respiration",
-    "Photosynthesis",
-    "Protein synthesis",
-    "DNA replication"
-  ],
-  "correctAnswer": 0,
-  "explanation": "Cellular respiration is the primary process for ATP production in animal cells. Photosynthesis occurs in plants, while protein synthesis and DNA replication consume ATP rather than produce it.",
-  "citation": "Chapter 4: Cellular Energy Production"
-}
-
 ───────────────────────────────────────────────────────────────────────────────
 
 MULTI-SELECT QUESTIONS:
@@ -168,23 +153,6 @@ Best Practices:
 - Avoid interdependent options (where one being true makes another true)
 - Ensure all correct answers are equally correct (no "partially correct" options)
 - Test related concepts or characteristics
-
-Example:
-{
-  "questionType": "multi-select",
-  "question": "Select all that apply: Which of the following are characteristics of mammals?",
-  "options": [
-    "Warm-blooded metabolism",
-    "Lay eggs exclusively",
-    "Produce milk for offspring",
-    "Have hair or fur",
-    "Breathe through gills"
-  ],
-  "correctAnswer": [0, 2, 3],
-  "explanation": "Mammals are warm-blooded (0), produce milk (2), and have hair or fur (3). While most mammals give live birth, not all lay eggs exclusively (platypus is an exception). Mammals breathe through lungs, not gills.",
-  "citation": "Section 7.1: Mammalian Characteristics"
-}
-
 ───────────────────────────────────────────────────────────────────────────────
 
 MATCHING QUESTIONS:
@@ -206,32 +174,6 @@ Best Practices:
 - Avoid items that could match multiple options
 - Keep items concise and clear
 - Ensure both columns are displayed in logical order
-
-Example:
-{
-  "questionType": "matching",
-  "question": "Match each programming concept with its correct definition:",
-  "leftColumn": [
-    "Variable",
-    "Function",
-    "Loop",
-    "Conditional"
-  ],
-  "rightColumn": [
-    "A named container that stores a value",
-    "A reusable block of code that performs a specific task",
-    "A structure that repeats code multiple times",
-    "A statement that executes code based on a condition"
-  ],
-  "correctAnswer": {
-    "Variable": "A named container that stores a value",
-    "Function": "A reusable block of code that performs a specific task",
-    "Loop": "A structure that repeats code multiple times",
-    "Conditional": "A statement that executes code based on a condition"
-  },
-  "explanation": "Each programming concept has a distinct purpose: variables store data, functions organize reusable code, loops enable repetition, and conditionals enable decision-making.",
-  "citation": "Chapter 2: Programming Fundamentals"
-}
 
 ───────────────────────────────────────────────────────────────────────────────
 
@@ -256,25 +198,6 @@ Best Practices:
 - Provide enough context to make the answer unambiguous
 - Consider common misspellings or variations for technical terms
 - For numeric answers, include both written and numeric forms if applicable
-
-Example (single answer):
-{
-  "questionType": "fill-blank",
-  "question": "The process by which plants convert light energy into chemical energy is called ____.",
-  "correctAnswer": ["photosynthesis"],
-  "explanation": "Photosynthesis is the process where plants use sunlight, water, and carbon dioxide to produce glucose and oxygen.",
-  "citation": "Section 2: Plant Biology Basics"
-}
-
-Example (multiple acceptable answers):
-{
-  "questionType": "fill-blank",
-  "question": "The ____ is often called the 'brain' of the computer because it executes program instructions.",
-  "correctAnswer": ["CPU", "Central Processing Unit", "Processor", "central processing unit", "processor"],
-  "explanation": "The CPU (Central Processing Unit), also known as the processor, executes instructions from programs and coordinates all computer operations.",
-  "citation": "Chapter 1.2: Computer Hardware Components"
-}
-
 ───────────────────────────────────────────────────────────────────────────────
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -292,21 +215,6 @@ If ${numberOfQuestions} questions cannot be created with high quality from the a
 - Generate as many high-quality questions as possible
 - Do NOT invent information to reach the target number
 - Ensure every question generated meets all quality standards
-
-═══════════════════════════════════════════════════════════════════════════════
-OUTPUT FORMAT
-═══════════════════════════════════════════════════════════════════════════════
-
-Return ONLY valid JSON (no markdown code fences, no preamble, no commentary):
-
-{
-  "title": "Specific, descriptive title reflecting the actual quiz content",
-  "topic": "${topic || 'Content-Based Assessment'}",
-  "questions": [
-    // Array of question objects following the specifications above
-    // Each question must include all required fields for its type
-  ]
-}
 
 ═══════════════════════════════════════════════════════════════════════════════
 QUALITY ASSURANCE CHECKLIST
@@ -346,20 +254,8 @@ Technical Requirements:
 ✓ Citations included when referencing source material
 ✓ Explanations are clear and instructive
 
-Format Requirements:
-✓ Valid JSON structure (parseable)
-✓ No markdown code fences around output
-✓ No preamble or commentary
-✓ Proper escaping of special characters in strings
-✓ Consistent formatting throughout
-
-Pedagogical Standards:
-✓ Questions test meaningful understanding
-✓ Appropriate cognitive level for difficulty rating
-✓ Fair and answerable by someone who studied the material
 ✓ Explanations enhance learning (not just confirm answers)
-
-Begin your response with the JSON object directly.`;
+`;
   }
 
   static generateFlashcards(
@@ -512,50 +408,25 @@ Front: "What is [term]?" or simply "[Term]"
 Back: Clear, concise definition with key characteristics
 Use for: Core concepts, technical terminology, fundamental principles
 
-Example:
-Front: "Photosynthesis"
-Back: "The process by which plants use sunlight, water, and carbon dioxide to produce glucose and oxygen."
-Explanation: "This occurs primarily in the chloroplasts of plant cells and is the foundation of most food chains."
-
 RELATIONSHIP CARDS:
 Front: "How does X affect Y?" or "What is the relationship between X and Y?"
 Back: Description of the connection or interaction
 Use for: Cause-effect, dependencies, correlations
-
-Example:
-Front: "How does increasing temperature affect enzyme activity?"
-Back: "Enzyme activity increases with temperature up to an optimal point, after which excessive heat denatures the enzyme and activity decreases."
-Explanation: "Most human enzymes have an optimal temperature around 37°C (body temperature)."
 
 PROCESS CARDS:
 Front: "What are the steps/stages of X?" or "How does X occur?"
 Back: Ordered sequence or mechanism description
 Use for: Procedures, cycles, sequential events
 
-Example:
-Front: "What are the three main stages of cellular respiration?"
-Back: "Glycolysis (glucose breakdown), the Krebs cycle (energy extraction), and the electron transport chain (ATP production)."
-Explanation: "These stages progressively extract energy from glucose, producing up to 38 ATP molecules per glucose."
-
 COMPARISON CARDS:
 Front: "What is the difference between X and Y?"
 Back: Key distinguishing features
 Use for: Commonly confused concepts, contrasting ideas
 
-Example:
-Front: "What is the difference between DNA and RNA?"
-Back: "DNA is double-stranded with deoxyribose sugar and thymine, while RNA is single-stranded with ribose sugar and uracil."
-Explanation: "DNA stores genetic information long-term, while RNA typically carries instructions for protein synthesis."
-
 APPLICATION CARDS:
 Front: "Give an example of X" or "When/where does X occur?"
 Back: Concrete example or real-world instance
 Use for: Reinforcing understanding through practical context
-
-Example:
-Front: "Give an example of natural selection in modern times"
-Back: "Antibiotic resistance in bacteria, where bacteria with resistance genes survive treatment and reproduce, passing on resistance."
-Explanation: "This is why doctors emphasize completing antibiotic courses even when symptoms improve."
 
 ═══════════════════════════════════════════════════════════════════════════════
 DESIGN BEST PRACTICES
@@ -587,24 +458,6 @@ Common Pitfalls to Avoid:
 - Questions answerable with a simple "yes" or "no" without elaboration
 - Cards that test multiple unrelated facts simultaneously
 - Redundant cards that essentially ask the same question differently
-
-═══════════════════════════════════════════════════════════════════════════════
-OUTPUT FORMAT
-═══════════════════════════════════════════════════════════════════════════════
-
-Return ONLY valid JSON (no markdown code fences, no preamble, no commentary):
-
-{
-  "title": "Specific, descriptive title reflecting the actual content (not generic)",
-  "topic": "${topic || 'Content-Based Study Cards'}",
-  "cards": [
-    {
-      "front": "Clear, focused question or term",
-      "back": "Complete, accurate answer (1-3 sentences)",
-      "explanation": "Additional context, example, or mnemonic that aids retention (optional)"
-    }
-  ]
-}
 
 ═══════════════════════════════════════════════════════════════════════════════
 QUALITY ASSURANCE CHECKLIST
@@ -640,14 +493,8 @@ Distribution & Coverage:
 ✓ Logical progression from foundational to complex concepts
 ✓ Balanced coverage based on content hierarchy priorities
 
-Technical Requirements:
-✓ Exactly ${numberOfCards} cards generated (or fewer if source is insufficient)
-✓ All required fields present (front, back; explanation optional)
-✓ Valid JSON structure (parseable)
-✓ No markdown code fences around output
-✓ Proper escaping of special characters in strings
-
-Begin your response with the JSON object directly.`;
+✓ Balanced coverage based on content hierarchy priorities
+`;
   }
 
   static generateRecommendations(weakTopics: string[], recentAttempts: any[]) {
@@ -676,29 +523,13 @@ PRIORITY LEVELS:
 - MEDIUM: Moderate gaps (score 60-75%) or important supporting topics
 - LOW: Minor gaps (score >75%) or advanced enrichment topics
 
-OUTPUT FORMAT:
-Return ONLY valid JSON (no markdown, no code fences, no preamble):
-
-[
-  {
-    "topic": "Specific topic name from the weak topics list",
-    "reason": "Data-driven explanation referencing performance patterns or gaps",
-    "priority": "high"
-  }
-]
-
 QUALITY STANDARDS:
 ✓ Recommendation is based on actual performance data
 ✓ Topic name matches one from the weak topics list
 ✓ Reason is specific and actionable
 ✓ Tone is encouraging and constructive
 ✓ Priority level is justified by the data
-
-VALIDATION CHECKLIST:
-✓ Exactly 1 recommendation provided
-✓ All required fields present
-✓ JSON is valid and parseable
-✓ No markdown formatting or code fences in output`;
+`;
   }
 
   static generateComprehensiveLearningGuide(
@@ -819,7 +650,6 @@ Structure your explanation as:
 Formatting Guidelines:
 - **Bold** for key terms when first introduced
 - \`inline code\` ONLY for technical terms, variable names, function names when discussing code/programming
-- \`\`\`language for multi-line code blocks (always specify language, e.g., \`\`\`javascript)
 - > Use blockquotes for important principles, warnings, or key takeaways
 - Use numbered lists for sequential steps
 - Use bulleted lists for related features or characteristics
@@ -873,33 +703,6 @@ Explanation:
 - 2-4 sentences total
 
 ═══════════════════════════════════════════════════════════════════════════════
-OUTPUT FORMAT
-═══════════════════════════════════════════════════════════════════════════════
-
-Return ONLY valid JSON (no markdown fences, no preamble, no code blocks around it):
-
-{
-  "title": "Specific, engaging title that reflects the actual content",
-  "topic": "${topic || 'Comprehensive Summary'}",
-  "description": "Outcome-focused description explaining what learners will understand and why it matters (2-4 sentences)",
-  "learningGuide": {
-    "sections": [
-      {
-        "title": "Clear, Descriptive Section Title",
-        "content": "Comprehensive explanation (250-400 words) following the Concept → Intuition → Details → Application flow. Use **bold** for key terms, \`inline code\` only for technical terms in programming contexts, and \`\`\`language for code blocks. Write in clear paragraphs with good flow.",
-        "example": "Detailed, relatable example with step-by-step walkthrough. If code is necessary and appropriate for this concept, format it as: \`\`\`javascript\\n// Commented code here\\nconst example = 'with explanation';\\n\`\`\` Otherwise, use a narrative walkthrough with concrete details.",
-        "knowledgeCheck": {
-          "question": "Scenario-based question testing understanding, not just recall",
-          "options": ["Plain text option 1", "Plain text option 2", "Plain text option 3", "Plain text option 4"],
-          "correctAnswer": 0,
-          "explanation": "Clear explanation of why the correct answer is right and why the others miss the mark (2-4 sentences)"
-        }
-      }
-    ]
-  }
-}
-
-═══════════════════════════════════════════════════════════════════════════════
 QUALITY ASSURANCE CHECKLIST
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -921,13 +724,7 @@ Content Quality:
 - Is jargon defined before being used?
 - Does each section add clear value to understanding?
 
-Technical Quality:
-- All required JSON fields present
-- 3-6 sections included
-- Code blocks have language specified: \`\`\`javascript not just \`\`\`
-- JSON is valid and parseable
-- No outer markdown code fences wrapping the JSON response
-- correctAnswer uses index 0-3, not text
+✓ correctAnswer uses index 0-3, not text
 
 ═══════════════════════════════════════════════════════════════════════════════
 FINAL REMINDER
@@ -1055,14 +852,19 @@ OUTPUT:
 Return the explanation in Markdown format. No preamble, no code fences wrapping the markdown, start directly with the content.`;
   }
 
-  static generateExample(topic: string, context: string) {
+  static generateExample(
+    topic: string,
+    context: string,
+    existingExample?: string
+  ) {
     return `You are an expert educator who creates concrete, memorable examples that illuminate abstract concepts.
 
 TASK: Provide 2-3 distinct, detailed examples demonstrating the concept below.
 
 CONCEPT:
 - Topic: ${topic}
-- Context: ${context}
+- Content: ${context}
+${existingExample ? `\nEXISTING EXAMPLE (already shown to the learner):\n${existingExample}\n\nIMPORTANT: The learner has ALREADY seen this example. You MUST provide DIFFERENT examples that demonstrate the concept from NEW angles or scenarios. DO NOT repeat or rephrase the existing example.` : ''}
 
 EXAMPLE DESIGN PRINCIPLES:
 1. START IMMEDIATELY with examples (no meta-commentary like "Here are examples" or "Let's look at")
@@ -1379,12 +1181,6 @@ Standalone Value:
 ✓ Contains the essential knowledge needed to understand the topic
 ✓ Strikes appropriate balance between brevity and completeness
 
-═══════════════════════════════════════════════════════════════════════════════
-OUTPUT INSTRUCTIONS
-═══════════════════════════════════════════════════════════════════════════════
-
-Return the summary as plain Markdown text. Begin directly with the content - no preamble, no code fences, no meta-commentary.
-
 The output should be a polished document that someone could:
 - Use as a study guide for exam preparation
 - Reference quickly to refresh their memory
@@ -1441,46 +1237,6 @@ CRITICAL RULES:
 - DO NOT deduct points for minor grammatical errors unless they affect clarity
 - DO award partial credit for incomplete but correct explanations
 
-OUTPUT FORMAT:
-Return ONLY valid JSON (no markdown, no code fences, no preamble):
-
-{
-  "totalScore": 8.5,
-  "maxPoints": 10,
-  "percentage": 85,
-  "grade": "B+",
-  "pointsBreakdown": [
-    {
-      "keyPoint": "Definition: Process where plants convert light energy to chemical energy",
-      "maxValue": 2,
-      "awarded": 2,
-      "feedback": "Clearly explained the basic definition with accurate terminology"
-    },
-    {
-      "keyPoint": "Location: Takes place in chloroplasts using chlorophyll",
-      "maxValue": 1,
-      "awarded": 0.5,
-      "feedback": "Mentioned chloroplasts but did not specify chlorophyll's role"
-    }
-  ],
-  "qualityLevel": "good",
-  "strengths": [
-    "Strong understanding of the basic process",
-    "Good use of scientific terminology",
-    "Clear explanation of importance to ecosystems"
-  ],
-  "areasForImprovement": [
-    "Could include more detail about the chemical equation",
-    "Missing explanation of where the process occurs within the cell",
-    "Would benefit from mentioning specific environmental factors"
-  ],
-  "additionalConceptsFound": [
-    "Mentioned role of stomata in gas exchange"
-  ],
-  "overallFeedback": "Your answer demonstrates a solid understanding of photosynthesis and its importance. You clearly explained the basic process and its role in sustaining life. To improve, include more specific details about the cellular location and the chemical equation. Consider also discussing factors that affect the rate of photosynthesis.",
-  "encouragement": "Good work on explaining the ecological importance! Your understanding of the fundamentals is clear."
-}
-
 VALIDATION CHECKLIST:
 ✓ Score is fair and justified by the breakdown
 ✓ Feedback is specific and constructive
@@ -1488,7 +1244,7 @@ VALIDATION CHECKLIST:
 ✓ Partial credit awarded appropriately
 ✓ Strengths and improvements are balanced
 ✓ Tone is encouraging and educational
-✓ JSON is valid and parseable`;
+`;
   }
 
   static generateTheoryQuestions(
@@ -1547,41 +1303,6 @@ Quality Criteria:
 - Be specific about depth and breadth expected
 - Consider both content accuracy and demonstration of understanding
 
-OUTPUT FORMAT:
-Return ONLY valid JSON (no markdown, no code fences, no preamble):
-
-{
-  "title": "Theory Questions: ${topic}",
-  "topic": "${topic}",
-  "difficulty": "${difficulty}",
-  "questions": [
-    {
-      "questionType": "theory",
-      "question": "Clear, open-ended question requiring detailed explanation",
-      "markingGuideline": {
-        "maxPoints": 10,
-        "keyPoints": [
-          {"point": "Specific concept or fact that should be mentioned", "value": 2},
-          {"point": "Another important concept", "value": 2}
-        ],
-        "acceptableConcepts": [
-          "Related concept that adds value",
-          "Alternative explanation or perspective"
-        ],
-        "qualityCriteria": {
-          "excellent": "Detailed description of excellent answer",
-          "good": "Description of good answer",
-          "adequate": "Description of adequate answer",
-          "poor": "Description of poor answer"
-        }
-      },
-      "sampleAnswer": "A model answer demonstrating the expected depth and coverage",
-      "explanation": "Brief note on what this question tests",
-      "citation": "Source reference (if applicable)"
-    }
-  ]
-}
-
 QUALITY CHECKLIST:
 ✓ Questions test understanding, not just recall
 ✓ Marking guidelines are comprehensive and fair
@@ -1605,14 +1326,9 @@ VALIDATION CHECKLIST:
 QUESTIONS:
 ${JSON.stringify(questions, null, 2)}
 
-REQUIREMENTS:
-- Identify the 3-5 most important conceptual pillars
+- identify the 3-5 most important conceptual pillars
 - Use clear, professional terminology
-- Return ONLY a JSON array of strings
-- No preamble or commentary
-
-OUTPUT FORMAT:
-["Concept 1", "Concept 2", "Concept 3"]`;
+`;
   }
 
   static generateUnderstandingSummary(topic: string, performance: any) {

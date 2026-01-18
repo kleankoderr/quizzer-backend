@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ModelConfigService } from './model-config.service';
 import { z } from 'zod';
 import { ModelRoutingOptions } from './types';
@@ -7,6 +7,7 @@ export type ChainInvokeOptions = ModelRoutingOptions;
 
 @Injectable()
 export class LangChainService {
+  private readonly logger = new Logger(LangChainService.name);
   constructor(private readonly modelConfig: ModelConfigService) {}
 
   /**
@@ -21,11 +22,16 @@ export class LangChainService {
     // Get the appropriate model (now async and handles routing)
     const model = await this.modelConfig.getModel(options);
 
-    // Create structured model
+    // Create structured model with explicit options
     const structuredModel = model.withStructuredOutput(schema);
 
     // Invoke
-    return await structuredModel.invoke(prompt);
+    const response = await structuredModel.invoke(prompt).catch((err) => {
+      this.logger.error(`Error during model invocation: ${err.message}`);
+      throw new Error('Failed to invoke model with structured output.');
+    });
+    this.logger.log('Model invocation successful.');
+    return response;
   }
 
   /**

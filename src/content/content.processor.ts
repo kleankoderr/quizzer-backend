@@ -100,7 +100,7 @@ export class ContentProcessor extends WorkerHost {
         LearningGuideSchema,
         prompt,
         {
-          task: 'learning-guide',
+          task: 'study-material',
           hasFiles: fileReferences.length > 0,
         }
       );
@@ -155,7 +155,7 @@ export class ContentProcessor extends WorkerHost {
         EVENTS.CONTENT.FAILED,
         EventFactory.contentFailed(userId, jobId, error.message)
       );
-      throw error;
+      throw new Error('Failed to generate study material.');
     }
   }
 
