@@ -30,16 +30,32 @@ async function bootstrap() {
     'https://quizr-it.vercel.app',
   ];
 
+  // Allowed origin patterns (for wildcard matching like Vercel preview deployments)
+  const allowedOriginPatterns = process.env.ALLOWED_ORIGIN_PATTERNS?.split(
+    ','
+  ) || [''];
+
   app.enableCors({
     origin: (origin: any, callback: any) => {
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
 
+      // Check exact matches
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+        return callback(null, true);
       }
+
+      // Check pattern matches (wildcard support)
+      const matchesPattern = allowedOriginPatterns.some((pattern) =>
+        origin.startsWith(pattern)
+      );
+
+      if (matchesPattern) {
+        return callback(null, true);
+      }
+
+      // Origin not allowed
+      callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     allowedHeaders: [
