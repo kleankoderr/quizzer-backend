@@ -25,10 +25,7 @@ async function bootstrap() {
   app.use(json({ limit: '50mb' }));
 
   // Enable CORS with specific origins for security
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
-    'http://localhost:5173',
-    'https://quizr-it.vercel.app',
-  ];
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',');
 
   app.enableCors({
     origin: (origin, callback) => {
