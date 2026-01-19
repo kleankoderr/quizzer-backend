@@ -32,12 +32,12 @@ export class SmartAiService implements AiService {
   ): Promise<AiService> {
     const config = await this.platformSettingsService.getAiProviderConfig();
 
-    // 1. Check specific task config in DB (Absolute Override)
+    //Check specific task config in DB (Absolute Override)
     if (config[task]) {
       return this.resolveProvider(config[task]);
     }
 
-    // 2. Fallback based on files presence (Category Fallback)
+    //Fallback based on files presence (Category Fallback)
     if (hasFiles) {
       return this.resolveProvider(config.files || 'gemini');
     } else {
