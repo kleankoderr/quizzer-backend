@@ -24,23 +24,10 @@ async function bootstrap() {
   // Use custom JSON parser with size limit
   app.use(json({ limit: '50mb' }));
 
-  // Enable CORS with specific origins for security
-  const allowedOrigins =
-    process.env.ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()) ||
-    [];
-
-  console.log('🔒 CORS enabled for origins:', allowedOrigins);
+  // Enable CORS - Allow all origins
+  console.log('🔒 CORS enabled for ALL origins');
   app.enableCors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins?.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: true, // Allow all origins
     credentials: true,
     allowedHeaders: [
       'Content-Type',
