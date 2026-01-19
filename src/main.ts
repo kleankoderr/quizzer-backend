@@ -27,6 +27,7 @@ async function bootstrap() {
   // Enable CORS with specific origins for security
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',');
 
+  console.log('🔒 CORS enabled for origins:', allowedOrigins);
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, Postman, etc.)
