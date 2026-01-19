@@ -5,6 +5,7 @@ import { LangChainService } from '../../langchain/langchain.service';
 import { QuizGenerationSchema } from '../../langchain/schemas/quiz.schema';
 import { UserDocumentService } from '../../user-document/user-document.service';
 import { DocumentIngestionService } from '../../rag/document-ingestion.service';
+import { StudyPackService } from '../../study-pack/study-pack.service';
 import { AiPrompts } from '../../ai/ai.prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
@@ -39,7 +40,8 @@ export class QuizGenerationStrategy implements JobStrategy<
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
     private readonly userDocumentService: UserDocumentService,
-    private readonly documentIngestionService: DocumentIngestionService
+    private readonly documentIngestionService: DocumentIngestionService,
+    private readonly studyPackService: StudyPackService
   ) {}
 
   async preProcess(job: Job<QuizJobData>): Promise<QuizContext> {
@@ -125,6 +127,11 @@ export class QuizGenerationStrategy implements JobStrategy<
 
     if (contentId) {
       await this.linkToContent(contentId, quiz.id);
+    }
+
+    // Invalidate study pack cache if quiz is added to a study pack
+    if (dto.studyPackId) {
+      await this.studyPackService.invalidateUserCache(userId).catch(() => {});
     }
 
     return quiz;

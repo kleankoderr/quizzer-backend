@@ -5,6 +5,7 @@ import { LangChainService } from '../../langchain/langchain.service';
 import { FlashcardSetSchema } from '../../langchain/schemas/flashcard.schema';
 import { UserDocumentService } from '../../user-document/user-document.service';
 import { DocumentIngestionService } from '../../rag/document-ingestion.service';
+import { StudyPackService } from '../../study-pack/study-pack.service';
 import { AiPrompts } from '../../ai/ai.prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
@@ -32,7 +33,8 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
     private readonly userDocumentService: UserDocumentService,
-    private readonly documentIngestionService: DocumentIngestionService
+    private readonly documentIngestionService: DocumentIngestionService,
+    private readonly studyPackService: StudyPackService
   ) {}
 
   async preProcess(job: Job<FlashcardJobData>): Promise<FlashcardContext> {
@@ -128,6 +130,11 @@ export class FlashcardGenerationStrategy implements JobStrategy<
         where: { id: dto.contentId },
         data: { flashcardSetId: flashcardSet.id },
       });
+    }
+
+    // Invalidate study pack cache if flashcard set is added to a study pack
+    if (dto.studyPackId) {
+      await this.studyPackService.invalidateUserCache(userId).catch(() => {});
     }
 
     return flashcardSet;

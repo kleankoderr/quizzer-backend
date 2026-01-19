@@ -47,7 +47,9 @@ export class CacheService {
 
       if (keys.length > 0) {
         const pipeline = this.redisClient.multi();
-        keys.forEach((key) => pipeline.del(key));
+        for (const key of keys) {
+          pipeline.del(key);
+        }
         await pipeline.exec();
         this.logger.debug(`Invalidated ${keys.length} keys: ${pattern}`);
       }
