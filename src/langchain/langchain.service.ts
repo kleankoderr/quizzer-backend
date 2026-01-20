@@ -18,7 +18,7 @@ export class LangChainService {
     schema: z.ZodType<T>,
     prompt: string,
     options: ChainInvokeOptions
-  ): Promise<T> {
+  ): Promise<Record<string, any>> {
     // Get the appropriate model (now async and handles routing)
     const model = await this.modelConfig.getModel(options);
 

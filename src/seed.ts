@@ -145,11 +145,11 @@ async function seedPlatformSettings() {
     routing: {
       defaultProvider: 'gemini',
       taskRouting: {
-        quiz: 'groq',
-        summary: 'groq',
-        flashcard: 'groq',
+        quiz: 'gemini',
+        summary: 'gemini',
+        flashcard: 'gemini',
         recommendation: 'groq',
-        'study-material': 'groq',
+        'study-material': 'gemini',
       },
       complexityRouting: {
         simple: 'groq',

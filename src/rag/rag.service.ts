@@ -66,7 +66,7 @@ Answer:`;
       topK?: number;
       filter?: Record<string, any>;
     }
-  ): Promise<T> {
+  ): Promise<Record<string, any>> {
     // Get relevant documents
     const docs = await this.vectorStore.similaritySearch(
       question,

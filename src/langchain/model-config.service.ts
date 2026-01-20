@@ -53,11 +53,11 @@ export class ModelConfigService {
     routing: {
       defaultProvider: 'gemini',
       taskRouting: {
-        quiz: 'groq',
-        summary: 'groq',
-        flashcard: 'groq',
+        quiz: 'gemini',
+        summary: 'gemini',
+        flashcard: 'gemini',
         recommendation: 'groq',
-        'study-material': 'groq',
+        'study-material': 'gemini',
       },
       complexityRouting: {
         simple: 'groq',
@@ -138,6 +138,7 @@ export class ModelConfigService {
           apiKey: this.configService.get('GOOGLE_AI_API_KEY'),
           model: modelName,
           temperature,
+          json: true
         });
     }
   }
