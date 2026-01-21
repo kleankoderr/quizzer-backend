@@ -38,7 +38,8 @@ Your assessments are known for:
 Requirements:
 - Generate exactly {questionCount} questions
 - Question types: {questionTypes}
-- Each multiple-choice question must have exactly 4 options
+- Each multiple-choice and multi-select question must have exactly 4 options
+- True-false questions must include options: ["True", "False"]
 - Mark the correct answer clearly
 - Provide explanations that enhance learning
 
@@ -114,6 +115,7 @@ Your teaching approach:
 - Build intuition before introducing complexity
 - Use relatable, concrete examples from everyday life
 - Define technical terms clearly when introduced
+- Explain formulas, equations, symbols, and code clearly when they appear
 - Address common misconceptions when relevant
 
 You create materials where learners finish thinking: "I actually understand this now."`,
@@ -124,33 +126,94 @@ You create materials where learners finish thinking: "I actually understand this
 
 {sourceContentSection}
 
-{fileContextSection}
+CRITICAL FORMATTING REQUIREMENTS:
+You MUST format all content using proper Markdown syntax for maximum readability:
 
-Structure Guidelines:
-- Description: Set expectations and explain practical relevance
-- Sections: Progress from fundamentals to applications
-- Each section: Concept → Intuition → Details → Application
+1. **Description Field** (Overview):
+   - Use paragraph breaks for readability
+   - Use **bold** for key outcomes or benefits
+   - Keep it concise but informative (100-200 words)
 
-Content Requirements:
-- Start with plain language, then introduce technical terms
-- Use **bold** for key terms when first introduced
-- Include relatable, concrete examples (avoid abstract placeholders)
-- For complex ideas, provide step-by-step walkthroughs
-- Add knowledge check questions that test understanding
+2. **Section Content** (Main Learning Content):
+   MUST use these Markdown elements:
+   
+   • **Headings**: Use ### for subsections within content
+   • **Bold text**: Use **bold** for key terms when first introduced
+   • **Lists**: Use bullet points (•, -, or *) or numbered lists extensively
+   • **Blockquotes**: Use > for important notes, definitions, or key insights
+   • **Emphasis**: Use *italic* for emphasis when needed
+   • **Line breaks**: Add blank lines between paragraphs and sections
+   
+   Structure each section as:
+   ### Introduction
+   Brief context of what this section covers
+   
+   ### Core Concept
+   - Define the concept clearly
+   - Explain **why** it matters
+   - Use **bold** for key terminology
+   
+   ### How It Works
+   1. Step-by-step breakdown
+   2. Use numbered lists for processes
+   3. Use bullet points for features or characteristics
 
-Quality Standards:
-✓ All information is factually correct
-✓ Content is based ONLY on provided materials
-✓ Concepts are explained clearly before adding complexity
-✓ Examples are specific, relatable, and well-connected to concepts
-✓ Code/formulas included ONLY when naturally relevant
-✓ Flow builds naturally from section to section
+   ### Formulas / Code Snippets / Formal Representation (When Applicable)
+   - Include this section whenever the topic involves formulas, equations, algorithms, symbols, or code
+   - Explain what each part represents and how it is used
+   - Clarify common mistakes or misconceptions
+   
+   ### Practical Examples
+   > **Example**: [Concrete, relatable example]
+   
+   ### Key Takeaways
+   - Main point 1
+   - Main point 2
+   - Main point 3
 
-Priorities:
-1. Clarity over completeness
-2. Intuition over technical precision
-3. Understanding over memorization
-4. Relatability over academic rigor`,
+3. **Section Examples** (Optional):
+   - Use clear, concrete examples
+   - Format with blockquotes for emphasis
+   - Include inline code or code blocks when demonstrating technical concepts
+
+4. **Knowledge Check Questions**:
+   - Question: Clear, specific question testing understanding
+   - Options: 4 well-formatted options as a numbered list
+   - Explanation: Why the correct answer is right (use markdown for clarity)
+
+STRUCTURE GUIDELINES:
+- **Description**: Set clear expectations and explain practical relevance (use markdown)
+- **Sections**: Progress logically from fundamentals → intermediate → applications
+- **Each section content**: Concept → Intuition → Details → Application
+
+CONTENT REQUIREMENTS:
+✓ Start with plain language, then introduce technical terms  
+✓ Use **bold** for ALL key terms when first introduced  
+✓ Include formulas, equations, or code whenever they are essential to understanding
+✓ Explain formulas and code clearly when present
+✓ Include relatable, concrete examples (avoid abstract placeholders)  
+✓ For complex ideas, provide step-by-step walkthroughs using lists  
+✓ Break content into digestible chunks with headings  
+✓ Use blockquotes for critical insights or definitions  
+✓ Add visual breathing room with blank lines  
+✓ Format lists consistently (bullet or numbered as appropriate)  
+✓ Use code formatting for all technical terms  
+
+QUALITY STANDARDS:
+✓ All information is factually correct  
+✓ Content is based ONLY on provided materials  
+✓ Concepts are explained before adding complexity  
+✓ Examples are specific, relatable, and well-connected to concepts  
+✓ Markdown formatting enhances readability, not clutters it  
+✓ Proper spacing between sections and paragraphs  
+✓ Consistent formatting throughout
+
+PRIORITIES:
+1. Clarity over completeness  
+2. Readability through proper markdown structure  
+3. Intuition over technical precision  
+4. Understanding over memorization  
+5. Well-structured content with visual hierarchy`,
     ],
   ]);
 

@@ -14,6 +14,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
 import { RagModule } from '../rag/rag.module';
 import { FlashcardGenerationStrategy } from './strategies/flashcard-generation.strategy';
+import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { FlashcardGenerationStrategy } from './strategies/flashcard-generation.s
     UserDocumentModule,
     StudyPackModule,
     RagModule,
+    InputPipelineModule,
   ],
   controllers: [FlashcardController],
   providers: [

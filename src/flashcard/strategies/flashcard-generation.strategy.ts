@@ -3,8 +3,6 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
 import { FlashcardSetSchema } from '../../langchain/schemas/flashcard.schema';
-import { UserDocumentService } from '../../user-document/user-document.service';
-import { DocumentIngestionService } from '../../rag/document-ingestion.service';
 import { StudyPackService } from '../../study-pack/study-pack.service';
 import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
@@ -15,9 +13,14 @@ import {
   JobContext,
   JobStrategy,
 } from '../../common/queue/interfaces/job-strategy.interface';
+import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
+import {
+  InputSource,
+  InputSourceType,
+} from '../../input-pipeline/input-source.interface';
 
 export interface FlashcardContext extends JobContext<FlashcardJobData> {
-  fileReferences: any[];
+  inputSources: InputSource[];
   contentForAI: string;
 }
 
@@ -32,8 +35,7 @@ export class FlashcardGenerationStrategy implements JobStrategy<
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
-    private readonly userDocumentService: UserDocumentService,
-    private readonly documentIngestionService: DocumentIngestionService,
+    private readonly inputPipeline: InputPipeline,
     private readonly studyPackService: StudyPackService
   ) {}
 
@@ -41,53 +43,38 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     const { userId, dto, files } = job.data;
     const jobId = job.id?.toString() || 'unknown';
 
-    // Prepare file references
-    const fileReferences =
-      files?.map((file) => ({
-        cloudinaryUrl: file.cloudinaryUrl,
-        cloudinaryId: file.cloudinaryId,
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-        size: file.size,
-      })) || [];
+    // Use input pipeline to process all input sources
+    const inputSources = await this.inputPipeline.process({
+      ...dto,
+      files,
+      userId,
+    });
 
-    // Create UserDocument references for uploaded files
-    if (files && files.length > 0) {
-      await this.createUserDocumentReferences(userId, files, jobId);
-    }
-
-    const contentForAI = dto.content || '';
+    // Combine sources with precedence: FILE > CONTENT > TITLE
+    const contentForAI = this.inputPipeline.combineInputSources(inputSources);
 
     return {
       userId,
       jobId,
       data: job.data,
       startTime: Date.now(),
-      fileReferences,
+      inputSources,
       contentForAI,
     };
   }
 
   async execute(context: FlashcardContext): Promise<any> {
     const { dto } = context.data;
-    const { fileReferences, contentForAI } = context;
-
-    let sourceContent = contentForAI;
-
-    if (fileReferences.length > 0) {
-      const fileContents = await this.extractFileContents(fileReferences);
-      sourceContent =
-        fileContents + (contentForAI ? `\n\n${contentForAI}` : '');
-    }
+    const { inputSources, contentForAI } = context;
 
     this.logger.log(
-      `Job ${context.jobId}: Generating flashcards with topic: "${dto.topic || 'N/A'}"`
+      `Job ${context.jobId}: Generating flashcards with ${inputSources.length} input source(s)`
     );
 
     const prompt = await LangChainPrompts.flashcardGeneration.format({
       cardCount: dto.numberOfCards.toString(),
-      topic: dto.topic || 'General Knowledge',
-      sourceContentSection: LangChainPrompts.formatSourceContent(sourceContent),
+      topic: dto.topic || '',
+      sourceContentSection: LangChainPrompts.formatSourceContent(contentForAI),
     });
 
     const result = await this.langchainService.invokeWithStructure(
@@ -95,7 +82,7 @@ export class FlashcardGenerationStrategy implements JobStrategy<
       prompt,
       {
         task: 'flashcard',
-        hasFiles: fileReferences.length > 0,
+        hasFiles: inputSources.some((s) => s.type === InputSourceType.FILE),
         complexity: 'simple',
       }
     );
@@ -114,9 +101,9 @@ export class FlashcardGenerationStrategy implements JobStrategy<
 
     const flashcardSet = await this.prisma.flashcardSet.create({
       data: {
-        title: title || dto.topic || 'Flashcard Set',
-        topic: (topic || dto.topic || 'General').trim(),
-        cards: cards as any,
+        title: title || dto.topic || null,
+        topic: topic?.trim() || dto.topic?.trim() || null,
+        cards: cards,
         userId,
         contentId: dto.contentId,
         sourceType,
@@ -183,52 +170,5 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     if (files && files.length > 0) return 'file';
     if (dto.content) return 'text';
     return 'topic';
-  }
-
-  private async extractFileContents(fileReferences: any[]): Promise<string> {
-    const contents: string[] = [];
-    for (const fileRef of fileReferences) {
-      try {
-        if (!fileRef.cloudinaryUrl) continue;
-        const tempFile: any = {
-          originalname: fileRef.originalname,
-          mimetype: fileRef.mimetype || 'application/octet-stream',
-          size: fileRef.size || 0,
-          path: fileRef.cloudinaryUrl,
-        };
-        const fileContent =
-          await this.documentIngestionService.extractFileContent(tempFile);
-        contents.push(
-          `\n\n=== Content from ${fileRef.originalname} ===\n${fileContent}`
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to extract content from ${fileRef.originalname}: ${error.message}`
-        );
-      }
-    }
-    return contents.join('\n\n');
-  }
-
-  private async createUserDocumentReferences(
-    userId: string,
-    files: ProcessedFileData[],
-    jobId: string
-  ): Promise<void> {
-    try {
-      for (const file of files) {
-        if (file.documentId) {
-          await this.userDocumentService.createUserDocument(
-            userId,
-            file.documentId,
-            file.originalname
-          );
-        }
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Job ${jobId}: Failed to create UserDocument references: ${error.message}`
-      );
-    }
   }
 }

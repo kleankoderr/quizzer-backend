@@ -3,8 +3,6 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
 import { QuizGenerationSchema } from '../../langchain/schemas/quiz.schema';
-import { UserDocumentService } from '../../user-document/user-document.service';
-import { DocumentIngestionService } from '../../rag/document-ingestion.service';
 import { StudyPackService } from '../../study-pack/study-pack.service';
 import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
@@ -16,6 +14,11 @@ import {
   JobContext,
   JobStrategy,
 } from '../../common/queue/interfaces/job-strategy.interface';
+import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
+import {
+  InputSource,
+  InputSourceType,
+} from '../../input-pipeline/input-source.interface';
 
 const QUIZ_TYPE_MAP: Record<string, QuizType> = {
   standard: QuizType.STANDARD,
@@ -24,7 +27,7 @@ const QUIZ_TYPE_MAP: Record<string, QuizType> = {
 };
 
 export interface QuizContext extends JobContext<QuizJobData> {
-  fileReferences: FileReference[];
+  inputSources: InputSource[];
   contentForAI: string;
 }
 
@@ -39,8 +42,7 @@ export class QuizGenerationStrategy implements JobStrategy<
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
-    private readonly userDocumentService: UserDocumentService,
-    private readonly documentIngestionService: DocumentIngestionService,
+    private readonly inputPipeline: InputPipeline,
     private readonly studyPackService: StudyPackService
   ) {}
 
@@ -48,56 +50,58 @@ export class QuizGenerationStrategy implements JobStrategy<
     const { userId, dto, contentId, files } = job.data;
     const jobId = job.id?.toString() || 'unknown';
 
-    const fileReferences = this.prepareFileReferences(files);
-
-    if (files && files.length > 0) {
-      await this.createUserDocumentReferences(userId, files, jobId);
-    }
-
-    let contentForAI = dto.content || '';
+    // Fetch content from existing study material if contentId provided
+    let additionalContent = '';
     if (contentId) {
-      contentForAI = await this.fetchContentWithLearningGuide(contentId);
+      additionalContent = await this.fetchContentWithLearningGuide(contentId);
     }
+
+    // Use input pipeline to process all input sources
+    const inputSources = await this.inputPipeline.process({
+      ...dto,
+      content: dto.content || additionalContent,
+      files,
+      userId,
+    });
+
+    // Combine sources with precedence: FILE > CONTENT > TITLE
+    const contentForAI = this.inputPipeline.combineInputSources(inputSources);
 
     return {
       userId,
       jobId,
       data: job.data,
       startTime: Date.now(),
-      fileReferences,
+      inputSources,
       contentForAI,
     };
   }
 
   async execute(context: QuizContext): Promise<any> {
     const { dto } = context.data;
-    const { fileReferences, contentForAI } = context;
+    const { inputSources, contentForAI } = context;
 
-    let sourceContent = contentForAI;
+    this.logger.log(
+      `Job ${context.jobId}: Generating quiz with ${inputSources.length} input source(s)`
+    );
 
-    if (fileReferences.length > 0) {
-      const fileContents = await this.extractFileContents(fileReferences);
-      sourceContent =
-        fileContents + (contentForAI ? `\n\n${contentForAI}` : '');
-    }
-
-    const prompt = await this.buildQuizPrompt(dto, sourceContent);
+    const prompt = await this.buildQuizPrompt(dto, contentForAI);
 
     const result = await this.langchainService.invokeWithStructure(
       QuizGenerationSchema,
       prompt,
       {
         task: 'quiz',
-        hasFiles: fileReferences.length > 0,
+        hasFiles: inputSources.some((s) => s.type === InputSourceType.FILE),
         complexity: dto.difficulty === 'hard' ? 'complex' : 'simple',
       }
     );
 
     const questions = this.shuffleQuestions(result.questions);
-    const title = result.title || dto.topic || 'Quiz';
-    const topic = result.topic || dto.topic || 'General';
+    const title = result.title || dto.topic || null;
+    const topic = result.topic || dto.topic || null;
 
-    return { questions, title: title.trim(), topic: topic.trim() };
+    return { questions, title, topic };
   }
 
   async postProcess(context: QuizContext, result: any): Promise<any> {
@@ -111,8 +115,8 @@ export class QuizGenerationStrategy implements JobStrategy<
 
     const quiz = await this.prisma.quiz.create({
       data: {
-        title,
-        topic: topic.trim(),
+        title: title || null,
+        topic: topic?.trim() || null,
         difficulty: dto.difficulty,
         quizType,
         timeLimit: dto.timeLimit,
@@ -174,45 +178,7 @@ export class QuizGenerationStrategy implements JobStrategy<
     };
   }
 
-  // Helper methods moved from QuizProcessor
-
-  private prepareFileReferences(files?: FileReference[]): FileReference[] {
-    if (!files || files.length === 0) return [];
-    return files.map((file) => ({
-      cloudinaryUrl: file.cloudinaryUrl,
-      cloudinaryId: file.cloudinaryId,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
-    }));
-  }
-
-  private async extractFileContents(
-    fileReferences: FileReference[]
-  ): Promise<string> {
-    const contents: string[] = [];
-    for (const fileRef of fileReferences) {
-      try {
-        if (!fileRef.cloudinaryUrl) continue;
-        const tempFile: any = {
-          originalname: fileRef.originalname,
-          mimetype: fileRef.mimetype || 'application/octet-stream',
-          size: fileRef.size || 0,
-          path: fileRef.cloudinaryUrl,
-        };
-        const fileContent =
-          await this.documentIngestionService.extractFileContent(tempFile);
-        contents.push(
-          `\n\n=== Content from ${fileRef.originalname} ===\n${fileContent}`
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to extract content from ${fileRef.originalname}: ${error.message}`
-        );
-      }
-    }
-    return contents.join('\n\n');
-  }
+  // Helper methods
 
   private shuffleArray<T>(array: T[]): T[] {
     const shuffled = [...array];
@@ -260,7 +226,7 @@ export class QuizGenerationStrategy implements JobStrategy<
 
     return await LangChainPrompts.quizGeneration.format({
       difficulty: dto.difficulty || 'Medium',
-      topic: dto.topic || 'General Knowledge',
+      topic: dto.topic || '', // No default
       sourceContentSection: LangChainPrompts.formatSourceContent(content),
       questionCount: dto.numberOfQuestions.toString(),
       questionTypes: `${dto.quizType || 'standard'} - ${questionTypes}`,
@@ -338,28 +304,6 @@ export class QuizGenerationStrategy implements JobStrategy<
         `Failed to fetch content ${contentId}: ${error.message}`
       );
       return '';
-    }
-  }
-
-  private async createUserDocumentReferences(
-    userId: string,
-    files: FileReference[],
-    jobId: string
-  ): Promise<void> {
-    try {
-      for (const file of files) {
-        if (file.documentId) {
-          await this.userDocumentService.createUserDocument(
-            userId,
-            file.documentId,
-            file.originalname
-          );
-        }
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Job ${jobId}: Failed to create UserDocument references: ${error.message}`
-      );
     }
   }
 }

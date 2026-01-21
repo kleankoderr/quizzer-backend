@@ -14,6 +14,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
 import { QuizGenerationStrategy } from './strategies/quiz-generation.strategy';
 import { RagModule } from '../rag/rag.module';
+import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { RagModule } from '../rag/rag.module';
     FileStorageModule,
     UserDocumentModule,
     StudyPackModule,
+    InputPipelineModule,
   ],
   controllers: [QuizController],
   providers: [QuizService, QuizProcessor, QuizGenerationStrategy],

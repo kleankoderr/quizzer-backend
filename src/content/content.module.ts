@@ -10,6 +10,7 @@ import { FlashcardModule } from '../flashcard/flashcard.module';
 import { FileStorageModule } from '../file-storage/file-storage.module';
 import { UserDocumentModule } from '../user-document/user-document.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
+import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { StudyPackModule } from '../study-pack/study-pack.module';
     FileStorageModule,
     UserDocumentModule,
     StudyPackModule,
+    InputPipelineModule,
   ],
   controllers: [ContentController],
   providers: [ContentService, ContentProcessor],
