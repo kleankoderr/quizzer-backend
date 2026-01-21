@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
 import { SummaryService } from '../summary.service';
-import { AiPrompts } from '../../ai/ai.prompts';
+import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { SummaryJobData } from '../summary.processor';
@@ -100,12 +100,12 @@ export class SummaryGenerationStrategy implements JobStrategy<
       `Job ${jobId}: Generating AI summary for "${content.title}"`
     );
 
-    const prompt = AiPrompts.generateSummary(
-      content.title,
-      content.topic,
-      content.content,
-      content.learningGuide
-    );
+    const prompt = await LangChainPrompts.summaryGeneration.format({
+      title: content.title,
+      topic: content.topic,
+      content: content.content || 'Not provided',
+      learningGuide: content.learningGuide ? JSON.stringify(content.learningGuide) : 'None',
+    });
 
     const summaryText = await this.langchainService.invoke(prompt, {
       task: 'summary',

@@ -10,7 +10,7 @@ import { QuotaService } from '../common/services/quota.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
 import { LearningGuideSchema } from '../langchain/schemas/learning-guide.schema';
-import { AiPrompts } from '../ai/ai.prompts';
+import { LangChainPrompts } from '../langchain/prompts';
 
 export interface ContentJobData {
   userId: string;
@@ -90,11 +90,13 @@ export class ContentProcessor extends WorkerHost {
       );
       await job.updateProgress(30);
 
-      const prompt = AiPrompts.generateComprehensiveLearningGuide(
-        dto.topic || '',
-        dto.content || '',
-        fileReferences.length > 0 ? 'See attached files for context.' : ''
-      );
+      const prompt = await LangChainPrompts.learningGuideGeneration.format({
+        topic: dto.topic || 'General Knowledge',
+        sourceContentSection: LangChainPrompts.formatSourceContent(dto.content),
+        fileContextSection: LangChainPrompts.formatFileContext(
+          fileReferences.length > 0 ? 'See attached files for context.' : ''
+        ),
+      });
 
       const result = await this.langchainService.invokeWithStructure(
         LearningGuideSchema,

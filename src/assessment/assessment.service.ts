@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuizType, RetentionLevel } from '@prisma/client';
-import { AiPrompts } from '../ai/ai.prompts';
+import { LangChainPrompts } from '../langchain/prompts';
 import { ConceptListSchema } from '../langchain/schemas/quiz.schema';
 
 export interface PerformancePattern {
@@ -341,7 +341,10 @@ export class AssessmentService {
     }
 
     try {
-      const prompt = AiPrompts.extractConceptsFromQuestions(questions);
+      const prompt = await LangChainPrompts.conceptExtraction.format({
+        questions: JSON.stringify(questions),
+      });
+
       const concepts = await this.langchainService.invokeWithStructure(
         ConceptListSchema,
         prompt,

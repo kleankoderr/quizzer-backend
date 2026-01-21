@@ -6,7 +6,7 @@ import { QuizGenerationSchema } from '../../langchain/schemas/quiz.schema';
 import { UserDocumentService } from '../../user-document/user-document.service';
 import { DocumentIngestionService } from '../../rag/document-ingestion.service';
 import { StudyPackService } from '../../study-pack/study-pack.service';
-import { AiPrompts } from '../../ai/ai.prompts';
+import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { QuizType } from '@prisma/client';
@@ -81,7 +81,7 @@ export class QuizGenerationStrategy implements JobStrategy<
         fileContents + (contentForAI ? `\n\n${contentForAI}` : '');
     }
 
-    const prompt = this.buildQuizPrompt(dto, sourceContent);
+    const prompt = await this.buildQuizPrompt(dto, sourceContent);
 
     const result = await this.langchainService.invokeWithStructure(
       QuizGenerationSchema,
@@ -249,23 +249,23 @@ export class QuizGenerationStrategy implements JobStrategy<
     });
   }
 
-  private buildQuizPrompt(
+  private async buildQuizPrompt(
     dto: GenerateQuizDto,
     content: string | undefined
-  ): string {
+  ): Promise<string> {
     const questionTypes =
       dto.questionTypes && dto.questionTypes.length > 0
         ? dto.questionTypes.join(', ')
-        : 'Mix of multiple choice, true/false, and fill-in-the-blank';
+        : 'single-select, true-false, fill-blank';
 
-    return AiPrompts.generateQuiz(
-      dto.topic || '',
-      dto.numberOfQuestions,
-      dto.difficulty || 'medium',
-      dto.quizType || 'standard',
-      questionTypes,
-      content || ''
-    );
+    return await LangChainPrompts.quizGeneration.format({
+      difficulty: dto.difficulty || 'Medium',
+      topic: dto.topic || 'General Knowledge',
+      sourceContentSection: LangChainPrompts.formatSourceContent(content),
+      questionCount: dto.numberOfQuestions.toString(),
+      questionTypes: `${dto.quizType || 'standard'} - ${questionTypes}`,
+      focusAreas: LangChainPrompts.formatFocusAreas(),
+    });
   }
 
   private mapQuizType(quizType?: string): QuizType {

@@ -5,7 +5,7 @@ import {
   QuizGenerationSchema,
   ConceptListSchema,
 } from '../langchain/schemas/quiz.schema';
-import { AiPrompts } from '../ai/ai.prompts';
+import { LangChainPrompts } from '../langchain/prompts';
 
 @Injectable()
 export class WeakAreaService {
@@ -30,14 +30,14 @@ export class WeakAreaService {
       }
 
       // Generate quiz using LangChain
-      const prompt = AiPrompts.generateQuiz(
-        weakArea.topic,
-        5,
-        'medium',
-        'standard',
-        'single-select',
-        ''
-      );
+      const prompt = await LangChainPrompts.quizGeneration.format({
+        difficulty: 'Medium',
+        topic: weakArea.topic,
+        sourceContentSection: LangChainPrompts.formatSourceContent(),
+        questionCount: '5',
+        questionTypes: 'standard - single-select',
+        focusAreas: LangChainPrompts.formatFocusAreas([weakArea.concept]),
+      });
 
       const generatedQuiz = await this.langchainService.invokeWithStructure(
         QuizGenerationSchema,
@@ -83,9 +83,9 @@ export class WeakAreaService {
     if (questions.length === 0) return [];
 
     try {
-      const prompt = AiPrompts.extractConceptsFromQuestions(
-        questions.map((q) => q.question)
-      );
+      const prompt = await LangChainPrompts.conceptExtraction.format({
+        questions: JSON.stringify(questions.map((q) => q.question)),
+      });
       const concepts = await this.langchainService.invokeWithStructure(
         ConceptListSchema,
         prompt,

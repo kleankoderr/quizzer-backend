@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuotaService } from '../common/services/quota.service';
 import { CacheService } from '../common/services/cache.service';
-import { AiPrompts } from '../ai/ai.prompts';
+import { LangChainPrompts } from '../langchain/prompts';
 import { RecommendationListSchema } from '../langchain/schemas/recommendation.schema';
 
 @Injectable()
@@ -295,14 +295,16 @@ export class RecommendationService {
         `Calling AI service to generate ${recommendationLimit} recommendations for ${isPremium ? 'premium' : 'free'} user`
       );
 
-      const prompt = AiPrompts.generateRecommendations(
-        weakTopics.slice(0, recommendationLimit),
-        attempts.map((a) => ({
-          topic: a.quiz?.topic,
-          score: a.score,
-          total: a.totalQuestions,
-        }))
-      );
+      const prompt = await LangChainPrompts.studyRecommendations.format({
+        weakTopics: JSON.stringify(weakTopics.slice(0, recommendationLimit)),
+        recentAttempts: JSON.stringify(
+          attempts.map((a) => ({
+            topic: a.quiz?.topic,
+            score: a.score,
+            total: a.totalQuestions,
+          }))
+        ),
+      });
 
       const recommendations = await this.langchainService.invokeWithStructure(
         RecommendationListSchema,

@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuizType, TaskStatus, TaskType } from '@prisma/client';
 import { QuizGenerationSchema } from '../langchain/schemas/quiz.schema';
-import { AiPrompts } from '../ai/ai.prompts';
+import { LangChainPrompts } from '../langchain/prompts';
 
 @Injectable()
 export class OnboardingService {
@@ -60,14 +60,14 @@ export class OnboardingService {
       });
 
       // Generate quiz using AI
-      const prompt = AiPrompts.generateQuiz(
-        userTopic,
-        5,
-        'medium',
-        'standard',
-        'single-select, true-false',
-        ''
-      );
+      const prompt = await LangChainPrompts.quizGeneration.format({
+        difficulty: 'Medium',
+        topic: userTopic,
+        sourceContentSection: LangChainPrompts.formatSourceContent(),
+        questionCount: '5',
+        questionTypes: 'standard - single-select, true-false',
+        focusAreas: LangChainPrompts.formatFocusAreas(),
+      });
 
       const generatedQuiz = await this.langchainService.invokeWithStructure(
         QuizGenerationSchema,

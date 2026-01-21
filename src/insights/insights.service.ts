@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { AssessmentService } from '../assessment/assessment.service';
 import { RetentionLevel } from '@prisma/client';
-import { AiPrompts } from '../ai/ai.prompts';
+import { LangChainPrompts } from '../langchain/prompts';
 
 export interface StudyInsights {
   understanding: {
@@ -85,7 +85,10 @@ export class InsightsService {
     performance: number
   ): Promise<string> {
     try {
-      const prompt = AiPrompts.generateUnderstandingSummary(topic, performance);
+      const prompt = await LangChainPrompts.understandingSummary.format({
+        topic,
+        performance: JSON.stringify({ averageScore: performance }),
+      });
       const summary = await this.langchainService.invoke(prompt, {
         task: 'summary',
         complexity: 'simple',

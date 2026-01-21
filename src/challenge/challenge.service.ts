@@ -11,7 +11,7 @@ import { QuizType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuizGenerationSchema } from '../langchain/schemas/quiz.schema';
-import { AiPrompts } from '../ai/ai.prompts';
+import { LangChainPrompts } from '../langchain/prompts';
 
 /**
  * Transform Prisma QuizType enum to frontend-compatible format
@@ -1201,14 +1201,14 @@ export class ChallengeService {
         }
 
         // Generate a new quiz for this challenge using AI
-        const prompt = AiPrompts.generateQuiz(
-          topicQuiz.topic,
-          numberOfQuestions,
-          optimalDifficulty as 'easy' | 'medium' | 'hard',
-          quizType.toLowerCase(),
-          questionTypes.join(', '),
-          ''
-        );
+        const prompt = await LangChainPrompts.quizGeneration.format({
+          difficulty: (optimalDifficulty as string) || 'Medium',
+          topic: topicQuiz.topic,
+          sourceContentSection: LangChainPrompts.formatSourceContent(),
+          questionCount: numberOfQuestions.toString(),
+          questionTypes: `${quizType.toLowerCase()} - ${questionTypes.join(', ')}`,
+          focusAreas: LangChainPrompts.formatFocusAreas(),
+        });
 
         const generatedQuiz = await this.langchainService.invokeWithStructure(
           QuizGenerationSchema,
@@ -1265,14 +1265,14 @@ export class ChallengeService {
     // 3. Mixed Challenge (General Knowledge or Random)
     const mixedTitle = 'Daily Mix';
     if (!existingTitles.has(mixedTitle.toLowerCase())) {
-      const prompt = AiPrompts.generateQuiz(
-        'General Knowledge',
-        5,
-        'medium',
-        'standard',
-        'single-select',
-        ''
-      );
+      const prompt = await LangChainPrompts.quizGeneration.format({
+        difficulty: 'Medium',
+        topic: 'General Knowledge',
+        sourceContentSection: LangChainPrompts.formatSourceContent(),
+        questionCount: '5',
+        questionTypes: 'standard - single-select',
+        focusAreas: LangChainPrompts.formatFocusAreas(),
+      });
 
       const generatedQuiz = await this.langchainService.invokeWithStructure(
         QuizGenerationSchema,

@@ -6,7 +6,7 @@ import { FlashcardSetSchema } from '../../langchain/schemas/flashcard.schema';
 import { UserDocumentService } from '../../user-document/user-document.service';
 import { DocumentIngestionService } from '../../rag/document-ingestion.service';
 import { StudyPackService } from '../../study-pack/study-pack.service';
-import { AiPrompts } from '../../ai/ai.prompts';
+import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { GenerateFlashcardDto } from '../dto/flashcard.dto';
@@ -84,11 +84,11 @@ export class FlashcardGenerationStrategy implements JobStrategy<
       `Job ${context.jobId}: Generating flashcards with topic: "${dto.topic || 'N/A'}"`
     );
 
-    const prompt = AiPrompts.generateFlashcards(
-      dto.topic || '',
-      dto.numberOfCards,
-      sourceContent
-    );
+    const prompt = await LangChainPrompts.flashcardGeneration.format({
+      cardCount: dto.numberOfCards.toString(),
+      topic: dto.topic || 'General Knowledge',
+      sourceContentSection: LangChainPrompts.formatSourceContent(sourceContent),
+    });
 
     const result = await this.langchainService.invokeWithStructure(
       FlashcardSetSchema,
