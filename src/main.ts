@@ -25,14 +25,31 @@ async function bootstrap() {
   app.use(json({ limit: '50mb' }));
 
   // Enable CORS with specific origins for security
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+  const envOrigins =
+    process.env.ALLOWED_ORIGINS?.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean) || [];
+  const hardcodedOrigins = [
     'http://localhost:5173',
     'https://quizr-it.vercel.app',
+    'https://quizzer-ui-dev.up.railway.app',
   ];
+  const allowedOrigins = Array.from(
+    new Set([...envOrigins, ...hardcodedOrigins])
+  );
 
   // Allowed origin patterns (for wildcard matching like Vercel/Railway preview deployments)
   const allowedOriginPatterns =
-    process.env.ALLOWED_ORIGIN_PATTERNS?.split(',') || [];
+    process.env.ALLOWED_ORIGIN_PATTERNS?.split(',')
+      .map((p) => p.trim())
+      .filter(Boolean) || [];
+
+  console.log(`🔒 CORS allowed origins: ${allowedOrigins.join(', ')}`);
+  if (allowedOriginPatterns.length > 0) {
+    console.log(
+      `🔒 CORS allowed patterns: ${allowedOriginPatterns.join(', ')}`
+    );
+  }
 
   app.enableCors({
     origin: (origin: any, callback: any) => {
