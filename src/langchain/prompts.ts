@@ -38,6 +38,7 @@ Your assessments are known for:
 Requirements:
 - Generate exactly {questionCount} questions
 - Question types: {questionTypes}
+- **CRITICAL**: Every question MUST include a "questionType" field with one of these exact values: 'true-false', 'single-select', 'multi-select', 'matching', or 'fill-blank'
 - Each multiple-choice and multi-select question must have exactly 4 options
 - True-false questions must include options: ["True", "False"]
 - Options must be included in the right order
@@ -119,7 +120,7 @@ Your teaching approach:
 - Explain formulas, equations, symbols, and code clearly when they appear
 - Address common misconceptions when relevant
 
-You create materials where learners finish thinking: "I actually understand this now."`
+You create materials where learners finish thinking: "I actually understand this now."`,
     ],
     [
       'human',
@@ -242,10 +243,9 @@ PRIORITIES:
 2. Readability through proper markdown structure  
 3. Intuition over technical precision  
 4. Understanding over memorization  
-5. Well-structured content with visual hierarchy`
+5. Well-structured content with visual hierarchy`,
     ],
   ]);
-
 
   /**
    * Study Recommendations Prompt
