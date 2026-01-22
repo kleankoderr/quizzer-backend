@@ -718,16 +718,16 @@ export class QuizService {
           this.logger.error(`Streak update failed: ${err.message}`)
         ),
 
-      // Update challenge progress
-      this.challengeService
-        .updateChallengeProgress(
-          userId,
-          'quiz',
-          correctCount === totalQuestions
-        )
-        .catch((err) =>
-          this.logger.error(`Challenge update failed: ${err.message}`)
-        ),
+      // Update challenge progress (disabled)
+      // this.challengeService
+      //   .updateChallengeProgress(
+      //     userId,
+      //     'quiz',
+      //     correctCount === totalQuestions
+      //   )
+      //   .catch((err) =>
+      //     this.logger.error(`Challenge update failed: ${err.message}`)
+      //   ),
 
       // Generate recommendations
       this.recommendationService
