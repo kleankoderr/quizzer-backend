@@ -876,6 +876,9 @@ export class QuizService {
           },
         },
         attempts: {
+          where: {
+            userId: userId,
+          },
           select: {
             id: true,
             score: true,

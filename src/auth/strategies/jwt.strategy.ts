@@ -16,7 +16,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly otpCacheService: OtpCacheService
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        // Support query parameter for SSE connections (EventSource can't send headers)
+        (request: Request) => {
+          return (request?.query?.token as string) || undefined;
+        },
+      ]),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_SECRET'),
       passReqToCallback: true, // Pass request to validate method

@@ -370,7 +370,7 @@ export class AuthController {
         await this.authService.blacklistToken(token, remainingTime);
       }
     } catch (error) {
-      this.logger.error('Failed to blacklist token: {}', error);
+      this.logger.error('Failed to blacklist token:', error);
     }
   }
 }
