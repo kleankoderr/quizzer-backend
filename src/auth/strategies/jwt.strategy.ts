@@ -16,15 +16,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly otpCacheService: OtpCacheService
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        (request: Request) => {
-          return request?.cookies?.Authentication;
-        },
-        (request: Request) => {
-          return (request?.query?.token as string) || undefined;
-        },
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ]),
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_SECRET'),
       passReqToCallback: true, // Pass request to validate method
@@ -32,10 +24,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: Request, payload: any) {
-    // Extract token for session validation
-    const token =
-      req?.cookies?.Authentication ||
-      req?.headers?.authorization?.replace('Bearer ', '');
+    // Extract token from Authorization header for session validation
+    const token = req?.headers?.authorization?.replace('Bearer ', '');
 
     // Check if token is blacklisted
     if (token && (await this.sessionService.isTokenBlacklisted(token))) {

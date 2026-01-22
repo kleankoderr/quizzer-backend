@@ -1,7 +1,6 @@
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
 import { json } from 'express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -61,21 +60,6 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      // Check pattern matches
-      const matchesPattern = allowedOriginPatterns.some((pattern) => {
-        if (!pattern) return false;
-        // Simple wildcard support if pattern contains *
-        if (pattern.includes('*')) {
-          const regex = new RegExp('^' + pattern.split('*').join('.*') + '$');
-          return regex.test(origin);
-        }
-        return origin.startsWith(pattern);
-      });
-
-      if (matchesPattern) {
-        return callback(null, true);
-      }
-
       // Origin not allowed
       callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
@@ -88,11 +72,7 @@ async function bootstrap() {
       'X-Requested-With',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    exposedHeaders: ['Set-Cookie'],
   });
-
-  // Use cookie-parser middleware
-  app.use(cookieParser());
 
   // Global validation pipe
   app.useGlobalPipes(

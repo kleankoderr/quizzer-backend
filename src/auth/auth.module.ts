@@ -15,7 +15,7 @@ import { SchoolModule } from '../school/school.module';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET') || 'default-secret',
         signOptions: {
-          expiresIn: config.get('JWT_EXPIRES_IN') || '7d',
+          expiresIn: config.get('JWT_EXPIRES_IN') || '15m',
         },
       }),
     }),
