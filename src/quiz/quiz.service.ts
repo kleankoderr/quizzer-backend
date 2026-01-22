@@ -78,8 +78,6 @@ export class QuizService {
     private readonly studyPackService: StudyPackService
   ) {}
 
-  // ==================== QUIZ GENERATION ====================
-
   async generateQuiz(
     userId: string,
     dto: GenerateQuizDto,
@@ -158,8 +156,6 @@ export class QuizService {
       error: state === 'failed' ? job.failedReason : null,
     };
   }
-
-  // ==================== QUIZ RETRIEVAL ====================
 
   async getAllQuizzes(userId: string, page: number = 1, limit: number = 20) {
     const cacheKey = `quizzes:all:${userId}:${page}:${limit}`;
@@ -297,8 +293,6 @@ export class QuizService {
     }));
   }
 
-  // ==================== QUIZ SUBMISSION ====================
-
   async submitQuiz(
     userId: string,
     quizId: string,
@@ -322,7 +316,7 @@ export class QuizService {
           totalQuestions: true,
         },
       }),
-      this.findAccessibleQuizOptimized(quizId, userId),
+      this.findAccessibleQuiz(quizId, userId),
     ]);
 
     // Handle duplicate
@@ -424,8 +418,6 @@ export class QuizService {
       feedback,
     };
   }
-
-  // ==================== ATTEMPT RETRIEVAL ====================
 
   async getAttemptById(attemptId: string, userId: string) {
     const attempt = await this.prisma.attempt.findUnique({
@@ -536,8 +528,6 @@ export class QuizService {
     });
   }
 
-  // ==================== QUIZ DELETION ====================
-
   async deleteQuiz(id: string, userId: string) {
     this.logger.log(`Deleting quiz ${id} for user ${userId}`);
 
@@ -587,37 +577,22 @@ export class QuizService {
     return { success: true, message: 'Quiz deleted successfully' };
   }
 
-  // ==================== OPTIMIZED HELPER METHODS ====================
-
   /**
    * Fetch quiz with minimal fields and single query
    */
-  private async findAccessibleQuizOptimized(quizId: string, userId: string) {
-    // Try to fetch quiz directly with challenge access check in one query
+  private async findAccessibleQuiz(quizId: string, userId: string) {
     const quiz = await this.prisma.quiz.findFirst({
       where: {
         id: quizId,
         OR: [
-          { userId }, // User's own quiz
+          { userId },
           {
-            // Challenge quiz user has access to
             OR: [
               {
                 challenges: {
                   some: {
                     completions: {
                       some: { userId },
-                    },
-                  },
-                },
-              },
-              {
-                challengeQuizzes: {
-                  some: {
-                    challenge: {
-                      completions: {
-                        some: { userId },
-                      },
                     },
                   },
                 },
@@ -633,6 +608,28 @@ export class QuizService {
         contentId: true,
         tags: true,
         quizType: true,
+        attempts: {
+          where: { userId },
+          orderBy: { completedAt: 'desc' },
+        },
+        challenges: {
+          include: {
+            completions: {
+              where: { userId },
+            },
+          },
+        },
+        challengeQuizzes: {
+          include: {
+            challenge: {
+              include: {
+                completions: {
+                  where: { userId },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -698,6 +695,7 @@ export class QuizService {
   private handlePostSubmissionAsync(context: PostSubmissionContext): void {
     const {
       userId,
+      quizId,
       challengeId,
       correctCount,
       totalQuestions,
@@ -710,6 +708,7 @@ export class QuizService {
     Promise.all([
       // Invalidate caches
       this.invalidateUserCache(userId),
+      this.cacheService.invalidate(`quiz:${quizId}:${userId}`),
       challengeId ? this.invalidateChallengeCache(userId) : Promise.resolve(),
 
       // Update streak
@@ -825,8 +824,6 @@ export class QuizService {
     }
   }
 
-  // ==================== EXISTING HELPER METHODS ====================
-
   private async processUploadedFiles(
     userId: string,
     files?: Express.Multer.File[]
@@ -863,83 +860,6 @@ export class QuizService {
 
   private transformQuizType(quizType: QuizType): string {
     return PRISMA_TO_QUIZ_TYPE[quizType] || 'standard';
-  }
-
-  private async findAccessibleQuiz(quizId: string, userId: string) {
-    let quiz = await this.prisma.quiz.findFirst({
-      where: { id: quizId, userId },
-      include: {
-        studyPack: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-        attempts: {
-          where: {
-            userId: userId,
-          },
-          select: {
-            id: true,
-            score: true,
-            totalQuestions: true,
-            completedAt: true,
-            timeSpent: true,
-          },
-          orderBy: {
-            completedAt: 'desc',
-          },
-          take: 10,
-        },
-      },
-    });
-
-    if (!quiz) {
-      const challenge = await this.prisma.challenge.findFirst({
-        where: {
-          OR: [{ quizId: quizId }, { quizzes: { some: { quizId: quizId } } }],
-        },
-      });
-
-      if (challenge) {
-        quiz = await this.prisma.quiz.findUnique({
-          where: { id: quizId },
-          include: {
-            studyPack: {
-              select: {
-                id: true,
-                title: true,
-              },
-            },
-            attempts: {
-              where: {
-                userId: userId,
-              },
-              select: {
-                id: true,
-                score: true,
-                totalQuestions: true,
-                completedAt: true,
-                timeSpent: true,
-              },
-              orderBy: {
-                completedAt: 'desc',
-              },
-              take: 10,
-            },
-          },
-        });
-      }
-    }
-
-    if (quiz && Array.isArray(quiz.questions)) {
-      quiz.questions = (quiz.questions as any[]).map((q) => {
-        const { _correctAnswer, _explanation, ...rest } = q;
-        return rest;
-      }) as any;
-    }
-
-    return quiz;
   }
 
   private sanitizeQuizForDisplay(quiz: any) {
