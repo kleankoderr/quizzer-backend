@@ -30,10 +30,9 @@ async function bootstrap() {
     'https://quizr-it.vercel.app',
   ];
 
-  // Allowed origin patterns (for wildcard matching like Vercel preview deployments)
-  const allowedOriginPatterns = process.env.ALLOWED_ORIGIN_PATTERNS?.split(
-    ','
-  ) || [''];
+  // Allowed origin patterns (for wildcard matching like Vercel/Railway preview deployments)
+  const allowedOriginPatterns =
+    process.env.ALLOWED_ORIGIN_PATTERNS?.split(',') || [];
 
   app.enableCors({
     origin: (origin: any, callback: any) => {
@@ -45,17 +44,23 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      // Check pattern matches (wildcard support)
-      const matchesPattern = allowedOriginPatterns.some((pattern) =>
-        origin.startsWith(pattern)
-      );
+      // Check pattern matches
+      const matchesPattern = allowedOriginPatterns.some((pattern) => {
+        if (!pattern) return false;
+        // Simple wildcard support if pattern contains *
+        if (pattern.includes('*')) {
+          const regex = new RegExp('^' + pattern.split('*').join('.*') + '$');
+          return regex.test(origin);
+        }
+        return origin.startsWith(pattern);
+      });
 
       if (matchesPattern) {
         return callback(null, true);
       }
 
       // Origin not allowed
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     credentials: true,
     allowedHeaders: [
@@ -63,9 +68,10 @@ async function bootstrap() {
       'Authorization',
       'Accept',
       'Cache-Control',
+      'X-Requested-With',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    exposedHeaders: ['Cache-Control'],
+    exposedHeaders: ['Set-Cookie'],
   });
 
   // Use cookie-parser middleware

@@ -211,7 +211,7 @@ export class AuthController {
       sameSite: isProduction ? 'none' : 'lax', // 'None' for cross-domain in prod, 'Lax' for local dev
       maxAge,
       path: '/', // Ensure cookie is available for all paths
-      domain: process.env.COOKIE_DOMAIN, // For subdomain support (e.g., .yourdomain.com)
+      domain: process.env.COOKIE_DOMAIN || undefined, // For subdomain support
     });
   }
 }
