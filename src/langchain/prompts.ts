@@ -40,6 +40,7 @@ Requirements:
 - Question types: {questionTypes}
 - Each multiple-choice and multi-select question must have exactly 4 options
 - True-false questions must include options: ["True", "False"]
+- Options must be included in the right order
 - Mark the correct answer clearly
 - Provide explanations that enhance learning
 
@@ -118,7 +119,7 @@ Your teaching approach:
 - Explain formulas, equations, symbols, and code clearly when they appear
 - Address common misconceptions when relevant
 
-You create materials where learners finish thinking: "I actually understand this now."`,
+You create materials where learners finish thinking: "I actually understand this now."`
     ],
     [
       'human',
@@ -126,8 +127,32 @@ You create materials where learners finish thinking: "I actually understand this
 
 {sourceContentSection}
 
+RESPONSE FORMAT:
+Return a valid JSON object matching this schema:
+
+{{
+    "title": "string - Title of the learning guide",
+    "topic": "string - Main topic covered",
+    "description": "string - Overview with markdown formatting (100-200 words)",
+    "learningGuide": {{
+      "sections": [
+        {{
+          "title": "string - Section title",
+          "content": "string - Section content with markdown formatting",
+          "example": "string - Optional concrete example",
+          "knowledgeCheck": {{
+            "question": "string - Clear question testing understanding",
+            "options": ["option1", "option2", "option3", "option4"],
+            "correctAnswer": 0,
+            "explanation": "string - Why the correct answer is right"
+          }}
+        }}
+      ]
+    }}
+  }}
+
 CRITICAL FORMATTING REQUIREMENTS:
-You MUST format all content using proper Markdown syntax for maximum readability:
+You MUST format all content using proper Markdown syntax for maximum readability.
 
 1. **Description Field** (Overview):
    - Use paragraph breaks for readability
@@ -135,37 +160,40 @@ You MUST format all content using proper Markdown syntax for maximum readability
    - Keep it concise but informative (100-200 words)
 
 2. **Section Content** (Main Learning Content):
-   MUST use these Markdown elements:
-   
-   • **Headings**: Use ### for subsections within content
-   • **Bold text**: Use **bold** for key terms when first introduced
-   • **Lists**: Use bullet points (•, -, or *) or numbered lists extensively
-   • **Blockquotes**: Use > for important notes, definitions, or key insights
-   • **Emphasis**: Use *italic* for emphasis when needed
+   MUST use these Markdown elements as string content:
+
+   • **Headings**: Use ### for subsections within content  
+   • **Bold text**: Use **bold** for key terms when first introduced  
+   • **Lists**: Use bullet points (•, -, or *) or numbered lists extensively  
+   • **Blockquotes**: Use > for important notes, definitions, or key insights  
+   • **Emphasis**: Use *italic* for emphasis when needed  
    • **Line breaks**: Add blank lines between paragraphs and sections
-   
+
    Structure each section as:
+
    ### Introduction
    Brief context of what this section covers
-   
+
    ### Core Concept
    - Define the concept clearly
    - Explain **why** it matters
    - Use **bold** for key terminology
-   
+
    ### How It Works
    1. Step-by-step breakdown
    2. Use numbered lists for processes
    3. Use bullet points for features or characteristics
 
-   ### Formulas / Code Snippets / Formal Representation (When Applicable)
-   - Include this section whenever the topic involves formulas, equations, algorithms, symbols, or code
+   ### Code Examples / Formulas / Formal Representation (When Applicable)
+   - Include this section whenever the topic involves programming, formulas, equations, algorithms, or symbolic notation
+   - Use inline code with backticks: \`function\`, \`variable\`, \`className\`
+   - Use code blocks with triple backticks and language identifier for multi-line code
    - Explain what each part represents and how it is used
    - Clarify common mistakes or misconceptions
-   
+
    ### Practical Examples
    > **Example**: [Concrete, relatable example]
-   
+
    ### Key Takeaways
    - Main point 1
    - Main point 2
@@ -174,7 +202,8 @@ You MUST format all content using proper Markdown syntax for maximum readability
 3. **Section Examples** (Optional):
    - Use clear, concrete examples
    - Format with blockquotes for emphasis
-   - Include inline code or code blocks when demonstrating technical concepts
+   - Include inline code (\`code\`) or code blocks (\`\`\`language) when demonstrating technical concepts
+   - All code formatting is embedded within the content/example string fields
 
 4. **Knowledge Check Questions**:
    - Question: Clear, specific question testing understanding
@@ -189,15 +218,15 @@ STRUCTURE GUIDELINES:
 CONTENT REQUIREMENTS:
 ✓ Start with plain language, then introduce technical terms  
 ✓ Use **bold** for ALL key terms when first introduced  
-✓ Include formulas, equations, or code whenever they are essential to understanding
-✓ Explain formulas and code clearly when present
+✓ Include formulas, equations, or code whenever they are essential to understanding  
+✓ Explain formulas and code clearly when present  
 ✓ Include relatable, concrete examples (avoid abstract placeholders)  
 ✓ For complex ideas, provide step-by-step walkthroughs using lists  
 ✓ Break content into digestible chunks with headings  
 ✓ Use blockquotes for critical insights or definitions  
 ✓ Add visual breathing room with blank lines  
 ✓ Format lists consistently (bullet or numbered as appropriate)  
-✓ Use code formatting for all technical terms  
+✓ Use code formatting for all technical terms
 
 QUALITY STANDARDS:
 ✓ All information is factually correct  
@@ -213,9 +242,10 @@ PRIORITIES:
 2. Readability through proper markdown structure  
 3. Intuition over technical precision  
 4. Understanding over memorization  
-5. Well-structured content with visual hierarchy`,
+5. Well-structured content with visual hierarchy`
     ],
   ]);
+
 
   /**
    * Study Recommendations Prompt

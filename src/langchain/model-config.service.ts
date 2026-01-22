@@ -138,7 +138,6 @@ export class ModelConfigService {
           apiKey: this.configService.get('GOOGLE_AI_API_KEY'),
           model: modelName,
           temperature,
-          json: true
         });
     }
   }

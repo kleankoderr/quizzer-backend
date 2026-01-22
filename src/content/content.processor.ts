@@ -8,7 +8,6 @@ import { EventFactory, EVENTS } from '../events/events.types';
 import { QuotaService } from '../common/services/quota.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
-import { LearningGuideSchema } from '../langchain/schemas/learning-guide.schema';
 import { LangChainPrompts } from '../langchain/prompts';
 import { InputPipeline } from '../input-pipeline/input-pipeline.service';
 
@@ -85,8 +84,7 @@ export class ContentProcessor extends WorkerHost {
           LangChainPrompts.formatSourceContent(contentForAI),
       });
 
-      const result = await this.langchainService.invokeWithStructure(
-        LearningGuideSchema,
+      const result = await this.langchainService.invokeWithJsonParser(
         prompt,
         {
           task: 'study-material',
@@ -101,13 +99,23 @@ export class ContentProcessor extends WorkerHost {
 
       const content = await this.prisma.content.create({
         data: {
-          title: title?.trim() || dto.title || null,
-          topic: topic?.trim() || dto.topic || null,
+          title: title?.trim() || dto.title || dto.topic || 'Untitled',
+          topic: topic?.trim() || dto.topic || 'General',
           description: description?.trim(),
           learningGuide: learningGuide,
-          userId,
           content: '',
-          studyPackId: dto.studyPackId,
+          user: {
+            connect: {
+              id: userId,
+            },
+          },
+          ...(dto.studyPackId && {
+            studyPack: {
+              connect: {
+                id: dto.studyPackId,
+              },
+            },
+          }),
         },
       });
 
