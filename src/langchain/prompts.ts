@@ -38,7 +38,7 @@ Your assessments are known for:
 Requirements:
 - Generate exactly {questionCount} questions
 - Question types: {questionTypes}
-- **CRITICAL**: Every question MUST include a "questionType" field with one of these exact values: 'true-false', 'single-select', 'multi-select', 'matching', or 'fill-blank'
+- Each question must have a "questionType" field with one of these exact values: 'true-false', 'single-select', 'multi-select', 'matching', or 'fill-blank'
 - Each multiple-choice and multi-select question must have exactly 4 options
 - True-false questions must include options: ["True", "False"]
 - Options must be included in the right order

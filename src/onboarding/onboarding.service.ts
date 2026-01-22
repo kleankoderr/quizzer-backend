@@ -86,13 +86,7 @@ export class OnboardingService {
           difficulty: 'medium',
           quizType: QuizType.STANDARD,
           userId,
-          questions: generatedQuiz.questions.map((q: any) => ({
-            question: q.question,
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation,
-            difficulty: q.difficulty || 'medium',
-          })),
+          questions: generatedQuiz.questions,
         },
       });
 

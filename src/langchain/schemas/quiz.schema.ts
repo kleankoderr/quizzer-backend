@@ -4,33 +4,48 @@ import { z } from 'zod';
  * Quiz question schema
  */
 export const QuizQuestionSchema = z.object({
-  questionType: z.enum([
-    'true-false',
-    'single-select',
-    'multi-select',
-    'matching',
-    'fill-blank',
-  ]).describe('Type of question'),
   question: z
     .string()
     .min(10, 'Question must be at least 10 characters')
     .max(500, 'Question must be at most 500 characters'),
   options: z.array(z.string()).min(2),
-  correctAnswer: z.union([
-    z.number(),
-    z.array(z.number()),
-    z.array(z.object({ key: z.string(), value: z.string() })),
-    z.array(z.string()),
-  ]).describe('Correct answer for the question'),
+  questionType: z
+    .enum([
+      'true-false',
+      'single-select',
+      'multi-select',
+      'matching',
+      'fill-blank',
+    ])
+    .describe(
+      'Question type (true-false, single-select, multi-select, matching, fill-blank)'
+    ),
+  correctAnswer: z
+    .union([
+      z.number(),
+      z.array(z.number()),
+      z.array(z.object({ key: z.string(), value: z.string() })),
+      z.array(z.string()),
+    ])
+    .describe('Correct answer for the question'),
   explanation: z
     .string()
     .min(20, 'Explanation must be at least 20 characters')
     .max(500, 'Explanation must be at most 500 characters'),
-  difficulty: z.enum(['easy', 'medium', 'hard']).optional().describe('Difficulty level of the question'),
+  difficulty: z
+    .enum(['easy', 'medium', 'hard'])
+    .optional()
+    .describe('Difficulty level of the question'),
   topic: z.string().optional().describe('Topic of the question'),
   citation: z.string().optional().describe('Citation of the question'),
-  leftColumn: z.array(z.string()).optional().describe('Left column of the question'),
-  rightColumn: z.array(z.string()).optional().describe('Right column of the question'),
+  leftColumn: z
+    .array(z.string())
+    .optional()
+    .describe('Left column of the question'),
+  rightColumn: z
+    .array(z.string())
+    .optional()
+    .describe('Right column of the question'),
 });
 
 /**
