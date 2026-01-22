@@ -37,18 +37,11 @@ const THROTTLE_LIMITS = {
   NORMAL: { limit: 5, ttl: 60000 }, // 5 requests per minute
 } as const;
 
-interface AuthResult {
-  user: any;
-  accessToken: string;
-}
-
 interface VerificationRequiredResult {
   requiresVerification: boolean;
   message: string;
   email: string;
 }
-
-type AuthServiceResult = AuthResult | VerificationRequiredResult;
 
 @ApiTags('Authentication')
 @Controller('auth')

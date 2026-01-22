@@ -7,10 +7,7 @@ import { RagModule } from '../rag/rag.module';
 import { UserDocumentModule } from '../user-document/user-document.module';
 
 @Module({
-  imports: [
-    RagModule,
-    UserDocumentModule,
-  ],
+  imports: [RagModule, UserDocumentModule],
   providers: [
     TitleInputHandler,
     ContentInputHandler,

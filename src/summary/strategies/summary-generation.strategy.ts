@@ -104,7 +104,9 @@ export class SummaryGenerationStrategy implements JobStrategy<
       title: content.title,
       topic: content.topic,
       content: content.content || 'Not provided',
-      learningGuide: content.learningGuide ? JSON.stringify(content.learningGuide) : 'None',
+      learningGuide: content.learningGuide
+        ? JSON.stringify(content.learningGuide)
+        : 'None',
     });
 
     const summaryText = await this.langchainService.invoke(prompt, {

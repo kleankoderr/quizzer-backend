@@ -84,13 +84,10 @@ export class ContentProcessor extends WorkerHost {
           LangChainPrompts.formatSourceContent(contentForAI),
       });
 
-      const result = await this.langchainService.invokeWithJsonParser(
-        prompt,
-        {
-          task: 'study-material',
-          hasFiles: inputSources.some((s) => s.type === 'file'),
-        }
-      );
+      const result = await this.langchainService.invokeWithJsonParser(prompt, {
+        task: 'study-material',
+        hasFiles: inputSources.some((s) => s.type === 'file'),
+      });
 
       // Extract generated data from the unified response
       const { title, topic, description, learningGuide } = result;
