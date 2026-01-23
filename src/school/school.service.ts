@@ -39,7 +39,7 @@ export class SchoolService {
   }
 
   async searchSchools(query: string) {
-    if (!query || query.length < 2) {
+    if (!query || query.length < 2 || query.length > 100) {
       return [];
     }
 
