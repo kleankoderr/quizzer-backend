@@ -27,7 +27,6 @@ import {
 import { UserDocumentService } from '../user-document/user-document.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
 
-const CACHE_TTL_MS = 300000; // 5 minutes
 
 @Injectable()
 export class FlashcardService {
@@ -89,9 +88,6 @@ export class FlashcardService {
         })),
       });
 
-      // Invalidate cache preemptively
-      await this.invalidateUserCache(userId);
-
       this.logger.log(`Flashcard job created: ${job.id}`);
       return {
         jobId: job.id,
@@ -147,14 +143,6 @@ export class FlashcardService {
     page: number = 1,
     limit: number = 20
   ) {
-    const cacheKey = `flashcards:all:${userId}:${page}:${limit}`;
-    const cached = await this.cacheService.get(cacheKey);
-
-    if (cached) {
-      this.logger.debug(`Cache hit for user ${userId}`);
-      return cached;
-    }
-
     const skip = (page - 1) * limit;
 
     const [flashcardSets, total] = await Promise.all([
@@ -203,7 +191,7 @@ export class FlashcardService {
       };
     });
 
-    const result = {
+    return {
       data: transformedSets,
       meta: {
         total,
@@ -212,13 +200,6 @@ export class FlashcardService {
         totalPages: Math.ceil(total / limit),
       },
     };
-
-    await this.cacheService.set(cacheKey, result, CACHE_TTL_MS);
-    this.logger.debug(
-      `Cached ${transformedSets.length} sets for user ${userId}`
-    );
-
-    return result;
   }
 
   /**
@@ -318,9 +299,6 @@ export class FlashcardService {
         answers: cardResponses,
       },
     });
-
-    // Invalidate cache
-    await this.invalidateUserCache(userId);
 
     // Update streak with correct answers for XP
     await this.streakService.updateStreak(
@@ -425,8 +403,6 @@ export class FlashcardService {
       where: { id },
     });
 
-    // Invalidate cache
-    await this.invalidateUserCache(userId);
     await this.studyPackService.invalidateUserCache(userId);
 
     this.logger.log(`Flashcard set ${id} deleted`);
@@ -447,7 +423,6 @@ export class FlashcardService {
       data: { title },
     });
 
-    await this.invalidateUserCache(userId);
     return updatedSet;
   }
 
@@ -612,13 +587,6 @@ export class FlashcardService {
         `Failed to dereference flashcard ${flashcardSetId} from content ${contentId}: ${error.message}`
       );
     }
-  }
-
-  /**
-   * Invalidate user's flashcard cache
-   */
-  private async invalidateUserCache(userId: string): Promise<void> {
-    await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
   }
 
   /**

@@ -108,8 +108,6 @@ export class ContentService {
         })),
       });
 
-      await this.invalidateUserCache(userId);
-
       this.logger.log(`Content job created: ${job.id}`);
       return {
         jobId: job.id,
@@ -306,7 +304,6 @@ export class ContentService {
       data: updateContentDto,
     });
 
-    await this.invalidateUserCache(userId);
     await this.studyPackService.invalidateUserCache(userId);
 
     return updatedContent;
@@ -338,7 +335,6 @@ export class ContentService {
       where: { id: contentId },
     });
 
-    await this.invalidateUserCache(userId);
     await this.studyPackService.invalidateUserCache(userId);
 
     this.logger.log(`Content ${contentId} deleted successfully`);
@@ -625,12 +621,5 @@ The example should be relatable and help illustrate the concept clearly.`;
         error.message
       );
     }
-  }
-
-  /**
-   * Invalidate user cache
-   */
-  private async invalidateUserCache(userId: string): Promise<void> {
-    await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
   }
 }

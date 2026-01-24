@@ -365,13 +365,10 @@ export class StudyPackService {
     }
 
     if (type === 'quiz') {
-      await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
       await this.cacheService.invalidate(`quiz:${itemId}:${userId}`);
     } else if (type === 'flashcard') {
-      await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
       await this.cacheService.invalidate(`flashcardSet:${itemId}:${userId}`);
     } else if (type === 'content') {
-      await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
       await this.cacheService.invalidate(`content:${itemId}:${userId}`);
     }
 
@@ -417,14 +414,6 @@ export class StudyPackService {
     }
 
     await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
-
-    if (type === 'quiz') {
-      await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
-    } else if (type === 'flashcard') {
-      await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
-    } else if (type === 'content') {
-      await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
-    }
 
     await this.incrementListVersion(userId);
 

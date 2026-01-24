@@ -113,11 +113,6 @@ export class QuizService {
         })),
       });
 
-      // Fire and forget cache invalidation
-      this.invalidateUserCache(userId).catch((err) =>
-        this.logger.warn(`Cache invalidation failed: ${err.message}`)
-      );
-
       this.logger.log(`Quiz generation job created: ${job.id}`);
       return {
         jobId: job.id,
@@ -158,14 +153,6 @@ export class QuizService {
   }
 
   async getAllQuizzes(userId: string, page: number = 1, limit: number = 20) {
-    const cacheKey = `quizzes:all:${userId}:${page}:${limit}`;
-    const cached = await this.cacheService.get<any>(cacheKey);
-
-    if (cached) {
-      this.logger.debug(`Cache hit for user ${userId}`);
-      return cached;
-    }
-
     const skip = (page - 1) * limit;
 
     const [quizzes, total] = await Promise.all([
@@ -220,7 +207,7 @@ export class QuizService {
       };
     });
 
-    const result = {
+    return {
       data: transformedQuizzes,
       meta: {
         total,
@@ -229,13 +216,6 @@ export class QuizService {
         totalPages: Math.ceil(total / limit),
       },
     };
-
-    await this.cacheService.set(cacheKey, result, CACHE_TTL_MS);
-    this.logger.debug(
-      `Cached ${transformedQuizzes.length} quizzes for user ${userId}`
-    );
-
-    return result;
   }
 
   async getQuizById(id: string, userId: string) {
@@ -570,7 +550,6 @@ export class QuizService {
 
     // Fire and forget file cleanup & cache invalidation
     this.cleanupQuizFilesAsync(quiz.sourceFiles);
-    this.invalidateUserCache(userId).catch(() => {});
     this.studyPackService.invalidateUserCache(userId).catch(() => {});
 
     this.logger.log(`Quiz ${id} deleted successfully`);
@@ -591,7 +570,6 @@ export class QuizService {
       data: { title },
     });
 
-    await this.invalidateUserCache(userId);
     return updatedQuiz;
   }
 
@@ -726,7 +704,6 @@ export class QuizService {
     // All these run in background, don't block response
     Promise.all([
       // Invalidate caches
-      this.invalidateUserCache(userId),
       this.cacheService.invalidate(`quiz:${quizId}:${userId}`),
       challengeId ? this.invalidateChallengeCache(userId) : Promise.resolve(),
 
@@ -1054,10 +1031,6 @@ export class QuizService {
         );
       }
     }
-  }
-
-  private async invalidateUserCache(userId: string): Promise<void> {
-    await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
   }
 
   private async invalidateChallengeCache(userId: string): Promise<void> {
