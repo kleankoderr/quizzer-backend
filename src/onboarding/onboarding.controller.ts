@@ -17,6 +17,8 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User, UserRole } from '@prisma/client';
 
+import { FinishOnboardingDto } from './dto/onboarding.dto';
+
 @ApiTags('Onboarding')
 @Controller('onboarding')
 @UseGuards(JwtAuthGuard)
@@ -29,13 +31,7 @@ export class OnboardingController {
   @ApiResponse({ status: 200, description: 'Onboarding completed' })
   async finishOnboarding(
     @CurrentUser() user: User,
-    @Body()
-    body: {
-      grade?: string;
-      schoolName?: string;
-      subjects?: string[];
-      userType?: string;
-    }
+    @Body() body: FinishOnboardingDto
   ) {
     // Prevent admin users from accessing onboarding
     if (user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN) {
