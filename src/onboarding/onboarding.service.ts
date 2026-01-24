@@ -4,6 +4,7 @@ import { LangChainService } from '../langchain/langchain.service';
 import { QuizType, TaskStatus, TaskType } from '@prisma/client';
 import { QuizGenerationSchema } from '../langchain/schemas/quiz.schema';
 import { LangChainPrompts } from '../langchain/prompts';
+import { QuizUtils } from '../quiz/quiz.utils';
 
 @Injectable()
 export class OnboardingService {
@@ -93,7 +94,7 @@ export class OnboardingService {
           difficulty: 'medium',
           quizType: QuizType.STANDARD,
           userId,
-          questions: generatedQuiz.questions,
+          questions: QuizUtils.normalizeQuestions(generatedQuiz.questions),
         },
       });
 

@@ -40,21 +40,30 @@ Generate a creative and descriptive title that captures the essence of the quiz.
 Requirements:
 - Generate exactly {questionCount} questions
 - Question types: {questionTypes}
-- Each question must have a "questionType" field with one of these exact values: 'true-false', 'single-select', 'multi-select', 'matching', or 'fill-blank'
-- Each multiple-choice and multi-select question must have exactly 4 options
-- True-false questions must include options: ["True", "False"]
-- Options must be included in the right order
-- Mark the correct answer clearly
-- Provide explanations that enhance learning
-- DO NOT include metadata like difficulty, question count, or estimated time in the response JSON. Focus only on the title, topic, and high-quality questions.
+- Each question must have a "questionType" field matching the specified types.
+- Multiple-choice ('single-select', 'multi-select') must have exactly 4 options.
+- True-false must have options: ["True", "False"] and a number for correctAnswer (0 for True, 1 for False).
+- Matching questions MUST include:
+    * "leftColumn": Array of 4-5 items to match from.
+    * "rightColumn": Array of 4-5 corresponding items to match to.
+    * "correctAnswer": Array of objects like {{ "key": "left item", "value": "right item" }}.
+    * "options" can be omitted for matching questions.
+- Mark the correct answer clearly using the appropriate format for the question type.
+- Provide explanations that enhance learning and clarify the concept.
+
+Subject Matter Integrity:
+- ALL questions must be directly relevant to the core subject of {topic}.
+- Avoid "meta" questions (e.g., questions about the words in a title, or how many chapters are in a book).
+- Focus on concepts, facts, relationships, and applications within the topic.
+- A question is IRRELEVANT if it tests logic or observation skills instead of {topic} knowledge.
 
 Quality Standards:
 ✓ Questions must be answerable from the source material (if provided)
-✓ Each question tests ONE specific concept
+✓ Each question tests ONE specific, relevant concept
 ✓ Distractors are plausible but clearly distinguishable
 ✓ Language is clear and appropriate for {difficulty} level
 ✓ Questions cover different aspects of the topic
-✓ No trick questions or ambiguous phrasing
+✓ No trick questions, logic puzzles, or meta-questions
 
 Focus Areas:
 {focusAreas}`,
@@ -88,6 +97,11 @@ Card Design Guidelines:
 - Front: Clear, specific question or term (5-15 words max)
 - Back: Concise, complete answer (1-3 sentences)
 - Explanation: Add context, examples, or mnemonics when helpful
+
+Subject Matter Integrity:
+- ALL flashcards must be directly relevant to the core subject of {topic}.
+- Avoid "meta" content (e.g., cards about the source text's formatting, or word counts).
+- Focus on concepts, facts, definitions, and relationships within the topic.
 
 Content Priorities:
 1. Core concepts and definitions (40-50%)

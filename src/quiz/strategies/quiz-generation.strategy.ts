@@ -9,6 +9,7 @@ import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { QuizType } from '@prisma/client';
 import { GenerateQuizDto } from '../dto/quiz.dto';
+import { QuizUtils } from '../quiz.utils';
 import { FileReference, QuizJobData } from '../quiz.processor';
 import {
   JobContext,
@@ -97,7 +98,7 @@ export class QuizGenerationStrategy implements JobStrategy<
       }
     );
 
-    const questions = this.shuffleQuestions(result.questions);
+    const questions = QuizUtils.normalizeQuestions(result.questions);
     const title = result.title || dto.topic || 'Untitled Quiz';
     const topic = result.topic || dto.topic || null;
 
@@ -176,43 +177,6 @@ export class QuizGenerationStrategy implements JobStrategy<
       completed: EVENTS.QUIZ.COMPLETED,
       failed: EVENTS.QUIZ.FAILED,
     };
-  }
-
-  // Helper methods
-
-  private shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }
-
-  private shuffleQuestions(questions: any[]): any[] {
-    return this.shuffleArray(questions).map((q) => {
-      if (q.questionType === 'matching') {
-        // Transform correctAnswer from array of {key, value} to Record if needed (for Gemini workaround)
-        if (Array.isArray(q.correctAnswer)) {
-          q.correctAnswer = q.correctAnswer.reduce(
-            (acc: Record<string, string>, pair: any) => {
-              acc[pair.key] = pair.value;
-              return acc;
-            },
-            {}
-          );
-        }
-
-        if (q.leftColumn && q.rightColumn) {
-          return {
-            ...q,
-            leftColumn: this.shuffleArray(q.leftColumn),
-            rightColumn: this.shuffleArray(q.rightColumn),
-          };
-        }
-      }
-      return q;
-    });
   }
 
   private async buildQuizPrompt(

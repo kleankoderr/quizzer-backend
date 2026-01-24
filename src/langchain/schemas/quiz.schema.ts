@@ -8,7 +8,7 @@ export const QuizQuestionSchema = z.object({
     .string()
     .min(10, 'Question must be at least 10 characters')
     .max(500, 'Question must be at most 500 characters'),
-  options: z.array(z.string()).min(2),
+  options: z.array(z.string()).optional(),
   questionType: z
     .enum([
       'true-false',

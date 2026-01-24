@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuizGenerationSchema } from '../langchain/schemas/quiz.schema';
 import { LangChainPrompts } from '../langchain/prompts';
+import { QuizUtils } from '../quiz/quiz.utils';
 
 /**
  * Transform Prisma QuizType enum to frontend-compatible format
@@ -1226,7 +1227,9 @@ export class ChallengeService {
             topic: topicQuiz.topic,
             difficulty: optimalDifficulty,
             quizType, // Use the enum value directly
-            questions: generatedQuiz.questions as any,
+            questions: QuizUtils.normalizeQuestions(
+              generatedQuiz.questions
+            ) as any,
             timeLimit, // Add time limit only for timed quizzes
             userId: systemUserId,
           },
@@ -1290,7 +1293,9 @@ export class ChallengeService {
           topic: 'General Knowledge',
           difficulty: 'medium',
           quizType: QuizType.QUICK_CHECK,
-          questions: generatedQuiz.questions as any,
+          questions: QuizUtils.normalizeQuestions(
+            generatedQuiz.questions
+          ) as any,
           userId: systemUserId,
         },
       });
