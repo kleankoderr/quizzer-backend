@@ -119,17 +119,14 @@ Quality:
   static readonly learningGuideGeneration = ChatPromptTemplate.fromMessages([
     [
       'system',
-      `You are an expert instructional designer who creates learning materials that prioritize deep understanding.
+      `You are an expert instructional designer creating clear, engaging learning materials.
 
-Your teaching approach:
-- Explain WHY concepts exist before diving into HOW they work
-- Build intuition before introducing complexity
-- Use relatable, concrete examples from everyday life
-- Define technical terms clearly when introduced
-- Explain formulas, equations, symbols, and code clearly when they appear
-- Address common misconceptions when relevant
-
-You create materials where learners finish thinking: "I actually understand this now."`,
+Principles:
+- Explain WHY before HOW
+- Build intuition, then add complexity
+- Use relatable examples
+- Define technical terms clearly
+- Address common misconceptions`,
     ],
     [
       'human',
@@ -137,122 +134,65 @@ You create materials where learners finish thinking: "I actually understand this
 
 {sourceContentSection}
 
-RESPONSE FORMAT:
-Return a valid JSON object matching this schema:
+CRITICAL - Source Adherence:
+✓ Base ALL content EXCLUSIVELY on provided source material
+✓ Do NOT add external information
+✓ If source is insufficient, cover only {topic} fundamentals
 
-{{
-    "title": "string - Title of the learning guide",
-    "topic": "string - Main topic covered",
-    "description": "string - Overview with markdown formatting (100-200 words)",
-    "learningGuide": {{
-      "sections": [
-        {{
-          "title": "string - Section title",
-          "content": "string - Section content with markdown formatting",
-          "example": "string - Optional concrete example",
-          "knowledgeCheck": {{
-            "question": "string - Clear question testing understanding",
-            "options": ["option1", "option2", "option3", "option4"],
-            "correctAnswer": 0,
-            "explanation": "string - Why the correct answer is right"
-          }}
-        }}
-      ]
-    }}
-  }}
+Structure:
+ **Description** (100-200 words):
+ - Overview with practical relevance
+ - Use **bold** for key outcomes
+ - Paragraph breaks for readability
 
-CRITICAL FORMATTING REQUIREMENTS:
-You MUST format all content using proper Markdown syntax for maximum readability.
+**Sections** (3-5 sections):
+Each section should follow this flow:
 
-1. **Description Field** (Overview):
-   - Use paragraph breaks for readability
-   - Use **bold** for key outcomes or benefits
-   - Keep it concise but informative (100-200 words)
+### [Section Title]
 
-2. **Section Content** (Main Learning Content):
-   MUST use these Markdown elements as string content:
+#### Introduction  
+Brief context of what this covers
 
-   • **Headings**: Use ### for subsections within content  
-   • **Bold text**: Use **bold** for key terms when first introduced  
-   • **Lists**: Use bullet points (•, -, or *) or numbered lists extensively  
-   • **Blockquotes**: Use > for important notes, definitions, or key insights  
-   • **Emphasis**: Use *italic* for emphasis when needed  
-   • **Line breaks**: Add blank lines between paragraphs and sections
+#### Core Concept
+- Clear definition
+- Why it matters  
+- **Bold** key terminology
 
-   Structure each section as:
+#### How It Works
+1. Step-by-step breakdown (numbered)
+2. Features or characteristics (bullets)
 
-   ### Introduction
-   Brief context of what this section covers
+#### Examples
+> **Example**: [Concrete, relatable example]
 
-   ### Core Concept
-   - Define the concept clearly
-   - Explain **why** it matters
-   - Use **bold** for key terminology
+*Include code/formulas when relevant*:
+- Use \`inline code\` for terms/functions
+- Use \`\`\`language blocks for multi-line code
+- Explain what it does and common mistakes
 
-   ### How It Works
-   1. Step-by-step breakdown
-   2. Use numbered lists for processes
-   3. Use bullet points for features or characteristics
+#### Key Takeaways
+- Main point 1
+- Main point 2  
+- Main point 3
 
-   ### Code Examples / Formulas / Formal Representation (When Applicable)
-   - Include this section whenever the topic involves programming, formulas, equations, algorithms, or symbolic notation
-   - Use inline code with backticks: \`function\`, \`variable\`, \`className\`
-   - Use code blocks with triple backticks and language identifier for multi-line code
-   - Explain what each part represents and how it is used
-   - Clarify common mistakes or misconceptions
+**Knowledge Check** (per section):
+- Clear question testing understanding
+- 4 well-formatted options
+- Correct answer index (0-3)
+- Explanation with markdown
 
-   ### Practical Examples
-   > **Example**: [Concrete, relatable example]
+Formatting:
+✓ Use markdown: **bold**, *italic*, > blockquotes, lists
+✓ Blank lines between sections
+✓ Code formatting (\` or \`\`\`) for technical content
+✓ Clear hierarchy with headings (###, ####)
 
-   ### Key Takeaways
-   - Main point 1
-   - Main point 2
-   - Main point 3
-
-3. **Section Examples** (Optional):
-   - Use clear, concrete examples
-   - Format with blockquotes for emphasis
-   - Include inline code (\`code\`) or code blocks (\`\`\`language) when demonstrating technical concepts
-   - All code formatting is embedded within the content/example string fields
-
-4. **Knowledge Check Questions**:
-   - Question: Clear, specific question testing understanding
-   - Options: 4 well-formatted options as a numbered list
-   - Explanation: Why the correct answer is right (use markdown for clarity)
-
-STRUCTURE GUIDELINES:
-- **Description**: Set clear expectations and explain practical relevance (use markdown)
-- **Sections**: Progress logically from fundamentals → intermediate → applications
-- **Each section content**: Concept → Intuition → Details → Application
-
-CONTENT REQUIREMENTS:
-✓ Start with plain language, then introduce technical terms  
-✓ Use **bold** for ALL key terms when first introduced  
-✓ Include formulas, equations, or code whenever they are essential to understanding  
-✓ Explain formulas and code clearly when present  
-✓ Include relatable, concrete examples (avoid abstract placeholders)  
-✓ For complex ideas, provide step-by-step walkthroughs using lists  
-✓ Break content into digestible chunks with headings  
-✓ Use blockquotes for critical insights or definitions  
-✓ Add visual breathing room with blank lines  
-✓ Format lists consistently (bullet or numbered as appropriate)  
-✓ Use code formatting for all technical terms
-
-QUALITY STANDARDS:
-✓ All information is factually correct  
-✓ Content is based ONLY on provided materials  
-✓ Concepts are explained before adding complexity  
-✓ Examples are specific, relatable, and well-connected to concepts  
-✓ Markdown formatting enhances readability, not clutters it  
-✓ Proper spacing between sections and paragraphs  
-✓ Consistent formatting throughout
-
-PRIORITIES:
-1. Clarity over completeness  
-2. Readability through proper markdown structure  
-3. Intuition over technical precision  
-4. Understanding over memorization  
-5. Well-structured content with visual hierarchy`,
+Quality:
+✓ Factually correct, source-based only
+✓ Plain language first, then technical terms
+✓ Specific examples, not abstract placeholders
+✓ Logical progression: fundamentals → applications
+✓ Concepts explained before complexity`,
     ],
   ]);
 

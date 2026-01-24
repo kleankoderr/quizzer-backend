@@ -9,6 +9,7 @@ import { QuotaService } from '../common/services/quota.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
 import { LangChainPrompts } from '../langchain/prompts';
+import { LearningGuideSchema } from '../langchain/schemas/learning-guide.schema';
 import { InputPipeline } from '../input-pipeline/input-pipeline.service';
 
 export interface ContentJobData {
@@ -84,9 +85,15 @@ export class ContentProcessor extends WorkerHost {
           LangChainPrompts.formatSourceContent(contentForAI),
       });
 
-      const result = await this.langchainService.invokeWithJsonParser(prompt, {
-        task: 'study-material',
-      });
+      const result = await this.langchainService.invokeWithStructure(
+        LearningGuideSchema,
+        prompt,
+        {
+          task: 'study-material',
+          userId,
+          jobId,
+        }
+      );
 
       // Extract generated data from the unified response
       const { title, topic, description, learningGuide } = result;
