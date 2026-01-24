@@ -12,7 +12,6 @@ import { RecommendationService } from '../recommendation/recommendation.service'
 import { StreakService } from '../streak/streak.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { StudyService } from '../study/study.service';
-import { CacheService } from '../common/services/cache.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
 import {
   IFileStorageService,
@@ -40,7 +39,6 @@ export class FlashcardService {
     private readonly streakService: StreakService,
     private readonly challengeService: ChallengeService,
     private readonly studyService: StudyService,
-    private readonly cacheService: CacheService,
     @Inject('GOOGLE_FILE_STORAGE_SERVICE')
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
