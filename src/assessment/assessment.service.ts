@@ -345,7 +345,7 @@ export class AssessmentService {
         questions: JSON.stringify(questions),
       });
 
-      const concepts = await this.langchainService.invokeWithStructure(
+      const response = await this.langchainService.invokeWithStructure(
         ConceptListSchema,
         prompt,
         {
@@ -353,6 +353,8 @@ export class AssessmentService {
           complexity: 'simple',
         }
       );
+
+      const concepts = response.concepts || [];
 
       if (Array.isArray(concepts) && concepts.length === questions.length) {
         // Truncate concepts to 100 chars to fit schema

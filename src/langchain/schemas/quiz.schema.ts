@@ -60,6 +60,8 @@ export type QuizGeneration = z.infer<typeof QuizGenerationSchema>;
 /**
  * Concept extraction schema
  */
-export const ConceptListSchema = z
-  .array(z.string())
-  .describe('A list of concepts extracted from content');
+export const ConceptListSchema = z.object({
+  concepts: z
+    .array(z.string())
+    .describe('A list of concepts extracted from content'),
+});

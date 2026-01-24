@@ -306,7 +306,7 @@ export class RecommendationService {
         ),
       });
 
-      const recommendations = await this.langchainService.invokeWithStructure(
+      const response = await this.langchainService.invokeWithStructure(
         RecommendationListSchema,
         prompt,
         {
@@ -314,6 +314,8 @@ export class RecommendationService {
           complexity: 'simple',
         }
       );
+
+      const recommendations = response.recommendations || [];
 
       // Limit recommendations based on user tier (just in case)
       const limitedRecommendations = recommendations.slice(
@@ -338,11 +340,11 @@ export class RecommendationService {
               userId,
               topic: rec.topic,
               reason: rec.reason,
-              priority: rec.priority as any,
+              priority: rec.priority,
             },
             update: {
               reason: rec.reason,
-              priority: rec.priority as any,
+              priority: rec.priority,
               visible: true, // Reset visibility when regenerating
               updatedAt: new Date(), // Ensure updatedAt is refreshed for cooldown tracking
             },

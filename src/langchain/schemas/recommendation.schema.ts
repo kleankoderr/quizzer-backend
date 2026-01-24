@@ -18,7 +18,10 @@ export const RecommendationSchema = z.object({
 });
 
 export const RecommendationListSchema = z
-  .array(RecommendationSchema)
-  .min(1)
-  .describe('A list of personalized learning recommendations')
+  .object({
+    recommendations: z
+      .array(RecommendationSchema)
+      .min(1)
+      .describe('A list of personalized learning recommendations'),
+  })
   .describe('Recommendations for the user');

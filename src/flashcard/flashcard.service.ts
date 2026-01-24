@@ -433,6 +433,24 @@ export class FlashcardService {
     return { success: true, message: 'Flashcard set deleted successfully' };
   }
 
+  async updateTitle(id: string, userId: string, title: string) {
+    const set = await this.prisma.flashcardSet.findFirst({
+      where: { id, userId },
+    });
+
+    if (!set) {
+      throw new NotFoundException('Flashcard set not found');
+    }
+
+    const updatedSet = await this.prisma.flashcardSet.update({
+      where: { id },
+      data: { title },
+    });
+
+    await this.invalidateUserCache(userId);
+    return updatedSet;
+  }
+
   /**
    * Validate flashcard generation request
    */

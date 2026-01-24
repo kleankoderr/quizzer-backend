@@ -86,7 +86,7 @@ export class WeakAreaService {
       const prompt = await LangChainPrompts.conceptExtraction.format({
         questions: JSON.stringify(questions.map((q) => q.question)),
       });
-      const concepts = await this.langchainService.invokeWithStructure(
+      const response = await this.langchainService.invokeWithStructure(
         ConceptListSchema,
         prompt,
         {
@@ -95,8 +95,9 @@ export class WeakAreaService {
         }
       );
 
+      const concepts = response.concepts || [];
       if (Array.isArray(concepts)) {
-        return concepts.map((c) => c.substring(0, 100));
+        return concepts.map((c: string) => c.substring(0, 100));
       }
       return questions.map((q) => q.question.substring(0, 100));
     } catch (error) {

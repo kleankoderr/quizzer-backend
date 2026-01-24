@@ -577,6 +577,24 @@ export class QuizService {
     return { success: true, message: 'Quiz deleted successfully' };
   }
 
+  async updateTitle(id: string, userId: string, title: string) {
+    const quiz = await this.prisma.quiz.findFirst({
+      where: { id, userId },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+
+    const updatedQuiz = await this.prisma.quiz.update({
+      where: { id },
+      data: { title },
+    });
+
+    await this.invalidateUserCache(userId);
+    return updatedQuiz;
+  }
+
   /**
    * Fetch quiz with minimal fields and single query
    */
