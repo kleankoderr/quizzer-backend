@@ -98,7 +98,7 @@ export class QuizGenerationStrategy implements JobStrategy<
     );
 
     const questions = this.shuffleQuestions(result.questions);
-    const title = result.title || dto.topic || null;
+    const title = result.title || dto.topic || 'Untitled Quiz';
     const topic = result.topic || dto.topic || null;
 
     return { questions, title, topic };
@@ -115,7 +115,7 @@ export class QuizGenerationStrategy implements JobStrategy<
 
     const quiz = await this.prisma.quiz.create({
       data: {
-        title: title || null,
+        title: title,
         topic: topic?.trim() || null,
         difficulty: dto.difficulty,
         quizType,

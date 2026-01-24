@@ -32,11 +32,6 @@ export const QuizQuestionSchema = z.object({
     .string()
     .min(20, 'Explanation must be at least 20 characters')
     .max(500, 'Explanation must be at most 500 characters'),
-  difficulty: z
-    .enum(['easy', 'medium', 'hard'])
-    .optional()
-    .describe('Difficulty level of the question'),
-  topic: z.string().optional().describe('Topic of the question'),
   citation: z.string().optional().describe('Citation of the question'),
   leftColumn: z
     .array(z.string())
@@ -52,18 +47,11 @@ export const QuizQuestionSchema = z.object({
  * Quiz generation response schema
  */
 export const QuizGenerationSchema = z.object({
-  title: z.string().optional(),
-  topic: z.string().optional(),
+  title: z.string().describe('A creative and descriptive title for the quiz'),
+  topic: z.string().optional().describe('General topic of the quiz'),
   questions: z
     .array(QuizQuestionSchema)
     .min(1, 'Must have at least 1 question'),
-  metadata: z
-    .object({
-      totalQuestions: z.number(),
-      difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
-      estimatedTime: z.number().optional(),
-    })
-    .optional(),
 });
 
 export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;

@@ -605,6 +605,7 @@ export class QuizService {
         id: true,
         questions: true,
         topic: true,
+        title: true,
         contentId: true,
         tags: true,
         quizType: true,

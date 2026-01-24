@@ -33,6 +33,8 @@ Your assessments are known for:
       'human',
       `Create a {difficulty} level quiz about {topic}.
 
+Generate a creative and descriptive title that captures the essence of the quiz.
+
 {sourceContentSection}
 
 Requirements:
@@ -44,6 +46,7 @@ Requirements:
 - Options must be included in the right order
 - Mark the correct answer clearly
 - Provide explanations that enhance learning
+- DO NOT include metadata like difficulty, question count, or estimated time in the response JSON. Focus only on the title, topic, and high-quality questions.
 
 Quality Standards:
 ✓ Questions must be answerable from the source material (if provided)

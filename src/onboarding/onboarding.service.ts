@@ -33,8 +33,15 @@ export class OnboardingService {
     try {
       // Get user preferences
       const preferences = (await this.getUserPreferences(userId)) as any;
+
+      // Extract subjects from preferences, fallback to interests or General Knowledge
+      const subjects = preferences?.subjects ||
+        preferences?.interests || ['General Knowledge'];
+
       const userTopic =
-        topic || preferences?.interests?.[0] || 'General Knowledge';
+        topic ||
+        (Array.isArray(subjects) ? subjects.join(', ') : subjects) ||
+        'General Knowledge';
 
       // Check if user already has an active task for this
       const existingTask = await this.prisma.task.findFirst({
@@ -64,7 +71,7 @@ export class OnboardingService {
         difficulty: 'Medium',
         topic: userTopic,
         sourceContentSection: LangChainPrompts.formatSourceContent(),
-        questionCount: '5',
+        questionCount: 10,
         questionTypes: 'standard - single-select, true-false',
         focusAreas: LangChainPrompts.formatFocusAreas(),
       });
@@ -81,8 +88,8 @@ export class OnboardingService {
       // Save quiz to DB
       const quiz = await this.prisma.quiz.create({
         data: {
-          title: `Assessment: ${userTopic}`,
-          topic: userTopic,
+          title: 'Onboarding Assessment',
+          topic: generatedQuiz.topic || userTopic,
           difficulty: 'medium',
           quizType: QuizType.STANDARD,
           userId,
@@ -96,7 +103,7 @@ export class OnboardingService {
         data: {
           status: TaskStatus.COMPLETED,
           result: {
-            ...((task.result as any) || {}),
+            ...(task.result as any),
             quizId: quiz.id,
           },
         },
