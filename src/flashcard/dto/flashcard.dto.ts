@@ -7,16 +7,19 @@ import {
   IsArray,
   ValidateNested,
   IsIn,
+  MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 export class GenerateFlashcardDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   topic?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(1500)
   content?: string;
 
   @IsOptional()
