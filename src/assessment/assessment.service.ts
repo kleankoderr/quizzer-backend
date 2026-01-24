@@ -350,7 +350,6 @@ export class AssessmentService {
         prompt,
         {
           task: 'concept_extraction',
-          complexity: 'simple',
         }
       );
 

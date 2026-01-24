@@ -16,10 +16,7 @@ import {
   JobStrategy,
 } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
-import {
-  InputSource,
-  InputSourceType,
-} from '../../input-pipeline/input-source.interface';
+import { InputSource } from '../../input-pipeline/input-source.interface';
 
 const QUIZ_TYPE_MAP: Record<string, QuizType> = {
   standard: QuizType.STANDARD,
@@ -82,6 +79,7 @@ export class QuizGenerationStrategy implements JobStrategy<
     const { dto } = context.data;
     const { inputSources, contentForAI } = context;
 
+    const startTime = Date.now();
     this.logger.log(
       `Job ${context.jobId}: Generating quiz with ${inputSources.length} input source(s)`
     );
@@ -93,9 +91,14 @@ export class QuizGenerationStrategy implements JobStrategy<
       prompt,
       {
         task: 'quiz',
-        hasFiles: inputSources.some((s) => s.type === InputSourceType.FILE),
-        complexity: dto.difficulty === 'hard' ? 'complex' : 'simple',
+        userId: context.userId,
+        jobId: context.jobId,
       }
+    );
+
+    const latency = Date.now() - startTime;
+    this.logger.log(
+      `Job ${context.jobId}: Quiz generation completed in ${latency}ms`
     );
 
     const questions = QuizUtils.normalizeQuestions(result.questions);

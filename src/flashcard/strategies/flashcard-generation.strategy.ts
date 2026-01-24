@@ -14,10 +14,7 @@ import {
   JobStrategy,
 } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
-import {
-  InputSource,
-  InputSourceType,
-} from '../../input-pipeline/input-source.interface';
+import { InputSource } from '../../input-pipeline/input-source.interface';
 
 export interface FlashcardContext extends JobContext<FlashcardJobData> {
   inputSources: InputSource[];
@@ -67,6 +64,7 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     const { dto } = context.data;
     const { inputSources, contentForAI } = context;
 
+    const startTime = Date.now();
     this.logger.log(
       `Job ${context.jobId}: Generating flashcards with ${inputSources.length} input source(s)`
     );
@@ -82,9 +80,14 @@ export class FlashcardGenerationStrategy implements JobStrategy<
       prompt,
       {
         task: 'flashcard',
-        hasFiles: inputSources.some((s) => s.type === InputSourceType.FILE),
-        complexity: 'simple',
+        userId: context.userId,
+        jobId: context.jobId,
       }
+    );
+
+    const latency = Date.now() - startTime;
+    this.logger.log(
+      `Job ${context.jobId}: Flashcard generation completed in ${latency}ms`
     );
 
     return result;

@@ -2,13 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { CacheService } from './cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PlatformSettings } from '@prisma/client';
-import {
-  AIModelStrategy,
-  AIProvider,
-  ModelComplexity,
-} from '../../langchain/types';
 
-export type AiProviderConfig = AIModelStrategy;
+// Since we removed multi-provider support, this is now a stub type
+export type AiProviderConfig = Record<string, any>;
 
 export interface AiOption {
   value: string;
@@ -27,12 +23,10 @@ export class PlatformSettingsService {
   private readonly AI_OPTIONS_CACHE_KEY = 'ai_options';
   private readonly CACHE_TTL = 3600 * 1000; // 1 hour
 
-  // Provider label mapping
-  private readonly PROVIDER_LABELS: Record<AIProvider, string> = {
-    gemini: 'Google Gemini',
-    groq: 'Groq Cloud',
-    openai: 'OpenAI',
-  };
+  // Provider label mapping (no longer used with single provider)
+  // private readonly PROVIDER_LABELS: Record<string, string> = {
+  //   gemini: 'Google Gemini',
+  // };
 
   // Task label mapping (can be customized)
   private readonly TASK_LABELS: Record<string, string> = {
@@ -45,12 +39,12 @@ export class PlatformSettingsService {
     learningGuide: 'Learning Guide',
   };
 
-  // Complexity label mapping
-  private readonly COMPLEXITY_LABELS: Record<ModelComplexity, string> = {
-    simple: 'Simple',
-    medium: 'Medium',
-    complex: 'Complex',
-  };
+  // Complexity label mapping (no longer used)
+  // private readonly COMPLEXITY_LABELS: Record<string, string> = {
+  //   simple: 'Simple',
+  //   medium: 'Medium',
+  //   complex: 'Complex',
+  // };
 
   constructor(
     private readonly prisma: PrismaService,
@@ -138,7 +132,7 @@ export class PlatformSettingsService {
     const providers: AiOption[] = Object.keys(config.providers).map(
       (provider) => ({
         value: provider,
-        label: this.PROVIDER_LABELS[provider as AIProvider] || provider,
+        label: this.formatLabel(provider),
       })
     );
 
@@ -164,9 +158,7 @@ export class PlatformSettingsService {
     const complexities: AiOption[] = Array.from(complexitySet).map(
       (complexity) => ({
         value: complexity,
-        label:
-          this.COMPLEXITY_LABELS[complexity as ModelComplexity] ||
-          this.formatLabel(complexity),
+        label: this.formatLabel(complexity),
       })
     );
 

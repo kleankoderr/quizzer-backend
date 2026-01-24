@@ -1,48 +1,102 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ModelConfigService } from './model-config.service';
 import { z } from 'zod';
-import { ModelRoutingOptions } from './types';
 
-export type ChainInvokeOptions = ModelRoutingOptions;
+export interface InvokeContext {
+  userId?: string;
+  jobId?: string;
+  task?: string;
+}
 
 @Injectable()
 export class LangChainService {
   private readonly logger = new Logger(LangChainService.name);
+  private readonly DEFAULT_TIMEOUT_MS = 60000; // 30 seconds
+  private readonly JSON_PARSER_TIMEOUT_MS = 60000; // 60 seconds
+
   constructor(private readonly modelConfig: ModelConfigService) {}
 
   /**
    * Invoke with structured output (Zod schema validation)
-   * Model is automatically selected based on task metadata
+   * Includes performance tracking and timeout handling
    */
   async invokeWithStructure<T>(
     schema: z.ZodType<T>,
     prompt: string,
-    options: ChainInvokeOptions
+    context?: InvokeContext
   ): Promise<Record<string, any>> {
-    // Get the appropriate model (now async and handles routing)
-    const model = await this.modelConfig.getModel(options);
+    const startTime = Date.now();
+    const contextStr = context ? `[${context.task || 'unknown'}]` : '';
 
-    // Create structured model with explicit options
-    const structuredModel = model.withStructuredOutput(schema);
+    this.logger.log(`${contextStr} Starting structured model invocation`);
 
-    // Invoke
-    const response = await structuredModel.invoke(prompt).catch((err) => {
-      this.logger.error(`Error during model invocation: ${err.message}`);
-      throw new Error('Failed to invoke model with structured output.');
-    });
-    this.logger.log('Model invocation successful.');
-    return response;
+    try {
+      const model = this.modelConfig.getModel();
+
+      // Create structured model with explicit options
+      const structuredModel = model.withStructuredOutput(schema);
+
+      // Invoke with timeout
+      const response = await this.withTimeout(
+        structuredModel.invoke(prompt),
+        this.DEFAULT_TIMEOUT_MS,
+        'Model invocation timed out. Please try again.'
+      );
+
+      const latency = Date.now() - startTime;
+      this.logger.log(
+        `${contextStr} Model invocation successful (${latency}ms)`
+      );
+
+      return response;
+    } catch (err) {
+      const latency = Date.now() - startTime;
+      this.logger.error(
+        `${contextStr} Model invocation failed after ${latency}ms: ${err.message}`,
+        err.stack
+      );
+
+      // Provide user-friendly error message
+      if (err.message?.includes('timeout')) {
+        throw new Error(
+          'The AI is taking too long to respond. Please try again with a shorter prompt or fewer items.'
+        );
+      }
+
+      throw new Error('Failed to generate content. Please try again.');
+    }
   }
 
   /**
    * Invoke without structure (returns string)
    */
-  async invoke(prompt: string, options: ChainInvokeOptions): Promise<string> {
-    const model = await this.modelConfig.getModel(options);
+  async invoke(prompt: string, context?: InvokeContext): Promise<string> {
+    const startTime = Date.now();
+    const contextStr = context ? `[${context.task || 'unknown'}]` : '';
 
-    const response = await model.invoke(prompt);
+    this.logger.log(`${contextStr} Starting text model invocation`);
 
-    return response.content as string;
+    try {
+      const model = this.modelConfig.getModel();
+      const response = await this.withTimeout(
+        model.invoke(prompt),
+        this.DEFAULT_TIMEOUT_MS,
+        'Model invocation timed out. Please try again.'
+      );
+
+      const latency = Date.now() - startTime;
+      this.logger.log(
+        `${contextStr} Text invocation successful (${latency}ms)`
+      );
+
+      return response.content as string;
+    } catch (err) {
+      const latency = Date.now() - startTime;
+      this.logger.error(
+        `${contextStr} Text invocation failed after ${latency}ms: ${err.message}`
+      );
+      throw new Error('Failed to generate text. Please try again.');
+    }
   }
 
   /**
@@ -50,10 +104,12 @@ export class LangChainService {
    */
   async *stream(
     prompt: string,
-    options: ChainInvokeOptions
+    context?: InvokeContext
   ): AsyncIterable<string> {
-    const model = await this.modelConfig.getModel(options);
+    const contextStr = context ? `[${context.task || 'unknown'}]` : '';
+    this.logger.log(`${contextStr} Starting streaming invocation`);
 
+    const model = this.modelConfig.getModel();
     const stream = await model.stream(prompt);
 
     for await (const chunk of stream) {
@@ -62,42 +118,78 @@ export class LangChainService {
   }
 
   /**
-   * Invoke with structured output (Zod schema validation)
-   * Model is automatically selected based on task metadata
+   * Invoke with JSON parser fallback (for models that don't support structured output well)
+   * Includes retry logic with exponential backoff
    */
   async invokeWithJsonParser(
     prompt: string,
-    options: ChainInvokeOptions,
+    context?: InvokeContext,
     maxRetries = 3
   ): Promise<Record<string, any>> {
+    const contextStr = context ? `[${context.task || 'unknown'}]` : '';
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const startTime = Date.now();
+
       try {
-        const model = await this.modelConfig.getModel(options);
-        const response = await model.invoke(prompt);
+        this.logger.log(
+          `${contextStr} JSON parser attempt ${attempt}/${maxRetries}`
+        );
+
+        const model = this.modelConfig.getModel();
+        const response = await this.withTimeout(
+          model.invoke(prompt),
+          this.JSON_PARSER_TIMEOUT_MS,
+          'Model invocation timed out during JSON parsing.'
+        );
         const content = response.content as string;
 
         const jsonData = this.extractJSON(content);
-        this.logger.log('Model invocation successful');
+        const latency = Date.now() - startTime;
+
+        this.logger.log(
+          `${contextStr} JSON parsing successful on attempt ${attempt} (${latency}ms)`
+        );
+
         return jsonData as Record<string, any>;
       } catch (error) {
+        const latency = Date.now() - startTime;
         const errorMessage =
           error instanceof Error ? error.message : String(error);
+
         this.logger.error(
-          `Attempt ${attempt}/${maxRetries} failed: ${errorMessage}`
+          `${contextStr} Attempt ${attempt}/${maxRetries} failed after ${latency}ms: ${errorMessage}`
         );
 
         if (attempt === maxRetries) {
           throw new Error(
-            `Failed to generate content after ${maxRetries} attempts: ${errorMessage}`
+            'Failed to generate valid content. Please try again or simplify your request.'
           );
         }
 
-        // Wait before retrying with exponential backoff
-        await this.delay(1000 * attempt);
+        // Exponential backoff: 2^attempt * 1000ms
+        const backoffMs = Math.pow(2, attempt) * 1000;
+        await this.delay(backoffMs);
       }
     }
 
     throw new Error('Unexpected end of retry loop');
+  }
+
+  /**
+   * Timeout wrapper for promises
+   */
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    errorMessage: string
+  ): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+      ),
+    ]);
   }
 
   private delay(ms: number): Promise<void> {

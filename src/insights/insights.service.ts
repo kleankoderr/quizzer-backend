@@ -91,7 +91,6 @@ export class InsightsService {
       });
       const summary = await this.langchainService.invoke(prompt, {
         task: 'summary',
-        complexity: 'simple',
       });
       return summary;
     } catch (error) {
@@ -123,7 +122,6 @@ Each recommendation should be 1 sentence, practical and actionable.`;
 
       const focusText = await this.langchainService.invoke(prompt, {
         task: 'focus_recommendation',
-        complexity: 'simple',
       });
       return focusText;
     } catch (error) {

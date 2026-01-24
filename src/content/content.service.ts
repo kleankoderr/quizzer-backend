@@ -367,7 +367,6 @@ Provide a clear, detailed explanation suitable for a student. Keep it engaging a
 
     const result = await this.langchainService.invoke(prompt, {
       task: 'explanation',
-      complexity: 'simple',
     });
 
     await this.quotaService.incrementQuota(userId, 'conceptExplanation');
@@ -401,7 +400,6 @@ The example should be relatable and help illustrate the concept clearly.`;
 
     const result = await this.langchainService.invoke(prompt, {
       task: 'example',
-      complexity: 'simple',
     });
 
     await this.quotaService.incrementQuota(userId, 'conceptExplanation');

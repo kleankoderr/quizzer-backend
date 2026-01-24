@@ -1216,11 +1216,9 @@ export class ChallengeService {
           prompt,
           {
             task: 'quiz',
-            complexity: 'simple',
           }
         );
 
-        // Save the quiz to the database
         const quiz = await this.prisma.quiz.create({
           data: {
             title,
@@ -1282,7 +1280,6 @@ export class ChallengeService {
         prompt,
         {
           task: 'quiz',
-          complexity: 'simple',
         }
       );
 

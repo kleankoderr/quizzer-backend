@@ -311,7 +311,6 @@ export class RecommendationService {
         prompt,
         {
           task: 'recommendation',
-          complexity: 'simple',
         }
       );
 

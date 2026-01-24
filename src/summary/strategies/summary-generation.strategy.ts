@@ -111,7 +111,6 @@ export class SummaryGenerationStrategy implements JobStrategy<
 
     const summaryText = await this.langchainService.invoke(prompt, {
       task: 'summary',
-      complexity: 'simple',
     });
 
     const shortCode = await this.summaryService.generateShortCode();

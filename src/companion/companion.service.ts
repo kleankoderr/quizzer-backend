@@ -179,7 +179,6 @@ The question should be encouraging, help them think about their learning process
 
       const question = await this.langchainService.invoke(prompt, {
         task: 'reflection',
-        complexity: 'simple',
       });
       return question.trim();
     } catch (error) {
@@ -305,7 +304,6 @@ Keep it to 1-2 sentences, friendly and encouraging. Tailor the tone to be univer
 
       const motivation = await this.langchainService.invoke(prompt, {
         task: 'motivation',
-        complexity: 'simple',
       });
       return motivation.trim();
     } catch (error) {

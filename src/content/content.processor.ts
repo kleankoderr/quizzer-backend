@@ -86,7 +86,6 @@ export class ContentProcessor extends WorkerHost {
 
       const result = await this.langchainService.invokeWithJsonParser(prompt, {
         task: 'study-material',
-        hasFiles: inputSources.some((s) => s.type === 'file'),
       });
 
       // Extract generated data from the unified response

@@ -82,7 +82,6 @@ export class OnboardingService {
         prompt,
         {
           task: 'quiz',
-          complexity: 'simple',
         }
       );
 

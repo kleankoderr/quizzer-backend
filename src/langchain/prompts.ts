@@ -21,52 +21,45 @@ export class LangChainPrompts {
   static readonly quizGeneration = ChatPromptTemplate.fromMessages([
     [
       'system',
-      `You are an expert educational assessment designer specialized in creating valid, reliable, and pedagogically effective quiz questions.
+      `You are an expert quiz designer creating valid, pedagogically sound questions.
 
-Your assessments are known for:
-- Testing genuine understanding, not just memorization
-- Having clear, unambiguous questions
-- Including plausible distractors that represent common misconceptions
-- Being fair and free from trick questions`,
+Core principles:
+- Test understanding, not memorization
+- Clear, unambiguous wording
+- Plausible distractors
+- No trick questions or meta-questions`,
     ],
     [
       'human',
       `Create a {difficulty} level quiz about {topic}.
 
-Generate a creative and descriptive title that captures the essence of the quiz.
-
 {sourceContentSection}
 
 Requirements:
-- Generate exactly {questionCount} questions
-- Question types: {questionTypes}
-- Each question must have a "questionType" field matching the specified types.
-- Multiple-choice ('single-select', 'multi-select') must have exactly 4 options.
-- True-false must have options: ["True", "False"] and a number for correctAnswer (0 for True, 1 for False).
-- Matching questions MUST include:
-    * "leftColumn": Array of 4-5 items to match from.
-    * "rightColumn": Array of 4-5 corresponding items to match to.
-    * "correctAnswer": Array of objects like {{ "key": "left item", "value": "right item" }}.
-    * "options" can be omitted for matching questions.
-- Mark the correct answer clearly using the appropriate format for the question type.
-- Provide explanations that enhance learning and clarify the concept.
+- Generate exactly {questionCount} questions with a creative title
+- Types: {questionTypes}
+- Multiple-choice: exactly 4 options
+- True-false: ["True", "False"], correctAnswer 0 or 1
+- Matching: "leftColumn", "rightColumn" (4-5 each), "correctAnswer" array
+- Include clear explanations
 
-Subject Matter Integrity:
-- ALL questions must be directly relevant to the core subject of {topic}.
-- Avoid "meta" questions (e.g., questions about the words in a title, or how many chapters are in a book).
-- Focus on concepts, facts, relationships, and applications within the topic.
-- A question is IRRELEVANT if it tests logic or observation skills instead of {topic} knowledge.
+CRITICAL - Source Adherence:
+✓ Base ALL content EXCLUSIVELY on provided source material
+✓ Do NOT add information from external knowledge
+✓ If source is insufficient, use ONLY {topic} fundamentals
 
-Quality Standards:
-✓ Questions must be answerable from the source material (if provided)
-✓ Each question tests ONE specific, relevant concept
-✓ Distractors are plausible but clearly distinguishable
-✓ Language is clear and appropriate for {difficulty} level
-✓ Questions cover different aspects of the topic
-✓ No trick questions, logic puzzles, or meta-questions
+CRITICAL - No Meta Questions:
+✗ NO questions about document structure, word counts, or chapter numbers
+✗ NO logic puzzles unrelated to {topic}
+✓ ONLY questions testing {topic} knowledge directly
 
-Focus Areas:
-{focusAreas}`,
+Quality:
+- Each question tests ONE specific concept
+- Language appropriate for {difficulty} level
+- Distractors plausible but distinguishable
+- Cover different aspects
+
+Focus: {focusAreas}`,
     ],
   ]);
 
@@ -78,44 +71,43 @@ Focus Areas:
   static readonly flashcardGeneration = ChatPromptTemplate.fromMessages([
     [
       'system',
-      `You are an expert in spaced repetition learning and flashcard design.
+      `You are a flashcard design expert creating atomic, effective spaced-repetition cards.
 
-Your flashcards are highly effective because they:
-- Test exactly ONE concept per card (atomic)
-- Use clear, unambiguous language
-- Have concise fronts (5-15 words) and backs (1-3 sentences)
-- Include helpful explanations when they add value
-- Focus on understanding relationships, not just isolated facts`,
+Principles:
+- ONE concept per card
+- Clear, concise language
+- Front: 5-15 words | Back: 1-3 sentences
+- Focus on understanding, not isolated facts`,
     ],
     [
       'human',
-      `Create {cardCount} flashcards from this content about {topic}.
+      `Create {cardCount} flashcards about {topic}.
 
 {sourceContentSection}
 
-Card Design Guidelines:
-- Front: Clear, specific question or term (5-15 words max)
-- Back: Concise, complete answer (1-3 sentences)
-- Explanation: Add context, examples, or mnemonics when helpful
+CRITICAL - Source Adherence:
+✓ Base ALL cards EXCLUSIVELY on provided source material
+✓ Do NOT add external information
 
-Subject Matter Integrity:
-- ALL flashcards must be directly relevant to the core subject of {topic}.
-- Avoid "meta" content (e.g., cards about the source text's formatting, or word counts).
-- Focus on concepts, facts, definitions, and relationships within the topic.
+CRITICAL - No Meta Content:
+✗ NO cards about document formatting, structure, or word counts
+✓ ONLY cards about {topic} concepts, facts, and relationships
 
-Content Priorities:
-1. Core concepts and definitions (40-50%)
-2. Key relationships and processes (25-35%)
-3. Important facts and classifications (15-25%)
-4. Applications and examples (10-20%)
+Format:
+- Front: Specific question/term (5-15 words)
+- Back: Complete answer (1-3 sentences)
+- Explanation: Context or examples
 
-Quality Standards:
-✓ Every card is factually accurate
-✓ Questions are unambiguous and context-rich
-✓ Answers directly address the question
-✓ Cards are independent (no overlapping content)
-✓ Coverage spans different aspects of the topic
-✓ Language is specific and concrete`,
+Content Mix:
+- Core concepts/definitions: 40-50%
+- Relationships/processes: 25-35%
+- Facts/classifications: 15-25%
+- Applications: 10-20%
+
+Quality:
+- Factually accurate, unambiguous
+- Independent cards, varied coverage
+- Direct, concrete language`,
     ],
   ]);
 

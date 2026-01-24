@@ -44,7 +44,6 @@ export class WeakAreaService {
         prompt,
         {
           task: 'quiz',
-          complexity: 'simple',
         }
       );
 
@@ -91,7 +90,6 @@ export class WeakAreaService {
         prompt,
         {
           task: 'concept_extraction',
-          complexity: 'simple',
         }
       );
 
