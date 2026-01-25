@@ -38,9 +38,7 @@ export class ModelConfigService {
     this.model = new ChatGoogleGenerativeAI({
       apiKey,
       model: 'gemini-2.5-flash',
-      temperature: 0.7,
-      json: true,
-      streaming: true,
+      temperature: 1,
     });
 
     this.logger.log('Gemini 2.5 Flash model initialized successfully');

@@ -605,6 +605,7 @@ export class QuizService {
         contentId: true,
         tags: true,
         quizType: true,
+        timeLimit: true,
         attempts: {
           where: { userId },
           orderBy: { completedAt: 'desc' },
