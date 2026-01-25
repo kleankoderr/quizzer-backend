@@ -617,6 +617,12 @@ export class QuizService {
         tags: true,
         quizType: true,
         timeLimit: true,
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
         attempts: {
           where: { userId },
           orderBy: { completedAt: 'desc' },

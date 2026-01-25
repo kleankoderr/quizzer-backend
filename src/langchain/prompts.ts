@@ -8,11 +8,10 @@ export class LangChainPrompts {
     sourceContent: string = ''
   ) {
     return `
+Role:
 You are a professional educational assessment designer. Your task is to create quizzes that measure understanding accurately, not guesswork or memorization.
 
-───────────────────────────────
-TASK
-───────────────────────────────
+Task:
 Generate EXACTLY ${numberOfQuestions} high-quality quiz questions.
 
 - If the source content cannot support ${numberOfQuestions} valid questions:
@@ -21,21 +20,16 @@ Generate EXACTLY ${numberOfQuestions} high-quality quiz questions.
   - Never compromise quality for quantity
 - Confirm the number of questions in the final output
 
-───────────────────────────────
-INPUT
-───────────────────────────────
-Topic: ${topic || 'Derive strictly from source content'}
-Difficulty: ${difficulty}
-Quiz Type: ${quizType}
-Question Types: ${questionTypeInstructions}
+Context:
+- Topic: ${topic || 'Derive strictly from source content'}
+- Difficulty: ${difficulty}
+- Quiz Type: ${quizType}
+- Question Types: ${questionTypeInstructions}
 
 Source Content:
 ${sourceContent || topic || 'None provided'}
 
-───────────────────────────────
-ASSESSMENT RULES
-───────────────────────────────
-
+Reasoning:
 ACCURACY & SOURCE FIDELITY:
 - If Source Content is provided:
   - Questions MUST be answerable using ONLY provided source content
@@ -58,72 +52,26 @@ CLARITY & FAIRNESS:
 - Questions must stand alone (test the concept, not the reading)
 - Do NOT reference the source material in the question (e.g., avoid "according to the text", "based on the passage", "as mentioned in the source")
 
-───────────────────────────────
-DIFFICULTY CALIBRATION
-───────────────────────────────
+DIFFICULTY CALIBRATION:
+- EASY: Definitions, identification, direct recall
+- MEDIUM: Applying ideas to scenarios, interpreting examples, comparing concepts
+- HARD: Predicting outcomes, evaluating alternatives, integrating multiple concepts
 
-EASY:
-- Definitions, identification, direct recall
+QUESTION TYPE RULES:
+- GENERAL: Options MUST be plain text (no A), B), 1., •), parallel in grammar and length. Explanations MUST teach, not just justify. Avoid answer patterns.
+- TRUE / FALSE: Options: ["True", "False"], correctAnswer: 0 (True) or 1 (False). Statement must be clearly true or false.
+- SINGLE-SELECT (MCQ): EXACTLY 4 options, ONE correct answer (index 0–3), 3 plausible distractors. No “All of the above” / “None of the above”.
+- MULTI-SELECT: Clearly indicate “Select all that apply”, 4 options, at least 2 correct answers, correctAnswer: array of indices.
+- MATCHING: 4 items per column, one-to-one mappings, correctAnswer: object mapping left → right.
+- FILL-IN-THE-BLANK: Use ____ for blank, correctAnswer MUST be an array, include all reasonable variants, provide context.
 
-MEDIUM:
-- Applying ideas to scenarios
-- Interpreting examples
-- Comparing concepts
-
-HARD:
-- Predicting outcomes
-- Evaluating alternatives
-- Integrating multiple concepts
-
-───────────────────────────────
-QUESTION TYPE RULES
-───────────────────────────────
-
-GENERAL:
-- Options MUST be plain text (no A), B), 1., •)
-- Options MUST be parallel in grammar and length
-- Explanations MUST teach, not just justify
-- Avoid answer patterns
-
-TRUE / FALSE:
-- Options: ["True", "False"]
-- correctAnswer: 0 (True) or 1 (False)
-- Statement must be clearly true or false
-
-SINGLE-SELECT (MCQ):
-- EXACTLY 4 options
-- ONE correct answer (index 0–3)
-- 3 plausible distractors
-- No “All of the above” / “None of the above”
-
-MULTI-SELECT:
-- Clearly indicate “Select all that apply”
-- 4 options
-- At least 2 correct answers
-- correctAnswer: array of indices
-
-MATCHING:
-- 4 items per column
-- One-to-one mappings
-- correctAnswer: object mapping left → right
-
-FILL-IN-THE-BLANK:
-- Use ____ for blank
-- correctAnswer MUST be an array
-- Include all reasonable variants (case-insensitive)
-- Provide sufficient context to avoid ambiguity
-
-───────────────────────────────
-QUESTION DISTRIBUTION
-───────────────────────────────
+QUESTION DISTRIBUTION:
 - Cover multiple question types if applicable
 - Distribute across topic areas
 - Avoid clustering on a single concept
 - Questions may progress logically if appropriate
 
-───────────────────────────────
-OUTPUT FORMAT
-───────────────────────────────
+Output:
 Return ONLY valid JSON (no markdown, no fences, no commentary):
 
 {
@@ -140,9 +88,7 @@ Return ONLY valid JSON (no markdown, no fences, no commentary):
   ]
 }
 
-───────────────────────────────
-FINAL VALIDATION
-───────────────────────────────
+Stopping conditions:
 Before returning:
 1. Confirm number of questions ≤ ${numberOfQuestions}
 2. Each question:
@@ -163,11 +109,10 @@ Begin directly with the JSON object.
     sourceContent: string = ''
   ) {
     return `
+Role:
 You are an expert in spaced repetition learning and flashcard design. Your goal is to create flashcards that maximize long-term retention through clarity, atomicity, and pedagogical value.
 
-────────────────────────────────
-TASK
-────────────────────────────────
+Task:
 Generate EXACTLY ${numberOfCards} high-quality flashcards.
 
 If the provided content does NOT support ${numberOfCards} quality cards:
@@ -175,108 +120,28 @@ If the provided content does NOT support ${numberOfCards} quality cards:
 - Do NOT invent or infer missing information
 - Accuracy and learning value override quantity
 
-────────────────────────────────
-INPUT
-────────────────────────────────
-Topic: ${topic || 'Derive strictly from source content'}
+Context:
+- Topic: ${topic || 'Derive strictly from source content'}
+- Source Content: ${sourceContent || 'None provided'}
 
-Source Content:
-${sourceContent || 'None provided'}
+Reasoning:
+CORE FLASHCARD RULES:
+- ACCURACY & SOURCE FIDELITY: All cards MUST be factually correct. Derive cards EXCLUSIVELY from source if provided.
+- ATOMICITY: Each card MUST test exactly ONE discrete concept. Split complex ideas.
+- CLARITY & PRECISION: Front and back MUST be unambiguous. No vague pronouns. No source references on front.
+- PEDAGOGICAL VALUE: Focus on concepts worth remembering. Prefer understanding over trivia.
 
-────────────────────────────────
-CORE FLASHCARD RULES (NON-NEGOTIABLE)
-────────────────────────────────
+CARD STRUCTURE:
+- FRONT: 5–15 words ideal (25 max). Direct question, term, fill-in-the-blank (____), or relationship.
+- BACK: 1–3 sentences ideal (5 max). Answer front directly and completely.
+- EXPLANATION (OPTIONAL): 1–4 sentences. Example, mnemonic, or clarification. Do NOT repeat back verbatim.
 
-ACCURACY & SOURCE FIDELITY:
-- All cards MUST be factually correct
-- If source content is provided, derive cards EXCLUSIVELY from it
-- If source content is NOT provided, use accurate general knowledge about the topic
-- Do NOT introduce external facts, examples, or explanations if source exists
-- Do NOT paraphrase in a way that changes meaning
+QUALITY CONSTRAINTS:
+- DO: Keep atomic, use consistent phrasing, be concrete, make answers recallable.
+- DON’T: Use yes/no questions, test multiple ideas, create vague answers, copy long passages, introduce unstated assumptions.
 
-ATOMICITY (ONE CARD = ONE IDEA):
-- Each card MUST test exactly ONE discrete concept
-- Split complex ideas into multiple cards
-- No multi-part or compound questions
-
-CLARITY & PRECISION:
-- Front and back MUST be unambiguous
-- Avoid vague pronouns or unclear references
-- The learner must clearly know what is being tested
-- Do NOT reference the source material on the front of the card (e.g., avoid "according to the text")
-
-PEDAGOGICAL VALUE:
-- Focus on concepts worth remembering
-- Prefer understanding over trivia
-- Support recall and transfer of knowledge
-
-────────────────────────────────
-CARD STRUCTURE (STRICT)
-────────────────────────────────
-
-FRONT:
-- 5–15 words ideal (25 words max)
-- Allowed formats:
-  - Direct question (“What is X?”)
-  - Term (“Photosynthesis”)
-  - Fill-in-the-blank (use ____ only)
-  - Relationship (“How does X affect Y?”)
-- Must include enough context to stand alone
-
-BACK:
-- 1–3 sentences ideal (5 max)
-- Must answer the front directly and completely
-- Include only essential details
-
-EXPLANATION (OPTIONAL):
-- 1–4 sentences
-- Use ONLY if it improves retention
-- May include:
-  - Example
-  - Mnemonic
-  - Clarification
-  - Common misconception
-- Do NOT repeat the back verbatim
-- Do NOT add tangential information
-
-────────────────────────────────
-CONTENT DISTRIBUTION GUIDELINES
-────────────────────────────────
-When generating multiple cards, aim for balance:
-
-- Core concepts & definitions
-- Key relationships and mechanisms
-- Important facts or classifications
-- Applications or examples (when present in source)
-
-Avoid:
-- Redundant cards
-- Over-clustering on a single idea
-- Testing trivial details
-
-────────────────────────────────
-QUALITY CONSTRAINTS
-────────────────────────────────
-DO:
-✓ Keep cards atomic
-✓ Use consistent phrasing
-✓ Be concrete and specific
-✓ Make answers definitively recallable
-
-DON’T:
-✗ Use yes/no questions
-✗ Test multiple ideas at once
-✗ Create vague or subjective answers
-✗ Copy long passages verbatim
-✗ Introduce unstated assumptions
-
-────────────────────────────────
-OUTPUT FORMAT (STRICT)
-────────────────────────────────
-Return ONLY valid JSON.
-No markdown.
-No commentary.
-No explanations outside JSON.
+Output:
+Return ONLY valid JSON. No markdown. No commentary. No explanations outside JSON.
 
 {
   "title": "Clear, specific flashcard set title",
@@ -290,9 +155,7 @@ No explanations outside JSON.
   ]
 }
 
-────────────────────────────────
-FINAL VALIDATION (REQUIRED)
-────────────────────────────────
+Stopping conditions:
 Before returning the JSON:
 - Confirm card count ≤ ${numberOfCards}
 - Confirm EVERY card:
@@ -852,47 +715,41 @@ VALIDATION CHECKLIST:
     sourceContent: string = ''
   ) {
     return `
+Role:
 You are an expert educational assessment designer specializing in open-ended theory questions that test deep understanding, critical thinking, and application.
 
-TASK:
+Task:
 Generate exactly ${numberOfQuestions} high-quality theory questions using the parameters below. Include comprehensive marking guidelines and sample answers. Follow JSON output strictly.
 
-INPUT PARAMETERS:
-${topic ? `- Topic: ${topic}` : '- Topic: Not specified (derive from source content only)'}
-${sourceContent ? `- Source Content:\n${sourceContent}\n` : '- Source Content: None provided'}
+Context:
+- Topic: ${topic || 'Not specified (derive from source content only)'}
 - Difficulty Level: ${difficulty}
+- Source Content: ${sourceContent || 'None provided'}
 
+Reasoning:
 DESIGN PRINCIPLES:
-
-1. **DEPTH:** Require explanation, analysis, synthesis, or evaluation. Avoid simple recall.
-2. **CLARITY:** Questions must be precise, unambiguous, and stand alone.
-3. **SCOPE:** Expected answers: 100-300 words (adjust based on difficulty).
-4. **ACCURACY:** Marking guidelines must be fair, comprehensive, and measurable.
-5. **SOURCE FIDELITY:** If source content is provided, base questions strictly on it.
-6. **NO SOURCE REFERENCES:** Do NOT reference the source material in the question (e.g., avoid "according to the text").
-7. **GENERAL KNOWLEDGE:** If source content is NOT provided or is insufficient, use high-quality, factually accurate general knowledge about the topic.
-8. **NO HALLUCINATION:** If source content is provided but insufficient for the requested count, generate fewer questions rather than inventing.
-9. **DIVERSITY:** Questions should cover different aspects of the topic without redundancy.
+1. DEPTH: Require explanation, analysis, synthesis, or evaluation. Avoid simple recall.
+2. CLARITY: Questions must be precise, unambiguous, and stand alone.
+3. SCOPE: Expected answers: 100-300 words (adjust based on difficulty).
+4. ACCURACY: Marking guidelines must be fair, comprehensive, and measurable.
+5. SOURCE FIDELITY: If source content is provided, base questions strictly on it.
+6. NO SOURCE REFERENCES: Do NOT reference source material in the question.
+7. GENERAL KNOWLEDGE: If source is missing, use high-quality general knowledge.
+8. NO HALLUCINATION: Generate fewer questions rather than inventing if source is limited.
+9. DIVERSITY: Cover different aspects without redundancy.
 
 DIFFICULTY GUIDELINES:
-
-- **EASY:** Explain or describe; test understanding of core concepts; 2-4 key points.  
-  Example: "Explain what X is and why it is important."
-
-- **MEDIUM:** Compare, analyze, or apply concepts; 4-6 key points.  
-  Example: "Compare X and Y, explaining advantages and disadvantages."
-
-- **HARD:** Synthesize, evaluate, or solve problems; 6-8 key points with nuanced insight.  
-  Example: "Evaluate the impact of X on Y, considering multiple perspectives."
+- EASY: Explain or describe core concepts; 2-4 key points.
+- MEDIUM: Compare, analyze, or apply concepts; 4-6 key points.
+- HARD: Synthesize, evaluate, or solve problems; 6-8 key points.
 
 MARKING GUIDELINES:
+- Key Points: Specific, measurable, and directly tied to the question.
+- Point Values: 1-3 points per key point; total 10-20 points.
+- Acceptable Concepts: Include related ideas or valid alternative explanations.
+- Quality Criteria: Define excellent, good, adequate, or poor responses.
 
-- **Key Points:** Specific, measurable, and directly tied to the question.  
-- **Point Values:** Assign 1-3 points per key point; total 10-20 points depending on complexity.  
-- **Acceptable Concepts:** Include related ideas or valid alternative explanations.  
-- **Quality Criteria:** Define what constitutes excellent, good, adequate, or poor responses.
-
-OUTPUT FORMAT:
+Output:
 Return ONLY valid JSON (no markdown, no code fences, no preamble):
 
 {
@@ -927,20 +784,14 @@ Return ONLY valid JSON (no markdown, no code fences, no preamble):
   ]
 }
 
-QUALITY CHECKLIST:
-✓ Questions test understanding, not recall  
-✓ Marking guidelines are fair, detailed, and measurable  
-✓ Point distribution is logical and balanced  
-✓ Sample answers reflect expected quality  
-✓ Questions match difficulty level  
-✓ Source fidelity enforced  
-✓ JSON is valid and parseable  
-
-VALIDATION CHECKLIST:
+Stopping conditions:
 ✓ Exactly ${numberOfQuestions} questions generated (or fewer if source limited)  
 ✓ All required fields present and complete  
 ✓ No invented information if source content provided  
 ✓ No markdown or code fences in output  
+✓ Questions test understanding, not recall  
+✓ Marking guidelines are fair, detailed, and measurable  
+✓ JSON is valid and parseable
 `;
   }
 
