@@ -125,7 +125,6 @@ export class QuizGenerationStrategy implements JobStrategy<
           // Exponential backoff
           const delay = Math.pow(2, attempt) * 500;
           await new Promise((resolve) => setTimeout(resolve, delay));
-
         }
       }
     }
@@ -139,7 +138,6 @@ export class QuizGenerationStrategy implements JobStrategy<
   private validateQuizResult(result: any): boolean {
     if (!result?.questions || !Array.isArray(result.questions)) return false;
     return result.questions.length !== 0;
-
   }
 
   async postProcess(context: QuizContext, result: any): Promise<any> {

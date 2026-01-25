@@ -12,8 +12,7 @@ export class ModelConfigService {
   private readonly logger = new Logger(ModelConfigService.name);
   private model: BaseChatModel | null = null;
 
-  constructor(private readonly configService: ConfigService) {
-  }
+  constructor(private readonly configService: ConfigService) {}
 
   /**
    * Get the Gemini 2.5 Flash model instance
