@@ -87,12 +87,14 @@ export class FlashcardController {
   async getAllFlashcardSets(
     @CurrentUser('sub') userId: string,
     @Query('page') page?: number,
-    @Query('limit') limit?: number
+    @Query('limit') limit?: number,
+    @Query('studyPackId') studyPackId?: string
   ) {
     return this.flashcardService.getAllFlashcardSets(
       userId,
       page ? Number(page) : 1,
-      limit ? Number(limit) : 20
+      limit ? Number(limit) : 20,
+      studyPackId
     );
   }
 

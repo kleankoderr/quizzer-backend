@@ -78,29 +78,68 @@ export class QuizGenerationStrategy implements JobStrategy<
     const { dto } = context.data;
     const { inputSources, contentForAI } = context;
 
-    const startTime = Date.now();
-    this.logger.log(
-      `Job ${context.jobId}: Generating quiz with ${inputSources.length} input source(s)`
+    const maxRetries = 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const startTime = Date.now();
+        this.logger.log(
+          `Job ${context.jobId}: Generating quiz (Attempt ${attempt}/${maxRetries}) with ${inputSources.length} source(s)`
+        );
+
+        const prompt = await this.buildQuizPrompt(dto, contentForAI);
+
+        const result = await this.langchainService.invokeWithJsonParser(
+          prompt,
+          {
+            task: 'quiz',
+            userId: context.userId,
+            jobId: context.jobId,
+          }
+        );
+
+        // Validate structure and content
+        if (!this.validateQuizResult(result)) {
+          this.logger.warn(
+            `Job ${context.jobId}: Invalid quiz structure on attempt ${attempt}`
+          );
+          throw new Error('Generated quiz failed validation');
+        }
+
+        const latency = Date.now() - startTime;
+        this.logger.log(
+          `Job ${context.jobId}: Quiz generation completed in ${latency}ms`
+        );
+
+        const questions = QuizUtils.normalizeQuestions(result.questions);
+        const title = result.title || dto.topic || 'Untitled Quiz';
+        const topic = result.topic || dto.topic || null;
+
+        return { questions, title, topic };
+      } catch (error) {
+        this.logger.error(
+          `Job ${context.jobId}: Quiz generation attempt ${attempt} failed: ${error.message}`
+        );
+
+        if (attempt < maxRetries) {
+          // Exponential backoff
+          const delay = Math.pow(2, attempt) * 500;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+
+        }
+      }
+    }
+
+    // If we reach here, all retries failed
+    throw new Error(
+      'We encountered an issue generating your quiz after multiple attempts. Please try again with more specific content or a different topic.'
     );
+  }
 
-    const prompt = await this.buildQuizPrompt(dto, contentForAI);
+  private validateQuizResult(result: any): boolean {
+    if (!result?.questions || !Array.isArray(result.questions)) return false;
+    return result.questions.length !== 0;
 
-    const result = await this.langchainService.invokeWithJsonParser(prompt, {
-      task: 'quiz',
-      userId: context.userId,
-      jobId: context.jobId,
-    });
-
-    const latency = Date.now() - startTime;
-    this.logger.log(
-      `Job ${context.jobId}: Quiz generation completed in ${latency}ms`
-    );
-
-    const questions = QuizUtils.normalizeQuestions(result.questions);
-    const title = result.title || dto.topic || 'Untitled Quiz';
-    const topic = result.topic || dto.topic || null;
-
-    return { questions, title, topic };
   }
 
   async postProcess(context: QuizContext, result: any): Promise<any> {
@@ -177,7 +216,7 @@ export class QuizGenerationStrategy implements JobStrategy<
     };
   }
 
-  private async buildQuizPrompt(
+  protected async buildQuizPrompt(
     dto: GenerateQuizDto,
     content: string | undefined
   ): Promise<string> {

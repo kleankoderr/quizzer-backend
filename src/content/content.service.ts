@@ -159,7 +159,8 @@ export class ContentService {
     userId: string,
     topic?: string,
     page: number = DEFAULT_PAGE,
-    limit: number = DEFAULT_LIMIT
+    limit: number = DEFAULT_LIMIT,
+    studyPackId?: string
   ) {
     const skip = (page - 1) * limit;
 
@@ -168,6 +169,7 @@ export class ContentService {
         where: {
           userId,
           ...(topic ? { topic } : {}),
+          ...(studyPackId ? { studyPackId } : {}),
         },
         select: {
           id: true,
@@ -190,6 +192,7 @@ export class ContentService {
         where: {
           userId,
           ...(topic ? { topic } : {}),
+          ...(studyPackId ? { studyPackId } : {}),
         },
       }),
     ]);

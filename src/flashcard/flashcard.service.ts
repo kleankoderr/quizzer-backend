@@ -26,7 +26,6 @@ import {
 import { UserDocumentService } from '../user-document/user-document.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
 
-
 @Injectable()
 export class FlashcardService {
   private readonly logger = new Logger(FlashcardService.name);
@@ -139,13 +138,17 @@ export class FlashcardService {
   async getAllFlashcardSets(
     userId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    studyPackId?: string
   ) {
     const skip = (page - 1) * limit;
 
     const [flashcardSets, total] = await Promise.all([
       this.prisma.flashcardSet.findMany({
-        where: { userId },
+        where: {
+          userId,
+          ...(studyPackId ? { studyPackId } : {}),
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -169,7 +172,10 @@ export class FlashcardService {
         },
       }),
       this.prisma.flashcardSet.count({
-        where: { userId },
+        where: {
+          userId,
+          ...(studyPackId ? { studyPackId } : {}),
+        },
       }),
     ]);
 

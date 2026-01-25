@@ -118,12 +118,14 @@ export class QuizController {
   async getAllQuizzes(
     @CurrentUser('sub') userId: string,
     @Query('page') page?: number,
-    @Query('limit') limit?: number
+    @Query('limit') limit?: number,
+    @Query('studyPackId') studyPackId?: string
   ) {
     return this.quizService.getAllQuizzes(
       userId,
       page ? Number(page) : 1,
-      limit ? Number(limit) : 20
+      limit ? Number(limit) : 20,
+      studyPackId
     );
   }
 

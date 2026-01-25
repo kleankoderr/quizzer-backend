@@ -152,12 +152,20 @@ export class QuizService {
     };
   }
 
-  async getAllQuizzes(userId: string, page: number = 1, limit: number = 20) {
+  async getAllQuizzes(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    studyPackId?: string
+  ) {
     const skip = (page - 1) * limit;
 
     const [quizzes, total] = await Promise.all([
       this.prisma.quiz.findMany({
-        where: { userId },
+        where: {
+          userId,
+          ...(studyPackId ? { studyPackId } : {}),
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -184,7 +192,10 @@ export class QuizService {
         },
       }),
       this.prisma.quiz.count({
-        where: { userId },
+        where: {
+          userId,
+          ...(studyPackId ? { studyPackId } : {}),
+        },
       }),
     ]);
 
