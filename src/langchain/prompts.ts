@@ -115,19 +115,11 @@ You are an expert in spaced repetition learning and flashcard design. Your goal 
 Task:
 Generate EXACTLY ${numberOfCards} high-quality flashcards.
 
-- If the provided content does NOT support ${numberOfCards} quality cards:
-  - Generate FEWER cards
-  - Do NOT invent or infer missing information
-  - Accuracy and learning value override quantity
-
 Context:
-═══════════════════════════════════════════════════════════════════════════════
 - Topic: ${topic || 'Derive strictly from source content'}
 - Source Content: ${sourceContent || 'None provided'}
-═══════════════════════════════════════════════════════════════════════════════
 
 Reasoning:
-═══════════════════════════════════════════════════════════════════════════════
 CORE FLASHCARD RULES:
 - ACCURACY & SOURCE FIDELITY: All cards MUST be factually correct. Derive cards EXCLUSIVELY from source if provided.
 - ATOMICITY: Each card MUST test exactly ONE discrete concept. Split complex ideas.
@@ -142,10 +134,8 @@ CARD STRUCTURE:
 QUALITY CONSTRAINTS:
 - DO: Keep atomic, use consistent phrasing, be concrete, make answers recallable.
 - DON’T: Use yes/no questions, test multiple ideas, create vague answers, copy long passages, introduce unstated assumptions.
-═══════════════════════════════════════════════════════════════════════════════
 
 Output:
-═══════════════════════════════════════════════════════════════════════════════
 Return ONLY valid JSON. No markdown. No commentary. No explanations outside JSON.
 
 {
@@ -159,11 +149,8 @@ Return ONLY valid JSON. No markdown. No commentary. No explanations outside JSON
     }
   ]
 }
-═══════════════════════════════════════════════════════════════════════════════
 
 Stopping conditions:
-═══════════════════════════════════════════════════════════════════════════════
-Before returning the JSON:
 1. Confirm card count ≤ ${numberOfCards}
 2. Confirm EVERY card:
    - Tests exactly ONE concept
@@ -172,7 +159,6 @@ Before returning the JSON:
 3. Confirm no hallucinated or external information
 4. Confirm JSON is valid and parseable
 
-Do NOT return the response until all checks pass.
 Begin directly with the JSON object.
 `;
   }
@@ -183,45 +169,33 @@ Begin directly with the JSON object.
     fileContext: string = ''
   ) {
     return `
+Role:
 You are an expert instructional designer. Your goal is to help beginners truly understand concepts, not memorize facts.
 
-Use ONLY the provided content. Do NOT invent facts, examples, or explanations.
+Task:
+Generate a structured, high-quality learning guide using ONLY the provided content. Do NOT invent facts, examples, or explanations.
 
-────────────────────────────────
-INPUT
-────────────────────────────────
-Topic: ${topic || 'Derive from content'}
-Primary Content:
-${sourceContent || 'None'}
+Context:
+- Topic: ${topic || 'Derive from content'}
+- Primary Content: ${sourceContent || 'None'}
+- Additional Context: ${fileContext || 'None'}
 
-Additional Context:
-${fileContext || 'None'}
-
-────────────────────────────────
-GLOBAL TEACHING RULES
-────────────────────────────────
+Reasoning:
+GLOBAL TEACHING RULES:
 - Explain WHY before HOW
 - Plain language first, technical language second
 - Define terminology before using it
 - Clarity over completeness
 - Proper Markdown is required
 
-────────────────────────────────
-SECTION STRUCTURE (STRICT — NO EXCEPTIONS)
-────────────────────────────────
-Generate **4-10 sections**.
-
-EVERY section MUST include ALL of the following fields:
+SECTION STRUCTURE (STRICT — NO EXCEPTIONS):
+Generate **4-10 sections**. EVERY section MUST include ALL of the following fields:
 - content
 - example
 - knowledgeCheck
 
-If ANY section is missing one of these fields, the output is INVALID and must be fixed before returning.
-
 Each section MUST follow this structure and order inside the **content** field:
-
 ### {Specific, Descriptive Section Title}
-
 Intro paragraph (2–4 sentences, NO heading):
 - Introduce what this section covers
 - Explain why it matters
@@ -244,78 +218,34 @@ Intro paragraph (2–4 sentences, NO heading):
 - Introduce technical detail only after intuition
 - Tie details back to the core idea
 
-#### Formula (ONLY if required)
-Include this subsection ONLY if the concept cannot be understood without it.
-
-#### Algorithm (ONLY if required)
-Include this subsection ONLY if the concept cannot be understood without it.
-
-#### Code (ONLY if required)
-Include this subsection ONLY if the concept cannot be understood without it.
-
-Rules:
+#### Formula | Algorithm | Code (ONLY if required)
 - Mathematical concepts → formulas (NOT code)
 - Programming / computational concepts → code
 - Otherwise → OMIT this subsection entirely
-
-If using code:
-- Place code ONLY here
-- Use minimal, clean examples
-- Add brief inline comments
-- Use proper Markdown code blocks with language specified
+- If using code: Place code ONLY here, use minimal clean examples, add brief inline comments, use proper Markdown code blocks.
 
 #### Common Mistakes or Misconceptions
 - At least one realistic misunderstanding
 - Explain why it is incorrect
 
-────────────────────────────────
-CRITICAL CONTENT PLACEMENT RULES (MANDATORY)
-────────────────────────────────
-- The **content** field MUST NOT contain:
-  - Questions
-  - Options
-  - Correct answers
-  - Answer explanations
-  - The words “Knowledge Check”, “Question”, “Options”, or “Correct Answer”
+CRITICAL CONTENT PLACEMENT RULES (MANDATORY):
+- The **content** field MUST NOT contain: Questions, Options, Correct answers, Answer explanations, or "Knowledge Check" labels.
+- ALL worked scenarios MUST appear ONLY in: learningGuide.sections[].example
+- ALL assessment material MUST appear ONLY in: learningGuide.sections[].knowledgeCheck
 
-- ALL worked scenarios MUST appear ONLY in:
-  learningGuide.sections[].example
-
-- ALL assessment material MUST appear ONLY in:
-  learningGuide.sections[].knowledgeCheck
-
-If any of the above appear in the wrong field, the output is INVALID.
-
-────────────────────────────────
-WORKED EXAMPLE (example field ONLY)
-────────────────────────────────
-Rules:
+WORKED EXAMPLE (example field ONLY):
 - MUST exist for EVERY section
 - No headings inside the example
 - Written as a concrete, step-by-step scenario
 - Explicitly explain how it demonstrates the concept
 - MUST NOT include questions or answers
 
-────────────────────────────────
-KNOWLEDGE CHECK (MANDATORY FOR EVERY SECTION)
-────────────────────────────────
-Rules:
-- EVERY section MUST include exactly ONE knowledge check
-- It MUST test understanding of that section only
-- It MUST be scenario-based (not definition recall)
-- It MUST include:
-  - question
-  - exactly 4 options
-  - correctAnswer (index 0–3)
-  - explanation
-- It MUST appear ONLY inside:
-  learningGuide.sections[].knowledgeCheck
+KNOWLEDGE CHECK (MANDATORY FOR EVERY SECTION):
+- EVERY section MUST include exactly ONE knowledge check testing understanding of that section only.
+- MUST be scenario-based (not definition recall).
+- MUST include: question, exactly 4 options, correctAnswer (index 0–3), and explanation.
 
-Missing, empty, or misplaced knowledgeCheck = INVALID OUTPUT.
-
-────────────────────────────────
-OUTPUT FORMAT (STRICT)
-────────────────────────────────
+Output:
 Return ONLY valid JSON. No markdown fences. No commentary.
 
 {
@@ -339,25 +269,15 @@ Return ONLY valid JSON. No markdown fences. No commentary.
   }
 }
 
-────────────────────────────────
-FINAL VALIDATION STEP (REQUIRED)
-────────────────────────────────
-Before returning the JSON:
-- Confirm there are 3–6 sections
-- Confirm EVERY section has:
-  - content
-  - example
-  - knowledgeCheck
-- Confirm no questions exist outside knowledgeCheck
-- Confirm no examples exist outside example
+Stopping conditions:
+1. Confirm there are 4–10 sections
+2. Confirm EVERY section has: content, example, knowledgeCheck
+3. Confirm no questions exist outside knowledgeCheck
+4. Confirm no examples exist outside example
+5. Confirm no invented facts or external info included
+6. Confirm JSON is valid and parseable
 
-Do NOT return the response until all validation rules are satisfied.
-
-FINAL GOAL:
-The learner finishes and says:
-“I actually understand this.”
-
-Structure everything. Define terms early. Place content correctly.
+Final Goal: The learner finishes and says: “I actually understand this.”
 `;
   }
 
@@ -428,100 +348,85 @@ Return ONLY the topic name.
 
   static generateExplanation(topic: string, context: string) {
     return `
-You are an expert educator. Explain the concept clearly and accurately.
+Role:
+You are an expert educator. Your goal is to explain concepts clearly and accurately to help students understand deeply.
 
-CONCEPT:
+Task:
+Explain the concept defined below.
+
+Context:
 - Topic: ${topic}
 - Context: ${context}
 
-INSTRUCTIONS (STRICT):
-- Start IMMEDIATELY with the explanation
-- First sentence MUST define the concept clearly
-- Explain WHY it matters or where it is used
-- Break complex ideas into simpler parts
-- Use an analogy ONLY if it genuinely improves clarity
-- End with a key takeaway or practical implication
-- Do NOT include meta-commentary
-
-STRUCTURE REQUIREMENTS:
-- Clear definition
-- Key components or ideas
-- Insight or takeaway
-- Code example ONLY if it meaningfully clarifies the concept
+Reasoning:
+INSTRUCTIONS:
+- First sentence MUST define the concept clearly.
+- Explain WHY it matters or where it is used.
+- Break complex ideas into simpler parts.
+- Use an analogy ONLY if it genuinely improves clarity.
+- End with a key takeaway or practical implication.
 
 FORMATTING (Markdown):
-- **Bold** key terms
-- Use bullet points or numbered lists where appropriate
-- Use > blockquotes for key insights
-- Use \`inline code\` for technical terms
-- Use fenced code blocks ONLY when needed
-  - Always specify the language
-  - Include comments explaining important lines
+- **Bold** key terms.
+- Use bullet points or numbered lists where appropriate.
+- Use > blockquotes for key insights.
+- Use \`inline code\` for technical terms.
+- Use fenced code blocks ONLY when needed (specify language, add comments).
 
-TONE:
-- Clear and direct
-- Professional but approachable
-- Focus on understanding, not verbosity
+Output:
+Return Markdown only. No preamble. No wrapping code fences. Start directly with the explanation.
 
-OUTPUT:
-Return Markdown only.
-No preamble.
-No wrapping code fences.
-Start directly with the explanation.
+Stopping conditions:
+1. Concept is clearly defined in the first sentence.
+2. Narrative flows logically from simple to complex.
+3. Formatting rules are followed.
+4. No meta-commentary included.
 `;
   }
 
   static generateExample(topic: string, context: string) {
     return `
-You are an expert educator. Provide concrete examples that make the concept unmistakably clear.
+Role:
+You are an expert educator. Your goal is to provide concrete examples that make abstract concepts unmistakably clear.
 
-CONCEPT:
+Task:
+Generate EXACTLY 2 or 3 high-quality examples for the concept below.
+
+Context:
 - Topic: ${topic}
 - Context: ${context}
 
-TASK:
-Generate EXACTLY 2 or 3 high-quality examples.
-
-RULES (STRICT):
-- Start IMMEDIATELY with the first example
-- Each example MUST demonstrate the concept clearly
-- Use different scenarios for each example
-- Explain WHY the example illustrates the concept
-- Include code ONLY when it adds real clarity
-- Do NOT repeat the same idea across examples
-- No meta-commentary
+Reasoning:
+RULES:
+- Each example MUST demonstrate the concept clearly.
+- Use different scenarios for each example.
+- Explain WHY the example illustrates the concept.
+- Include code ONLY when it adds real clarity.
+- Do NOT repeat the same idea across examples.
 
 FORMATTING (Markdown):
-- Use ### headers for each example
-- **Bold** key ideas
-- Use bullet points for breakdowns
-- Use \`inline code\` for technical terms
-- Use fenced code blocks only when appropriate
-  - Always specify language
-  - Include explanatory comments
+- Use ### headers for each example.
+- **Bold** key ideas.
+- Use bullet points for breakdowns.
+- Use \`inline code\` for technical terms.
+- Use fenced code blocks with language and comments if applicable.
 
-REQUIRED STRUCTURE PER EXAMPLE:
-
+STRUCTURE PER EXAMPLE:
 ### Example X: Descriptive Title
-
 [Short scenario or setup]
-
 **Key aspects:**
 • **Aspect**: Explanation
-• **Aspect**: Explanation
-
 [Explanation of how this demonstrates the concept]
-
-\`\`\`language
-// Code example (if applicable)
-\`\`\`
-
 **Why this works:** Clear, concise explanation
 
-OUTPUT:
-Return the examples in Markdown.
-No preamble.
-Start directly with the first example.
+Output:
+Return the examples in Markdown. No preamble. Start directly with the first example.
+
+Stopping conditions:
+1. Exactly 2 or 3 examples are generated.
+2. Each example follows the specified structure.
+3. Scenarios are distinct and relevant.
+4. No meta-commentary included.
 `;
   }
 
@@ -536,78 +441,22 @@ Role:
 You are an expert educational content editor. Your job is to synthesize study material into a clear, professional, high-signal reference summary.
 
 Task:
-Create a structured summary that captures the essential knowledge from the provided material for fast review and long-term retention. Target length: 400–1200 words (absolute max 1500 words).
+Create a structured summary that captures the essential knowledge from the provided material for fast review and long-term retention. Target length: 400–1200 words.
 
 Context:
-═══════════════════════════════════════════════════════════════════════════════
-INPUT MATERIAL
-═══════════════════════════════════════════════════════════════════════════════
-
 - Title: ${title}
 - Topic: ${topic}
 - Content: ${content || 'Not provided'}
 ${learningGuide ? `- Learning Guide: ${JSON.stringify(learningGuide)}` : ''}
 
 Reasoning:
-═══════════════════════════════════════════════════════════════════════════════
-SYNTHESIS APPROACH
-═══════════════════════════════════════════════════════════════════════════════
-
+SYNTHESIS APPROACH:
 - Identify the 3–5 most important ideas.
 - Merge overlapping explanations into a single clear narrative.
 - Present concepts in their most distilled, high-signal form.
 - Use examples ONLY if they materially improve understanding.
 - Prioritize conceptual clarity over exhaustive detail.
 - Every sentence must add informational value.
-
-Output:
-═══════════════════════════════════════════════════════════════════════════════
-OUTPUT FORMAT & STRUCTURE (MARKDOWN)
-═══════════════════════════════════════════════════════════════════════════════
-
-Return ONLY the Markdown summary following this structure below (do NOT include preamble, code fences, or meta-commentary):
-
-# ${title}
-
-> One sentence stating what this topic is and why it matters.
-
-## Quick Takeaways
-
-• Insight 1
-
-• Insight 2
-
-• Insight 3
-
-• Optional insight 4
-
-## Core Concepts
-
-Break this down into logical sections using ## and ###.
-Explain foundational ideas clearly. Focus on distinct areas.
-Include code blocks if they were present in the source and are essential to explaining concepts.
-
-## Key Terminology
-
-• **Term**: Clear, precise definition
-
-• **Term**: Clear, precise definition
-
-• **Term**: Clear, precise definition
-
-(Include 3–8 essential terms only. Each MUST be on a new line with a blank line between them.)
-
-## Critical Insight
-
-> The most important principle, implication, or takeaway.
-
-## Summary
-
-Write a cohesive, professional synthesis (4-6 sentences).
-- Start by framing the topic within its broader context.
-- Summarize how the core concepts and tools discussed relate to each other.
-- Conclude with the practical or conceptual significance of mastering this material.
-- Avoid a "choked" or overly dense presentation; ensure the narrative flows logically.
 
 FORMATTING RULES (STRICT):
 - Use hierarchy (##, ###).
@@ -619,16 +468,41 @@ FORMATTING RULES (STRICT):
 - Use > for the most important insight or principle.
 - Blank lines before/after headers and between paragraphs.
 
-Stopping conditions:
-═══════════════════════════════════════════════════════════════════════════════
-STOPPING CONDITIONS (NON-NEGOTIABLE)
-═══════════════════════════════════════════════════════════════════════════════
+Output:
+Return ONLY the Markdown summary following this structure below (no preamble, code fences, or meta-commentary):
 
-- If a statement is NOT supported by provided material, do NOT include it.
-- If the output contains quizzes, exercises, or pedagogical language ("let's explore"), it is REJECTED.
-- If the output is purely "AI-sounding" (e.g., using "delve into"), it is REJECTED.
-- Stop when all core concepts are covered and the summary is logically closed.
-- Return ONLY the Markdown summary. No preamble, no postamble, no code fences.
+# ${title}
+> One sentence stating what this topic is and why it matters.
+
+## Quick Takeaways
+• Insight 1
+• Insight 2
+• Insight 3
+
+## Core Concepts
+Break this down into logical sections using ## and ###.
+Explain foundational ideas clearly. Focus on distinct areas.
+
+## Key Terminology
+• **Term**: Clear, precise definition
+• **Term**: Clear, precise definition
+• **Term**: Clear, precise definition
+(Include 3–8 essential terms only. Each MUST be on a new line with a blank line between them.)
+
+## Critical Insight
+> The most important principle, implication, or takeaway.
+
+## Summary
+Write a cohesive, professional synthesis (4-6 sentences).
+- Start by framing the topic within its broader context.
+- Summarize how the core concepts and tools discussed relate to each other.
+- Conclude with the practical or conceptual significance of mastering this material.
+
+Stopping conditions:
+1. Summary is supported by provided material.
+2. Output contains no quizzes or exercises.
+3. No "AI-sounding" language (e.g., "delve into").
+4. Summary is logically closed.
 `;
   }
 
@@ -639,24 +513,20 @@ STOPPING CONDITIONS (NON-NEGOTIABLE)
     sampleAnswer?: string
   ) {
     return `
+Role:
 You are an experienced educator and examiner specialized in fair and consistent evaluation of open-ended theory answers.
 
-TASK:
-Evaluate the student's answer based on the provided marking guidelines and, if available, the sample answer. Score fairly, provide constructive feedback, and identify strengths and improvement areas.
+Task:
+Evaluate the student's answer based on the provided marking guidelines and sample answer.
 
-QUESTION:
-${question}
+Context:
+- Question: ${question}
+- Student Answer: ${studentAnswer}
+- Marking Guidelines: ${JSON.stringify(markingGuideline, null, 2)}
+${sampleAnswer ? `- Sample Answer: ${sampleAnswer}` : ''}
 
-STUDENT ANSWER:
-${studentAnswer}
-
-MARKING GUIDELINES:
-${JSON.stringify(markingGuideline, null, 2)}
-
-${sampleAnswer ? `SAMPLE ANSWER (reference only):\n${sampleAnswer}\n` : ''}
-
+Reasoning:
 EVALUATION RULES:
-
 1. **Content-focused:** Score only the substance of the answer, not style or grammar.
 2. **Key points:** Identify which points from the marking guidelines are addressed.
 3. **Accuracy:** Verify factual correctness of statements.
@@ -664,19 +534,15 @@ EVALUATION RULES:
 5. **Partial credit:** Award proportional points for partially correct responses.
 6. **Alternative valid perspectives:** Accept equivalent explanations and correct rewordings.
 7. **No penalty for minor errors** unless they affect clarity.
-8. **Context-aware:** Prioritize core concepts if the question focuses on fundamentals.
 
 SCORING PROCESS:
-
 1. Match student's statements to key points in the guidelines.
 2. Evaluate each point for correctness and completeness.
-3. Note any additional acceptable concepts not in the guidelines.
-4. Assign scores to each key point and calculate total.
-5. Determine overall quality level (excellent, good, adequate, poor).
-6. Provide constructive feedback highlighting strengths and improvement areas.
+3. Assign scores to each key point and calculate total.
+4. Provide constructive feedback highlighting strengths and improvement areas.
 
-OUTPUT FORMAT:
-Return ONLY valid JSON (no markdown, no code fences, no preamble). Include all fields exactly as below:
+Output:
+Return ONLY valid JSON (no markdown, no code fences, no preamble).
 
 {
   "totalScore": 0,
@@ -692,26 +558,18 @@ Return ONLY valid JSON (no markdown, no code fences, no preamble). Include all f
     }
   ],
   "qualityLevel": "excellent/good/adequate/poor",
-  "strengths": [
-    "List key strengths of the answer"
-  ],
-  "areasForImprovement": [
-    "List actionable improvements"
-  ],
-  "additionalConceptsFound": [
-    "Any valid concepts beyond the marking guideline"
-  ],
-  "overallFeedback": "Comprehensive summary feedback combining strengths and improvements",
-  "encouragement": "Positive motivational note highlighting student's achievement"
+  "strengths": ["List key strengths"],
+  "areasForImprovement": ["List improvement areas"],
+  "additionalConceptsFound": ["Any valid concepts beyond the guidelines"],
+  "overallFeedback": "Summary feedback",
+  "encouragement": "Positive motivational note"
 }
 
-VALIDATION CHECKLIST:
-✓ All key points evaluated fairly  
-✓ Partial credit applied correctly  
-✓ Feedback is specific, constructive, and actionable  
-✓ Tone is encouraging and professional  
-✓ JSON is valid and parseable  
-✓ No hallucinations or irrelevant content included  
+Stopping conditions:
+1. All key points are evaluated fairly.
+2. Partial credit is applied correctly.
+3. Feedback is specific and constructive.
+4. JSON is valid and parseable.
 `;
   }
 
@@ -723,13 +581,13 @@ VALIDATION CHECKLIST:
   ) {
     return `
 Role:
-You are an expert educational assessment designer specializing in open-ended theory questions that test deep understanding, critical thinking, and application.
+You are an expert educational assessment designer specializing in open-ended theory questions that test deep understanding.
 
 Task:
-Generate exactly ${numberOfQuestions} high-quality theory questions using the parameters below. Include comprehensive marking guidelines and sample answers. Follow JSON output strictly.
+Generate exactly ${numberOfQuestions} high-quality theory questions.
 
 Context:
-- Topic: ${topic || 'Not specified (derive from source content only)'}
+- Topic: ${topic || 'Not specified'}
 - Difficulty Level: ${difficulty}
 - Source Content: ${sourceContent || 'None provided'}
 
@@ -737,27 +595,18 @@ Reasoning:
 DESIGN PRINCIPLES:
 1. DEPTH: Require explanation, analysis, synthesis, or evaluation. Avoid simple recall.
 2. CLARITY: Questions must be precise, unambiguous, and stand alone.
-3. SCOPE: Expected answers: 100-300 words (adjust based on difficulty).
+3. SCOPE: Expected answers: 100-300 words.
 4. ACCURACY: Marking guidelines must be fair, comprehensive, and measurable.
-5. SOURCE FIDELITY: If source content is provided, base questions strictly on it.
+5. SOURCE FIDELITY: Base questions strictly on provided source (if any).
 6. NO SOURCE REFERENCES: Do NOT reference source material in the question.
-7. GENERAL KNOWLEDGE: If source is missing, use high-quality general knowledge.
-8. NO HALLUCINATION: Generate fewer questions rather than inventing if source is limited.
-9. DIVERSITY: Cover different aspects without redundancy.
-
-DIFFICULTY GUIDELINES:
-- EASY: Explain or describe core concepts; 2-4 key points.
-- MEDIUM: Compare, analyze, or apply concepts; 4-6 key points.
-- HARD: Synthesize, evaluate, or solve problems; 6-8 key points.
 
 MARKING GUIDELINES:
 - Key Points: Specific, measurable, and directly tied to the question.
 - Point Values: 1-3 points per key point; total 10-20 points.
-- Acceptable Concepts: Include related ideas or valid alternative explanations.
-- Quality Criteria: Define excellent, good, adequate, or poor responses.
+- Quality Criteria: Define levels (excellent, good, adequate, poor).
 
 Output:
-Return ONLY valid JSON (no markdown, no code fences, no preamble):
+Return ONLY valid JSON (no markdown, no code fences, no preamble).
 
 {
   "title": "Theory Questions: ${topic || 'Untitled'}",
@@ -766,39 +615,33 @@ Return ONLY valid JSON (no markdown, no code fences, no preamble):
   "questions": [
     {
       "questionType": "theory",
-      "question": "Open-ended question requiring detailed explanation",
+      "question": "Open-ended question",
       "markingGuideline": {
         "maxPoints": 10,
         "keyPoints": [
-          {"point": "Specific concept or fact to mention", "value": 2},
-          {"point": "Another critical concept", "value": 2}
+          {"point": "Specific concept", "value": 2}
         ],
-        "acceptableConcepts": [
-          "Related concept that adds value",
-          "Alternative correct perspective"
-        ],
+        "acceptableConcepts": ["Related concept"],
         "qualityCriteria": {
-          "excellent": "Detailed, comprehensive answer covering all key points",
-          "good": "Mostly complete answer with minor gaps",
-          "adequate": "Partial answer covering some key points",
-          "poor": "Minimal or inaccurate answer"
+          "excellent": "Description",
+          "good": "Description",
+          "adequate": "Description",
+          "poor": "Description"
         }
       },
-      "sampleAnswer": "Concise model answer demonstrating expected coverage and depth",
-      "explanation": "Brief note on what this question tests or why it is important",
+      "sampleAnswer": "Model answer",
+      "explanation": "Brief note",
       "citation": "Source reference if applicable"
     }
   ]
 }
 
 Stopping conditions:
-✓ Exactly ${numberOfQuestions} questions generated (or fewer if source limited)  
-✓ All required fields present and complete  
-✓ No invented information if source content provided  
-✓ No markdown or code fences in output  
-✓ Questions test understanding, not recall  
-✓ Marking guidelines are fair, detailed, and measurable  
-✓ JSON is valid and parseable
+1. Exactly ${numberOfQuestions} questions generated (or fewer if source limited).
+2. All required fields are present and complete.
+3. Questions test understanding, not recall.
+4. Marking guidelines are fair, detailed, and measurable.
+5. JSON is valid and parseable.
 `;
   }
 
@@ -867,31 +710,30 @@ ${fileContext}`;
    */
   static studyRecommendations(weakTopics: string, recentAttempts: string) {
     return `
+Role:
 You are an expert learning strategist who provides actionable study recommendations based on student performance.
 
-INPUT DATA:
+Task:
+Analyze student performance and generate personalized study recommendations.
+
+Context:
 - Weak Topics: ${weakTopics}
 - Recent Performance History (last 10 attempts): ${recentAttempts}
 
+Reasoning:
 ANALYSIS FRAMEWORK:
-1. **Performance Gaps:** Identify topics with lowest scores or highest error rates
-2. **Recency:** Prioritize topics not practiced in the last 5-7 days
-3. **Learning Progression:** Consider prerequisite relationships
-4. **Engagement:** Balance challenge with achievable targets
+1. **Performance Gaps:** Identify topics with lowest scores or highest error rates.
+2. **Recency:** Prioritize topics not practiced in the last 5-7 days.
+3. **Learning Progression:** Consider prerequisite relationships.
+4. **Engagement:** Balance challenge with achievable targets.
 
 PRIORITY LEVELS:
-- **HIGH:** Critical gaps (score <60%) or fundamental concepts not mastered
-- **MEDIUM:** Moderate gaps (score 60-75%) or important supporting topics
-- **LOW:** Minor gaps (score >75%) or enrichment topics
+- **HIGH:** Critical gaps (score <60%) or fundamental concepts not mastered.
+- **MEDIUM:** Moderate gaps (score 60-75%) or important supporting topics.
+- **LOW:** Minor gaps (score >75%) or enrichment topics.
 
-REQUIREMENTS:
-✓ Provide clear rationale for each recommendation based on the data  
-✓ Focus on actionable steps students can take immediately  
-✓ Use constructive, encouraging language  
-✓ Keep responses concise and structured
-
-OUTPUT:
-Return ONLY valid JSON (no markdown, no fences, no preamble):
+Output:
+Return ONLY valid JSON (no markdown, no fences, no preamble).
 
 {
   "recommendations": [
@@ -902,6 +744,12 @@ Return ONLY valid JSON (no markdown, no fences, no preamble):
     }
   ]
 }
+
+Stopping conditions:
+1. Recommendations are data-driven based on input.
+2. Each recommendation has a clear rationale.
+3. Priority levels are applied correctly.
+4. JSON is valid and parseable.
 `;
   }
 
@@ -912,27 +760,33 @@ Return ONLY valid JSON (no markdown, no fences, no preamble):
    */
   static conceptExtraction(questions: string) {
     return `
+Role:
 You are an expert in learning analytics and knowledge modeling.
 
-TASK:
+Task:
 Extract the core learning concepts from each quiz question to track weak areas.
 
-INPUT:
-- Quiz Questions:
-${questions}
+Context:
+- Quiz Questions: ${questions}
 
+Reasoning:
 REQUIREMENTS:
-- Identify the specific concept, skill, or knowledge area tested by each question  
-- Keep each concept concise (under 100 characters)  
-- Avoid generic terms; be as precise as possible  
-- Do not add explanations, examples, or external information
+- Identify the specific concept, skill, or knowledge area tested by each question.
+- Keep each concept concise (under 100 characters).
+- Avoid generic terms; be as precise as possible.
+- Do not add explanations, examples, or external information.
 
-OUTPUT:
-Return ONLY valid JSON (no markdown, no fences, no preamble):
+Output:
+Return ONLY valid JSON (no markdown, no fences, no preamble).
 
 {
   "concepts": ["Concept 1", "Concept 2", "..."]
 }
+
+Stopping conditions:
+1. Only the most relevant concepts are extracted.
+2. Concepts are concise and precise.
+3. JSON is valid and parseable.
 `;
   }
 
@@ -943,25 +797,30 @@ Return ONLY valid JSON (no markdown, no fences, no preamble):
    */
   static understandingSummary(topic: string, performance: string) {
     return `
+Role:
 You are an encouraging and data-driven educator providing constructive feedback.
 
-TASK:
-Generate a concise summary of a student's understanding of "${topic}" based on performance data.
+Task:
+Generate a concise summary of a student's understanding based on performance data.
 
-INPUT:
-- Performance Data:
-${performance}
+Context:
+- Topic: ${topic}
+- Performance Data: ${performance}
 
+Reasoning:
 REQUIREMENTS:
-✓ Keep summary under 150 words  
-✓ Highlight specific strengths and achievements  
-✓ Identify areas for improvement with actionable guidance  
-✓ Use professional, supportive, and encouraging tone  
-✓ Present in clear, structured Markdown  
-✓ Start directly with the summary; no preamble or extraneous commentary
+- Keep summary under 150 words.
+- Highlight specific strengths and achievements.
+- Identify areas for improvement with actionable guidance.
+- Use professional, supportive, and encouraging tone.
 
-OUTPUT:
-Return only the summary text in Markdown format.
+Output:
+Return only the summary text in Markdown format. Start directly with the summary; no preamble or meta-commentary.
+
+Stopping conditions:
+1. Summary is under 150 words.
+2. Feedback is constructive and data-driven.
+3. Tone is encouraging and professional.
 `;
   }
 }
