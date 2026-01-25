@@ -55,7 +55,8 @@ PEDAGOGICAL QUALITY:
 CLARITY & FAIRNESS:
 - Clear, direct, unambiguous language
 - No double negatives
-- Questions must stand alone
+- Questions must stand alone (test the concept, not the reading)
+- Do NOT reference the source material in the question (e.g., avoid "according to the text", "based on the passage", "as mentioned in the source")
 
 ───────────────────────────────
 DIFFICULTY CALIBRATION
@@ -202,6 +203,7 @@ CLARITY & PRECISION:
 - Front and back MUST be unambiguous
 - Avoid vague pronouns or unclear references
 - The learner must clearly know what is being tested
+- Do NOT reference the source material on the front of the card (e.g., avoid "according to the text")
 
 PEDAGOGICAL VALUE:
 - Focus on concepts worth remembering
@@ -928,10 +930,15 @@ ${sourceContent ? `- Source Content:\n${sourceContent}\n` : '- Source Content: N
 
 DESIGN PRINCIPLES:
 
+1. **DEPTH:** Require explanation, analysis, synthesis, or evaluation. Avoid simple recall.
+2. **CLARITY:** Questions must be precise, unambiguous, and stand alone.
+3. **SCOPE:** Expected answers: 100-300 words (adjust based on difficulty).
+4. **ACCURACY:** Marking guidelines must be fair, comprehensive, and measurable.
 5. **SOURCE FIDELITY:** If source content is provided, base questions strictly on it.
-6. **GENERAL KNOWLEDGE:** If source content is NOT provided or is insufficient, use high-quality, factually accurate general knowledge about the topic.
-7. **NO HALLUCINATION:** If source content is provided but insufficient for the requested count, generate fewer questions rather than inventing.
-8. **DIVERSITY:** Questions should cover different aspects of the topic without redundancy.
+6. **NO SOURCE REFERENCES:** Do NOT reference the source material in the question (e.g., avoid "according to the text").
+7. **GENERAL KNOWLEDGE:** If source content is NOT provided or is insufficient, use high-quality, factually accurate general knowledge about the topic.
+8. **NO HALLUCINATION:** If source content is provided but insufficient for the requested count, generate fewer questions rather than inventing.
+9. **DIVERSITY:** Questions should cover different aspects of the topic without redundancy.
 
 DIFFICULTY GUIDELINES:
 
