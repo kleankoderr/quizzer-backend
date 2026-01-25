@@ -1,4 +1,5 @@
 import { Logger, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
@@ -29,7 +30,8 @@ export class SummaryGenerationStrategy implements JobStrategy<
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
-    private readonly summaryService: SummaryService
+    private readonly summaryService: SummaryService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async preProcess(job: Job<SummaryJobData>): Promise<SummaryContext> {
@@ -107,9 +109,21 @@ export class SummaryGenerationStrategy implements JobStrategy<
       content.learningGuide || null
     );
 
-    const summaryText = await this.langchainService.invoke(prompt, {
+    let summaryText = '';
+    const stream = this.langchainService.stream(prompt, {
+      userId: context.userId,
       task: 'summary',
     });
+
+    for await (const chunk of stream) {
+      summaryText += chunk;
+
+      // Emit chunk event for real-time progress
+      this.eventEmitter.emit(
+        EVENTS.SUMMARY.CHUNK,
+        EventFactory.summaryChunk(context.userId, jobId, chunk)
+      );
+    }
 
     const shortCode = await this.summaryService.generateShortCode();
 
@@ -169,7 +183,7 @@ export class SummaryGenerationStrategy implements JobStrategy<
   }
 
   getQuotaType(_context: SummaryContext): string {
-    return '';
+    return 'summary';
   }
 
   getEventNames() {

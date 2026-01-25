@@ -15,7 +15,6 @@ import { Throttle } from '@nestjs/throttler';
 import { SummaryService } from './summary.service';
 import { ToggleVisibilityDto, AddReactionDto } from './dto/summary.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PremiumGuard } from '../common/guards/premium.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
@@ -34,11 +33,11 @@ export class SummaryController {
 
   /**
    * Queue summary generation for a study material
-   * Requires: JWT auth + Premium plan
+   * Requires: JWT auth
    * Returns: Job ID for tracking
    */
   @Post(':id/generate')
-  @UseGuards(JwtAuthGuard, PremiumGuard)
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   async queueSummaryGeneration(
     @CurrentUser('sub') userId: string,

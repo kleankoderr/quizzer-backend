@@ -65,6 +65,7 @@ model UserQuota {
   monthlySmartCompanionCount      Int      @default(0)
   monthlySmartRecommendationCount Int      @default(0)
   monthlyStudyMaterialCount       Int      @default(0)
+  monthlySummaryCount             Int      @default(0)
   monthlyWeakAreaAnalysisCount    Int      @default(0)
   user                            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

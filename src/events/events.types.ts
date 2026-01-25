@@ -1,6 +1,6 @@
 import { EVENTS } from './events.constants';
-
 export { EVENTS };
+export type { EventType } from './events.constants';
 
 // ==================== BASE EVENT INTERFACES ====================
 
@@ -188,6 +188,12 @@ export interface UserLevelUpEvent extends BaseEvent {
 
 export interface SummaryProgressEvent extends ProgressEvent {
   eventType: typeof EVENTS.SUMMARY.PROGRESS;
+}
+
+export interface SummaryChunkEvent extends BaseEvent {
+  eventType: typeof EVENTS.SUMMARY.CHUNK;
+  jobId: string;
+  chunk: string;
 }
 
 export interface SummaryCompletedEvent extends CompletionEvent {
@@ -486,6 +492,18 @@ export const EventFactory = {
     step,
     percentage,
     message,
+    timestamp: Date.now(),
+  }),
+
+  summaryChunk: (
+    userId: string,
+    jobId: string,
+    chunk: string
+  ): SummaryChunkEvent => ({
+    eventType: EVENTS.SUMMARY.CHUNK,
+    userId,
+    jobId,
+    chunk,
     timestamp: Date.now(),
   }),
 

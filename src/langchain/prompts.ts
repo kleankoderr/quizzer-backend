@@ -662,11 +662,13 @@ Start directly with the first example.
     learningGuide: any
   ) {
     return `
+Role:
 You are an expert educational content editor. Your job is to synthesize study material into a clear, professional, high-signal reference summary.
 
-TASK:
-Create a structured summary that captures the essential knowledge from the provided material for fast review and long-term retention.
+Task:
+Create a structured summary that captures the essential knowledge from the provided material for fast review and long-term retention. Target length: 400–1200 words (absolute max 1500 words).
 
+Context:
 ═══════════════════════════════════════════════════════════════════════════════
 INPUT MATERIAL
 ═══════════════════════════════════════════════════════════════════════════════
@@ -676,89 +678,24 @@ INPUT MATERIAL
 - Content: ${content || 'Not provided'}
 ${learningGuide ? `- Learning Guide: ${JSON.stringify(learningGuide)}` : ''}
 
-═══════════════════════════════════════════════════════════════════════════════
-NON-NEGOTIABLE RULES
-═══════════════════════════════════════════════════════════════════════════════
-
-SOURCE FIDELITY:
-- Every statement MUST be supported by the provided material
-- Do NOT introduce external facts, interpretations, or examples
-- Do NOT infer beyond what is explicitly or clearly implied
-- If material is limited, summarize only what exists
-
-EXCLUSIONS (STRICT):
-- NO quizzes, knowledge checks, or questions
-- NO exercises, activities, or assessments
-- NO step-by-step tutorials unless they are the core content
-- NO pedagogical language (e.g., “let’s explore”, “you’ll learn”)
-- NO motivational or engagement phrasing
-- NO references to the learning guide as a document
-
-TONE & STYLE:
-- Academic, neutral, and professional
-- Clear and direct phrasing
-- No colloquialisms or filler phrases
-- No emojis, symbols, or decorative language
-- Avoid “AI-sounding” phrases (e.g., “delve into”, “it’s worth noting”)
-
-LENGTH:
-- Target: 400–800 words
-- Absolute maximum: 1000 words
-- Every sentence must add informational value
-
+Reasoning:
 ═══════════════════════════════════════════════════════════════════════════════
 SYNTHESIS APPROACH
 ═══════════════════════════════════════════════════════════════════════════════
 
-- Identify the 3–5 most important ideas
-- Merge overlapping explanations into a single clear narrative
-- Present concepts in their most distilled, high-signal form
-- Use examples ONLY if they materially improve understanding
-- Prioritize conceptual clarity over exhaustive detail
+- Identify the 3–5 most important ideas.
+- Merge overlapping explanations into a single clear narrative.
+- Present concepts in their most distilled, high-signal form.
+- Use examples ONLY if they materially improve understanding.
+- Prioritize conceptual clarity over exhaustive detail.
+- Every sentence must add informational value.
 
+Output:
 ═══════════════════════════════════════════════════════════════════════════════
-FORMATTING STANDARDS (MARKDOWN)
+OUTPUT FORMAT & STRUCTURE (MARKDOWN)
 ═══════════════════════════════════════════════════════════════════════════════
 
-HEADERS:
-- Use ## for main sections
-- Use ### only for meaningful subsections
-- Section titles must be specific (avoid “Introduction”, “Overview”)
-
-EMPHASIS:
-- **Bold** key terms on first mention
-- Use sparingly and intentionally
-
-LISTS:
-- Bullet points (•) for non-sequential items
-- Numbered lists only for ordered or ranked items
-- 1–2 sentences per bullet
-- Blank line between bullets
-
-CODE:
-- Use \`inline code\` for technical terms, variables, functions
-- Use fenced code blocks ONLY if essential
-- Always specify language (e.g., \`\`\`javascript)
-- No large or decorative code blocks
-
-BLOCKQUOTES:
-- Use > ONLY for the most important insight or principle
-- Maximum 1–2 blockquotes in total
-
-SPACING:
-- Blank lines before/after headers
-- Blank lines between paragraphs
-- Blank lines around lists and blockquotes
-
-LANGUAGE CONSISTENCY:
-- Define technical terms on first use
-- Use one term per concept (no synonyms)
-- Follow standard English hyphenation rules
-- Hyphenate compound adjectives before nouns only
-
-═══════════════════════════════════════════════════════════════════════════════
-REQUIRED STRUCTURE (MANDATORY)
-═══════════════════════════════════════════════════════════════════════════════
+Return ONLY the Markdown summary following this structure below (do NOT include preamble, code fences, or meta-commentary):
 
 # ${title}
 
@@ -766,65 +703,62 @@ REQUIRED STRUCTURE (MANDATORY)
 
 ## Quick Takeaways
 
-• The single most important insight  
-• Second core principle or concept  
-• Third essential idea  
-• Optional fourth ONLY if critical
+• Insight 1
+
+• Insight 2
+
+• Insight 3
+
+• Optional insight 4
 
 ## Core Concepts
 
-2–3 paragraphs explaining the foundational ideas.  
-Each paragraph must focus on a distinct concept.
-
-If there are multiple major areas, split them clearly:
-
-### Concept Area 1
-Explanation
-
-### Concept Area 2
-Explanation
+Break this down into logical sections using ## and ###.
+Explain foundational ideas clearly. Focus on distinct areas.
+Include code blocks if they were present in the source and are essential to explaining concepts.
 
 ## Key Terminology
 
-• **Term**: Clear, precise definition  
-• **Term**: Clear, precise definition  
-• **Term**: Clear, precise definition  
+• **Term**: Clear, precise definition
 
-(Include 3–6 essential terms only)
+• **Term**: Clear, precise definition
+
+• **Term**: Clear, precise definition
+
+(Include 3–8 essential terms only. Each MUST be on a new line with a blank line between them.)
 
 ## Critical Insight
 
-> The most important principle, implication, or takeaway supported by the material.
-
-Optional short elaboration ONLY if it adds value.
+> The most important principle, implication, or takeaway.
 
 ## Summary
 
-2–4 sentences synthesizing the topic.  
-No new information.  
-End with practical or conceptual significance.
+Write a cohesive, professional synthesis (4-6 sentences).
+- Start by framing the topic within its broader context.
+- Summarize how the core concepts and tools discussed relate to each other.
+- Conclude with the practical or conceptual significance of mastering this material.
+- Avoid a "choked" or overly dense presentation; ensure the narrative flows logically.
 
+FORMATTING RULES (STRICT):
+- Use hierarchy (##, ###).
+- Use **bold** for key terms on first mention.
+- Use bullet points (•) for lists.
+- EVERY list item MUST be on its own line.
+- Use a **blank line** between every list item to ensure they do not merge.
+- Use fenced code blocks with language for snippets.
+- Use > for the most important insight or principle.
+- Blank lines before/after headers and between paragraphs.
+
+Stopping conditions:
 ═══════════════════════════════════════════════════════════════════════════════
-QUALITY CHECK (SELF-VERIFY BEFORE OUTPUT)
+STOPPING CONDITIONS (NON-NEGOTIABLE)
 ═══════════════════════════════════════════════════════════════════════════════
 
-✓ All content traceable to source  
-✓ No quizzes or pedagogical elements  
-✓ Clear hierarchy and scannability  
-✓ Terminology consistent  
-✓ High signal-to-noise ratio  
-✓ Professional tone throughout  
-✓ Markdown formatting correct  
-✓ Word count within limits  
-
-═══════════════════════════════════════════════════════════════════════════════
-OUTPUT
-═══════════════════════════════════════════════════════════════════════════════
-
-Return ONLY the Markdown summary.
-No preamble.
-No code fences.
-Start directly with the content.
+- If a statement is NOT supported by provided material, do NOT include it.
+- If the output contains quizzes, exercises, or pedagogical language ("let's explore"), it is REJECTED.
+- If the output is purely "AI-sounding" (e.g., using "delve into"), it is REJECTED.
+- Stop when all core concepts are covered and the summary is logically closed.
+- Return ONLY the Markdown summary. No preamble, no postamble, no code fences.
 `;
   }
 

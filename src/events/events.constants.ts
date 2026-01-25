@@ -36,6 +36,7 @@ export const EVENTS = {
   },
   SUMMARY: {
     PROGRESS: 'summary.progress',
+    CHUNK: 'summary.chunk',
     COMPLETED: 'summary.completed',
     FAILED: 'summary.failed',
   },
