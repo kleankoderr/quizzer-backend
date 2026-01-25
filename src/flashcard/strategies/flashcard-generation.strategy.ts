@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
-import { FlashcardSetSchema } from '../../langchain/schemas/flashcard.schema';
 import { StudyPackService } from '../../study-pack/study-pack.service';
 import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
@@ -69,21 +68,17 @@ export class FlashcardGenerationStrategy implements JobStrategy<
       `Job ${context.jobId}: Generating flashcards with ${inputSources.length} input source(s)`
     );
 
-    const prompt = await LangChainPrompts.flashcardGeneration.format({
-      cardCount: dto.numberOfCards.toString(),
-      topic: dto.topic || '',
-      sourceContentSection: LangChainPrompts.formatSourceContent(contentForAI),
-    });
-
-    const result = await this.langchainService.invokeWithStructure(
-      FlashcardSetSchema,
-      prompt,
-      {
-        task: 'flashcard',
-        userId: context.userId,
-        jobId: context.jobId,
-      }
+    const prompt = LangChainPrompts.generateFlashcards(
+      dto.topic || '',
+      dto.numberOfCards,
+      contentForAI || ''
     );
+
+    const result = await this.langchainService.invokeWithJsonParser(prompt, {
+      task: 'flashcard',
+      userId: context.userId,
+      jobId: context.jobId,
+    });
 
     const latency = Date.now() - startTime;
     this.logger.log(

@@ -11,7 +11,7 @@ export interface InvokeContext {
 @Injectable()
 export class LangChainService {
   private readonly logger = new Logger(LangChainService.name);
-  private readonly DEFAULT_TIMEOUT_MS = 60000; // 30 seconds
+  private readonly DEFAULT_TIMEOUT_MS = 60000; // 60 seconds
   private readonly JSON_PARSER_TIMEOUT_MS = 60000; // 60 seconds
 
   constructor(private readonly modelConfig: ModelConfigService) {}

@@ -3,7 +3,6 @@ import { CacheService } from './cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PlatformSettings } from '@prisma/client';
 
-// Since we removed multi-provider support, this is now a stub type
 export type AiProviderConfig = Record<string, any>;
 
 export interface AiOption {
@@ -23,11 +22,6 @@ export class PlatformSettingsService {
   private readonly AI_OPTIONS_CACHE_KEY = 'ai_options';
   private readonly CACHE_TTL = 3600 * 1000; // 1 hour
 
-  // Provider label mapping (no longer used with single provider)
-  // private readonly PROVIDER_LABELS: Record<string, string> = {
-  //   gemini: 'Google Gemini',
-  // };
-
   // Task label mapping (can be customized)
   private readonly TASK_LABELS: Record<string, string> = {
     quiz: 'Quiz',
@@ -38,13 +32,6 @@ export class PlatformSettingsService {
     explanation: 'Explanation',
     learningGuide: 'Learning Guide',
   };
-
-  // Complexity label mapping (no longer used)
-  // private readonly COMPLEXITY_LABELS: Record<string, string> = {
-  //   simple: 'Simple',
-  //   medium: 'Medium',
-  //   complex: 'Complex',
-  // };
 
   constructor(
     private readonly prisma: PrismaService,

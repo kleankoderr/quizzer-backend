@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
-import { QuizGenerationSchema } from '../../langchain/schemas/quiz.schema';
 import { StudyPackService } from '../../study-pack/study-pack.service';
 import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
@@ -86,15 +85,11 @@ export class QuizGenerationStrategy implements JobStrategy<
 
     const prompt = await this.buildQuizPrompt(dto, contentForAI);
 
-    const result = await this.langchainService.invokeWithStructure(
-      QuizGenerationSchema,
-      prompt,
-      {
-        task: 'quiz',
-        userId: context.userId,
-        jobId: context.jobId,
-      }
-    );
+    const result = await this.langchainService.invokeWithJsonParser(prompt, {
+      task: 'quiz',
+      userId: context.userId,
+      jobId: context.jobId,
+    });
 
     const latency = Date.now() - startTime;
     this.logger.log(
@@ -191,14 +186,14 @@ export class QuizGenerationStrategy implements JobStrategy<
         ? dto.questionTypes.join(', ')
         : 'single-select, true-false, fill-blank';
 
-    return await LangChainPrompts.quizGeneration.format({
-      difficulty: dto.difficulty || 'Medium',
-      topic: dto.topic || '', // No default
-      sourceContentSection: LangChainPrompts.formatSourceContent(content),
-      questionCount: dto.numberOfQuestions.toString(),
-      questionTypes: `${dto.quizType || 'standard'} - ${questionTypes}`,
-      focusAreas: LangChainPrompts.formatFocusAreas(),
-    });
+    return LangChainPrompts.generateQuiz(
+      dto.topic || '',
+      dto.numberOfQuestions,
+      dto.difficulty || 'Medium',
+      dto.quizType || 'standard',
+      questionTypes,
+      content || ''
+    );
   }
 
   private mapQuizType(quizType?: string): QuizType {

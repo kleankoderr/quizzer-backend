@@ -3,7 +3,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuizType, RetentionLevel } from '@prisma/client';
 import { LangChainPrompts } from '../langchain/prompts';
-import { ConceptListSchema } from '../langchain/schemas/quiz.schema';
 
 export interface PerformancePattern {
   averageScore: number;
@@ -341,12 +340,11 @@ export class AssessmentService {
     }
 
     try {
-      const prompt = await LangChainPrompts.conceptExtraction.format({
-        questions: JSON.stringify(questions),
-      });
+      const prompt = LangChainPrompts.conceptExtraction(
+        JSON.stringify(questions)
+      );
 
-      const response = await this.langchainService.invokeWithStructure(
-        ConceptListSchema,
+      const response = await this.langchainService.invokeWithJsonParser(
         prompt,
         {
           task: 'concept_extraction',

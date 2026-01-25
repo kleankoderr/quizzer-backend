@@ -85,10 +85,10 @@ export class InsightsService {
     performance: number
   ): Promise<string> {
     try {
-      const prompt = await LangChainPrompts.understandingSummary.format({
+      const prompt = LangChainPrompts.understandingSummary(
         topic,
-        performance: JSON.stringify({ averageScore: performance }),
-      });
+        JSON.stringify({ averageScore: performance })
+      );
       const summary = await this.langchainService.invoke(prompt, {
         task: 'summary',
       });

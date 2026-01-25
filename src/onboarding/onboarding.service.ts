@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuizType, TaskStatus, TaskType } from '@prisma/client';
-import { QuizGenerationSchema } from '../langchain/schemas/quiz.schema';
 import { LangChainPrompts } from '../langchain/prompts';
 import { QuizUtils } from '../quiz/quiz.utils';
 
@@ -68,17 +67,16 @@ export class OnboardingService {
       });
 
       // Generate quiz using AI
-      const prompt = await LangChainPrompts.quizGeneration.format({
-        difficulty: 'Medium',
-        topic: userTopic,
-        sourceContentSection: LangChainPrompts.formatSourceContent(),
-        questionCount: 10,
-        questionTypes: 'standard - single-select, true-false',
-        focusAreas: LangChainPrompts.formatFocusAreas(),
-      });
+      const prompt = LangChainPrompts.generateQuiz(
+        userTopic,
+        10,
+        'Medium',
+        'standard',
+        'single-select, true-false',
+        ''
+      );
 
-      const generatedQuiz = await this.langchainService.invokeWithStructure(
-        QuizGenerationSchema,
+      const generatedQuiz = await this.langchainService.invokeWithJsonParser(
         prompt,
         {
           task: 'quiz',

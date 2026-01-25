@@ -10,7 +10,6 @@ import { LeaderboardService } from '../leaderboard/leaderboard.service';
 import { QuizType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { LangChainService } from '../langchain/langchain.service';
-import { QuizGenerationSchema } from '../langchain/schemas/quiz.schema';
 import { LangChainPrompts } from '../langchain/prompts';
 import { QuizUtils } from '../quiz/quiz.utils';
 
@@ -1202,17 +1201,16 @@ export class ChallengeService {
         }
 
         // Generate a new quiz for this challenge using AI
-        const prompt = await LangChainPrompts.quizGeneration.format({
-          difficulty: (optimalDifficulty as string) || 'Medium',
-          topic: topicQuiz.topic,
-          sourceContentSection: LangChainPrompts.formatSourceContent(),
-          questionCount: numberOfQuestions.toString(),
-          questionTypes: `${quizType.toLowerCase()} - ${questionTypes.join(', ')}`,
-          focusAreas: LangChainPrompts.formatFocusAreas(),
-        });
+        const prompt = LangChainPrompts.generateQuiz(
+          topicQuiz.topic,
+          numberOfQuestions,
+          (optimalDifficulty as string) || 'Medium',
+          quizType.toLowerCase(),
+          questionTypes.join(', '),
+          ''
+        );
 
-        const generatedQuiz = await this.langchainService.invokeWithStructure(
-          QuizGenerationSchema,
+        const generatedQuiz = await this.langchainService.invokeWithJsonParser(
           prompt,
           {
             task: 'quiz',
@@ -1266,17 +1264,16 @@ export class ChallengeService {
     // 3. Mixed Challenge (General Knowledge or Random)
     const mixedTitle = 'Daily Mix';
     if (!existingTitles.has(mixedTitle.toLowerCase())) {
-      const prompt = await LangChainPrompts.quizGeneration.format({
-        difficulty: 'Medium',
-        topic: 'General Knowledge',
-        sourceContentSection: LangChainPrompts.formatSourceContent(),
-        questionCount: '5',
-        questionTypes: 'standard - single-select',
-        focusAreas: LangChainPrompts.formatFocusAreas(),
-      });
+      const prompt = LangChainPrompts.generateQuiz(
+        'General Knowledge',
+        5,
+        'Medium',
+        'standard',
+        'single-select',
+        ''
+      );
 
-      const generatedQuiz = await this.langchainService.invokeWithStructure(
-        QuizGenerationSchema,
+      const generatedQuiz = await this.langchainService.invokeWithJsonParser(
         prompt,
         {
           task: 'quiz',

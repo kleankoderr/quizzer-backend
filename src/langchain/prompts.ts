@@ -1,405 +1,1014 @@
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-
-/**
- * LangChain Prompt Templates
- *
- * This file contains all AI prompts using LangChain's ChatPromptTemplate.
- * Following best practices:
- * - Clear separation of system and user messages
- * - No redundant JSON formatting instructions (schema handles that)
- * - Explicit constraints and quality criteria
- * - Context-first approach
- * - Model-agnostic design
- */
-
 export class LangChainPrompts {
-  /**
-   * Quiz Generation Prompt
-   *
-   * Generates high-quality, pedagogically sound quiz questions.
-   */
-  static readonly quizGeneration = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      `You are an expert quiz designer creating valid, pedagogically sound questions.
+  static generateQuiz(
+    topic: string,
+    numberOfQuestions: number,
+    difficulty: string,
+    quizType: string,
+    questionTypeInstructions: string,
+    sourceContent: string = ''
+  ) {
+    return `
+You are a professional educational assessment designer. Your task is to create quizzes that measure understanding accurately, not guesswork or memorization.
 
-Core principles:
-- Test understanding, not memorization
-- Clear, unambiguous wording
-- Plausible distractors
-- No trick questions or meta-questions`,
-    ],
-    [
-      'human',
-      `Create a {difficulty} level quiz about {topic}.
+───────────────────────────────
+TASK
+───────────────────────────────
+Generate EXACTLY ${numberOfQuestions} high-quality quiz questions.
 
-{sourceContentSection}
+- If the source content cannot support ${numberOfQuestions} valid questions:
+  - Generate FEWER questions
+  - Do NOT invent content
+  - Never compromise quality for quantity
+- Confirm the number of questions in the final output
 
-Requirements:
-- Generate exactly {questionCount} questions with a creative title
-- Types: {questionTypes}
-- Multiple-choice: exactly 4 options
-- True-false: ["True", "False"], correctAnswer 0 or 1
-- Matching: "leftColumn", "rightColumn" (4-5 each), "correctAnswer" array
-- Include clear explanations
+───────────────────────────────
+INPUT
+───────────────────────────────
+Topic: ${topic || 'Derive strictly from source content'}
+Difficulty: ${difficulty}
+Quiz Type: ${quizType}
+Question Types: ${questionTypeInstructions}
 
-CRITICAL - Source Adherence:
-✓ Base ALL content EXCLUSIVELY on provided source material
-✓ Do NOT add information from external knowledge
-✓ If source is insufficient, use ONLY {topic} fundamentals
+Source Content:
+${sourceContent || topic || 'None provided'}
 
-CRITICAL - No Meta Questions:
-✗ NO questions about document structure, word counts, or chapter numbers
-✗ NO logic puzzles unrelated to {topic}
-✓ ONLY questions testing {topic} knowledge directly
+───────────────────────────────
+ASSESSMENT RULES
+───────────────────────────────
 
-Quality:
-- Each question tests ONE specific concept
-- Language appropriate for {difficulty} level
-- Distractors plausible but distinguishable
-- Cover different aspects
+ACCURACY & SOURCE FIDELITY:
+- If Source Content is provided:
+  - Questions MUST be answerable using ONLY provided source content
+  - Do NOT introduce external facts, assumptions, or examples
+- If Source Content is NOT provided or is insufficient (e.g., only topic name):
+  - Use high-quality, factually accurate general knowledge about the Topic
+- Do NOT reword questions to change their meaning
+- Each question MUST have one correct answer (multi-select may have multiple)
 
-Focus: {focusAreas}`,
-    ],
-  ]);
+PEDAGOGICAL QUALITY:
+- Easy → recall & basic understanding
+- Medium → application & interpretation
+- Hard → reasoning, synthesis, evaluation
+- Distractors MUST reflect plausible misconceptions
+- Avoid trick questions or test-taking gimmicks
 
-  /**
-   * Flashcard Generation Prompt
-   *
-   * Creates atomic, effective spaced-repetition flashcards.
-   */
-  static readonly flashcardGeneration = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      `You are a flashcard design expert creating atomic, effective spaced-repetition cards.
+CLARITY & FAIRNESS:
+- Clear, direct, unambiguous language
+- No double negatives
+- Questions must stand alone
 
-Principles:
-- ONE concept per card
-- Clear, concise language
-- Front: 5-15 words | Back: 1-3 sentences
-- Focus on understanding, not isolated facts`,
-    ],
-    [
-      'human',
-      `Create {cardCount} flashcards about {topic}.
+───────────────────────────────
+DIFFICULTY CALIBRATION
+───────────────────────────────
 
-{sourceContentSection}
+EASY:
+- Definitions, identification, direct recall
 
-CRITICAL - Source Adherence:
-✓ Base ALL cards EXCLUSIVELY on provided source material
-✓ Do NOT add external information
+MEDIUM:
+- Applying ideas to scenarios
+- Interpreting examples
+- Comparing concepts
 
-CRITICAL - No Meta Content:
-✗ NO cards about document formatting, structure, or word counts
-✓ ONLY cards about {topic} concepts, facts, and relationships
+HARD:
+- Predicting outcomes
+- Evaluating alternatives
+- Integrating multiple concepts
 
-Format:
-- Front: Specific question/term (5-15 words)
-- Back: Complete answer (1-3 sentences)
-- Explanation: Context or examples
+───────────────────────────────
+QUESTION TYPE RULES
+───────────────────────────────
 
-Content Mix:
-- Core concepts/definitions: 40-50%
-- Relationships/processes: 25-35%
-- Facts/classifications: 15-25%
-- Applications: 10-20%
+GENERAL:
+- Options MUST be plain text (no A), B), 1., •)
+- Options MUST be parallel in grammar and length
+- Explanations MUST teach, not just justify
+- Avoid answer patterns
 
-Quality:
-- Factually accurate, unambiguous
-- Independent cards, varied coverage
-- Direct, concrete language`,
-    ],
-  ]);
+TRUE / FALSE:
+- Options: ["True", "False"]
+- correctAnswer: 0 (True) or 1 (False)
+- Statement must be clearly true or false
 
-  /**
-   * Learning Guide Generation Prompt
-   *
-   * Creates comprehensive, intuitive learning materials.
-   */
-  static readonly learningGuideGeneration = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      `You are an expert instructional designer creating clear, engaging learning materials.
+SINGLE-SELECT (MCQ):
+- EXACTLY 4 options
+- ONE correct answer (index 0–3)
+- 3 plausible distractors
+- No “All of the above” / “None of the above”
 
-Principles:
+MULTI-SELECT:
+- Clearly indicate “Select all that apply”
+- 4 options
+- At least 2 correct answers
+- correctAnswer: array of indices
+
+MATCHING:
+- 4 items per column
+- One-to-one mappings
+- correctAnswer: object mapping left → right
+
+FILL-IN-THE-BLANK:
+- Use ____ for blank
+- correctAnswer MUST be an array
+- Include all reasonable variants (case-insensitive)
+- Provide sufficient context to avoid ambiguity
+
+───────────────────────────────
+QUESTION DISTRIBUTION
+───────────────────────────────
+- Cover multiple question types if applicable
+- Distribute across topic areas
+- Avoid clustering on a single concept
+- Questions may progress logically if appropriate
+
+───────────────────────────────
+OUTPUT FORMAT
+───────────────────────────────
+Return ONLY valid JSON (no markdown, no fences, no commentary):
+
+{
+  "title": "Clear, descriptive quiz title",
+  "topic": "${topic || 'Content-Based Quiz'}",
+  "questions": [
+    {
+      "questionType": "single-select | true-false | multi-select | matching | fill-blank",
+      "question": "Question text",
+      "options": [],
+      "correctAnswer": 0 | [0,2] | ["answer"] | {},
+      "explanation": "Why the correct answer is correct and why others are not"
+    }
+  ]
+}
+
+───────────────────────────────
+FINAL VALIDATION
+───────────────────────────────
+Before returning:
+1. Confirm number of questions ≤ ${numberOfQuestions}
+2. Each question:
+   - Matches questionType rules
+   - Has a valid correctAnswer format
+   - Is answerable from the source content
+3. JSON is parseable
+4. No hallucinated content
+5. Explanations teach, do not just justify
+
+Begin directly with the JSON object.
+`;
+  }
+
+  static generateFlashcards(
+    topic: string,
+    numberOfCards: number,
+    sourceContent: string = ''
+  ) {
+    return `
+You are an expert in spaced repetition learning and flashcard design. Your goal is to create flashcards that maximize long-term retention through clarity, atomicity, and pedagogical value.
+
+────────────────────────────────
+TASK
+────────────────────────────────
+Generate EXACTLY ${numberOfCards} high-quality flashcards.
+
+If the provided content does NOT support ${numberOfCards} quality cards:
+- Generate FEWER cards
+- Do NOT invent or infer missing information
+- Accuracy and learning value override quantity
+
+────────────────────────────────
+INPUT
+────────────────────────────────
+Topic: ${topic || 'Derive strictly from source content'}
+
+Source Content:
+${sourceContent || 'None provided'}
+
+────────────────────────────────
+CORE FLASHCARD RULES (NON-NEGOTIABLE)
+────────────────────────────────
+
+ACCURACY & SOURCE FIDELITY:
+- All cards MUST be factually correct
+- If source content is provided, derive cards EXCLUSIVELY from it
+- If source content is NOT provided, use accurate general knowledge about the topic
+- Do NOT introduce external facts, examples, or explanations if source exists
+- Do NOT paraphrase in a way that changes meaning
+
+ATOMICITY (ONE CARD = ONE IDEA):
+- Each card MUST test exactly ONE discrete concept
+- Split complex ideas into multiple cards
+- No multi-part or compound questions
+
+CLARITY & PRECISION:
+- Front and back MUST be unambiguous
+- Avoid vague pronouns or unclear references
+- The learner must clearly know what is being tested
+
+PEDAGOGICAL VALUE:
+- Focus on concepts worth remembering
+- Prefer understanding over trivia
+- Support recall and transfer of knowledge
+
+────────────────────────────────
+CARD STRUCTURE (STRICT)
+────────────────────────────────
+
+FRONT:
+- 5–15 words ideal (25 words max)
+- Allowed formats:
+  - Direct question (“What is X?”)
+  - Term (“Photosynthesis”)
+  - Fill-in-the-blank (use ____ only)
+  - Relationship (“How does X affect Y?”)
+- Must include enough context to stand alone
+
+BACK:
+- 1–3 sentences ideal (5 max)
+- Must answer the front directly and completely
+- Include only essential details
+
+EXPLANATION (OPTIONAL):
+- 1–4 sentences
+- Use ONLY if it improves retention
+- May include:
+  - Example
+  - Mnemonic
+  - Clarification
+  - Common misconception
+- Do NOT repeat the back verbatim
+- Do NOT add tangential information
+
+────────────────────────────────
+CONTENT DISTRIBUTION GUIDELINES
+────────────────────────────────
+When generating multiple cards, aim for balance:
+
+- Core concepts & definitions
+- Key relationships and mechanisms
+- Important facts or classifications
+- Applications or examples (when present in source)
+
+Avoid:
+- Redundant cards
+- Over-clustering on a single idea
+- Testing trivial details
+
+────────────────────────────────
+QUALITY CONSTRAINTS
+────────────────────────────────
+DO:
+✓ Keep cards atomic
+✓ Use consistent phrasing
+✓ Be concrete and specific
+✓ Make answers definitively recallable
+
+DON’T:
+✗ Use yes/no questions
+✗ Test multiple ideas at once
+✗ Create vague or subjective answers
+✗ Copy long passages verbatim
+✗ Introduce unstated assumptions
+
+────────────────────────────────
+OUTPUT FORMAT (STRICT)
+────────────────────────────────
+Return ONLY valid JSON.
+No markdown.
+No commentary.
+No explanations outside JSON.
+
+{
+  "title": "Clear, specific flashcard set title",
+  "topic": "${topic || 'Content-Based Flashcards'}",
+  "cards": [
+    {
+      "front": "Clear, focused prompt",
+      "back": "Accurate, complete answer",
+      "explanation": "Optional: context or memory aid"
+    }
+  ]
+}
+
+────────────────────────────────
+FINAL VALIDATION (REQUIRED)
+────────────────────────────────
+Before returning the JSON:
+- Confirm card count ≤ ${numberOfCards}
+- Confirm EVERY card:
+  - Tests exactly ONE concept
+  - Is answerable from the source content
+  - Has a clear front and definitive back
+- Confirm no hallucinated or external information
+- Confirm JSON is valid and parseable
+
+Do NOT return the response until all checks pass.
+Begin directly with the JSON object.
+`;
+  }
+
+  static generateComprehensiveLearningGuide(
+    topic: string,
+    sourceContent: string = '',
+    fileContext: string = ''
+  ) {
+    return `
+You are an expert instructional designer. Your goal is to help beginners truly understand concepts, not memorize facts.
+
+Use ONLY the provided content. Do NOT invent facts, examples, or explanations.
+
+────────────────────────────────
+INPUT
+────────────────────────────────
+Topic: ${topic || 'Derive from content'}
+Primary Content:
+${sourceContent || 'None'}
+
+Additional Context:
+${fileContext || 'None'}
+
+────────────────────────────────
+GLOBAL TEACHING RULES
+────────────────────────────────
 - Explain WHY before HOW
-- Build intuition, then add complexity
-- Use relatable examples
-- Define technical terms clearly
-- Address common misconceptions`,
-    ],
-    [
-      'human',
-      `Create a comprehensive learning guide about {topic}.
+- Plain language first, technical language second
+- Define terminology before using it
+- Clarity over completeness
+- Proper Markdown is required
 
-{sourceContentSection}
+────────────────────────────────
+SECTION STRUCTURE (STRICT — NO EXCEPTIONS)
+────────────────────────────────
+Generate **4-10 sections**.
 
-CRITICAL - Source Adherence:
-✓ Base ALL content EXCLUSIVELY on provided source material
-✓ Do NOT add external information
-✓ If source is insufficient, cover only {topic} fundamentals
+EVERY section MUST include ALL of the following fields:
+- content
+- example
+- knowledgeCheck
 
-Structure:
- **Description** (100-200 words):
- - Overview with practical relevance
- - Use **bold** for key outcomes
- - Paragraph breaks for readability
+If ANY section is missing one of these fields, the output is INVALID and must be fixed before returning.
 
-**Sections** (3-5 sections):
-Each section should follow this flow:
+Each section MUST follow this structure and order inside the **content** field:
 
-### [Section Title]
+### {Specific, Descriptive Section Title}
 
-#### Introduction  
-Brief context of what this covers
+Intro paragraph (2–4 sentences, NO heading):
+- Introduce what this section covers
+- Explain why it matters
+- Do NOT label this as “What You’ll Understand”
 
-#### Core Concept
-- Clear definition
-- Why it matters  
-- **Bold** key terminology
+#### Key Terminology
+- Define all terms needed for this section BEFORE using them
+- Use **bold** for each term
+- Plain-language definitions
+- Mention common confusion if relevant
+- If the topic has 4+ core terms, the FIRST section must focus on terminology
+
+#### Core Concept (Intuition First)
+- Explain the idea simply and intuitively
+- Focus on purpose and reasoning
+- No formulas or code yet
 
 #### How It Works
-1. Step-by-step breakdown (numbered)
-2. Features or characteristics (bullets)
+- Step-by-step explanation of the mechanics
+- Introduce technical detail only after intuition
+- Tie details back to the core idea
 
-#### Examples
-> **Example**: [Concrete, relatable example]
+#### Formula (ONLY if required)
+Include this subsection ONLY if the concept cannot be understood without it.
 
-*Include code/formulas when relevant*:
-- Use \`inline code\` for terms/functions
-- Use \`\`\`language blocks for multi-line code
-- Explain what it does and common mistakes
+#### Algorithm (ONLY if required)
+Include this subsection ONLY if the concept cannot be understood without it.
 
-#### Key Takeaways
-- Main point 1
-- Main point 2  
-- Main point 3
+#### Code (ONLY if required)
+Include this subsection ONLY if the concept cannot be understood without it.
 
-**Knowledge Check** (per section):
-- Clear question testing understanding
-- 4 well-formatted options
-- Correct answer index (0-3)
-- Explanation with markdown
+Rules:
+- Mathematical concepts → formulas (NOT code)
+- Programming / computational concepts → code
+- Otherwise → OMIT this subsection entirely
 
-Formatting:
-✓ Use markdown: **bold**, *italic*, > blockquotes, lists
-✓ Blank lines between sections
-✓ Code formatting (\` or \`\`\`) for technical content
-✓ Clear hierarchy with headings (###, ####)
+If using code:
+- Place code ONLY here
+- Use minimal, clean examples
+- Add brief inline comments
+- Use proper Markdown code blocks with language specified
 
-Quality:
-✓ Factually correct, source-based only
-✓ Plain language first, then technical terms
-✓ Specific examples, not abstract placeholders
-✓ Logical progression: fundamentals → applications
-✓ Concepts explained before complexity`,
-    ],
-  ]);
+#### Common Mistakes or Misconceptions
+- At least one realistic misunderstanding
+- Explain why it is incorrect
 
-  /**
-   * Study Recommendations Prompt
-   *
-   * Generates personalized, data-driven study recommendations.
-   */
-  static readonly studyRecommendations = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      `You are an adaptive learning specialist who analyzes student performance to create personalized study recommendations.
+────────────────────────────────
+CRITICAL CONTENT PLACEMENT RULES (MANDATORY)
+────────────────────────────────
+- The **content** field MUST NOT contain:
+  - Questions
+  - Options
+  - Correct answers
+  - Answer explanations
+  - The words “Knowledge Check”, “Question”, “Options”, or “Correct Answer”
 
-Your recommendations are:
-- Data-driven and based on observable patterns
-- Specific and actionable
-- Encouraging and growth-oriented
-- Balanced between challenge and achievability`,
-    ],
-    [
-      'human',
-      `Analyze this student's performance and generate 1 high-priority study recommendation.
+- ALL worked scenarios MUST appear ONLY in:
+  learningGuide.sections[].example
 
-Weak Topics:
-{weakTopics}
+- ALL assessment material MUST appear ONLY in:
+  learningGuide.sections[].knowledgeCheck
 
-Recent Performance History (last 10 attempts):
-{recentAttempts}
+If any of the above appear in the wrong field, the output is INVALID.
 
-Analysis Framework:
-1. Performance Gaps: Identify topics with lowest scores or highest error rates
-2. Recency: Prioritize topics not practiced in 5-7 days
-3. Learning Progression: Consider prerequisite relationships
-4. Engagement: Balance challenge with achievability
+────────────────────────────────
+WORKED EXAMPLE (example field ONLY)
+────────────────────────────────
+Rules:
+- MUST exist for EVERY section
+- No headings inside the example
+- Written as a concrete, step-by-step scenario
+- Explicitly explain how it demonstrates the concept
+- MUST NOT include questions or answers
 
-Priority Levels:
-- HIGH: Critical gaps (score <60%) or fundamental concepts not mastered
-- MEDIUM: Moderate gaps (score 60-75%) or important supporting topics
-- LOW: Minor gaps (score >75%) or enrichment topics
+────────────────────────────────
+KNOWLEDGE CHECK (MANDATORY FOR EVERY SECTION)
+────────────────────────────────
+Rules:
+- EVERY section MUST include exactly ONE knowledge check
+- It MUST test understanding of that section only
+- It MUST be scenario-based (not definition recall)
+- It MUST include:
+  - question
+  - exactly 4 options
+  - correctAnswer (index 0–3)
+  - explanation
+- It MUST appear ONLY inside:
+  learningGuide.sections[].knowledgeCheck
 
-Requirements:
-✓ Focus on ONE specific, actionable topic
-✓ Provide clear rationale based on the data
-✓ Use encouraging, constructive language
-✓ Topic name matches one from the weak topics list`,
-    ],
-  ]);
+Missing, empty, or misplaced knowledgeCheck = INVALID OUTPUT.
 
-  /**
-   * Title Extraction Prompt
-   *
-   * Generates precise, descriptive titles from content.
-   */
-  static readonly titleExtraction = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      'You are an expert at creating precise, descriptive titles that capture the essence of content.',
-    ],
-    [
-      'human',
-      `Analyze this content and generate a precise title.
+────────────────────────────────
+OUTPUT FORMAT (STRICT)
+────────────────────────────────
+Return ONLY valid JSON. No markdown fences. No commentary.
 
-Content Preview:
-{contentPreview}
+{
+  "title": "Specific, engaging title",
+  "topic": "${topic || 'Learning Guide'}",
+  "description": "2–4 sentences explaining what the learner will understand and why it matters",
+  "learningGuide": {
+    "sections": [
+      {
+        "title": "Specific section title",
+        "content": "Markdown-formatted content following the exact structure above",
+        "example": "Worked example scenario only",
+        "knowledgeCheck": {
+          "question": "Scenario-based question",
+          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+          "correctAnswer": 0,
+          "explanation": "Why this answer is correct and why the others are not"
+        }
+      }
+    ]
+  }
+}
 
-Requirements:
+────────────────────────────────
+FINAL VALIDATION STEP (REQUIRED)
+────────────────────────────────
+Before returning the JSON:
+- Confirm there are 3–6 sections
+- Confirm EVERY section has:
+  - content
+  - example
+  - knowledgeCheck
+- Confirm no questions exist outside knowledgeCheck
+- Confirm no examples exist outside example
+
+Do NOT return the response until all validation rules are satisfied.
+
+FINAL GOAL:
+The learner finishes and says:
+“I actually understand this.”
+
+Structure everything. Define terms early. Place content correctly.
+`;
+  }
+
+  static extractTitle(content: string) {
+    return `
+Analyze the content below and generate ONE precise, descriptive title.
+
+CONTENT:
+${content.substring(0, 1500)}
+
+RULES (STRICT):
 - Maximum 10 words
+- Title Case capitalization
+- Must reflect the PRIMARY subject of the content
 - Be specific, not generic
-- Capture the main topic or focus
-- Use title case capitalization
-- Avoid clickbait or promotional language
+- Avoid clickbait, hype, or marketing language
+- Do NOT include punctuation at the end
+- Do NOT include quotes
 
-Good Examples:
-✓ "Introduction to Object-Oriented Programming in Python"
-✓ "Photosynthesis: Converting Light Energy to Chemical Energy"
-✓ "World War II: Causes and Major Events"
+GOOD TITLES:
+✓ Introduction to Object-Oriented Programming in Python
+✓ Photosynthesis: Converting Light Energy to Chemical Energy
+✓ World War II Causes and Major Events
 
-Bad Examples:
-✗ "Learn This Today!" (too generic)
-✗ "Everything You Need to Know About Science" (too broad)
-✗ "Amazing Facts" (not descriptive)`,
-    ],
-  ]);
+BAD TITLES:
+✗ Learn This Today
+✗ Everything You Need to Know About Science
+✗ Amazing Facts
 
-  /**
-   * Topic Extraction Prompt
-   *
-   * Identifies the main topic from text content.
-   */
-  static readonly topicExtraction = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      'You are an expert at identifying the main topic or subject matter from text content.',
-    ],
-    [
-      'human',
-      `Analyze this text and identify the main topic.
+OUTPUT FORMAT:
+Return ONLY the title text.
+No explanations.
+No punctuation at the end.
+`;
+  }
 
-Text Preview:
-{textPreview}
+  static extractTopic(text: string) {
+    return `
+Analyze the text below and extract the PRIMARY topic.
 
-Requirements:
+TEXT:
+${text.substring(0, 1000)}
+
+RULES (STRICT):
 - Maximum 4 words
-- Be specific, not generic
-- Use precise terminology
+- Use the most specific terminology possible
+- Focus on the main subject, not a category
 - Capitalize important words
-- Focus on the primary subject matter
+- Do NOT include adjectives unless essential
+- Do NOT include punctuation
+- Do NOT include explanations
 
-Good Examples:
-✓ "Neural Networks"
-✓ "French Revolution"
-✓ "Cellular Respiration"
-✓ "React Hooks"
+GOOD TOPICS:
+✓ Neural Networks
+✓ French Revolution
+✓ Cellular Respiration
+✓ React Hooks
 
-Bad Examples:
-✗ "Science Stuff" (too vague)
-✗ "General Knowledge" (not specific)
-✗ "Learning Material" (too generic)`,
-    ],
-  ]);
+BAD TOPICS:
+✗ Science Stuff
+✗ General Knowledge
+✗ Learning Material
 
-  /**
-   * Concept Explanation Prompt
-   *
-   * Provides clear, accessible explanations of complex concepts.
-   */
-  static readonly conceptExplanation = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      `You are an expert educator who excels at making complex concepts accessible and engaging.
+OUTPUT FORMAT:
+Return ONLY the topic name.
+`;
+  }
 
-Your explanations:
-- Start immediately with the explanation (no meta-commentary)
-- Define concepts clearly in the first sentence
-- Explain WHY it matters and where it's used
-- Break down complex parts into simpler components
-- Use powerful analogies when they clarify understanding
-- End with key takeaways or practical implications`,
-    ],
-    [
-      'human',
-      `Provide a clear explanation of this concept.
+  static generateExplanation(topic: string, context: string) {
+    return `
+You are an expert educator. Explain the concept clearly and accurately.
 
-Topic: {topic}
-Context: {context}
+CONCEPT:
+- Topic: ${topic}
+- Context: ${context}
 
-Format using Markdown:
-- **Bold** key terms and important concepts
-- Use bullet points for components or steps
-- Use > blockquotes for critical insights
+INSTRUCTIONS (STRICT):
+- Start IMMEDIATELY with the explanation
+- First sentence MUST define the concept clearly
+- Explain WHY it matters or where it is used
+- Break complex ideas into simpler parts
+- Use an analogy ONLY if it genuinely improves clarity
+- End with a key takeaway or practical implication
+- Do NOT include meta-commentary
+
+STRUCTURE REQUIREMENTS:
+- Clear definition
+- Key components or ideas
+- Insight or takeaway
+- Code example ONLY if it meaningfully clarifies the concept
+
+FORMATTING (Markdown):
+- **Bold** key terms
+- Use bullet points or numbered lists where appropriate
+- Use > blockquotes for key insights
 - Use \`inline code\` for technical terms
-- Use \`\`\`language for code examples (with comments)
+- Use fenced code blocks ONLY when needed
+  - Always specify the language
+  - Include comments explaining important lines
 
-Structure:
-1. Define the concept clearly
-2. Explain its importance or relevance
-3. Break down key components
-4. Include a powerful analogy (if applicable)
-5. End with practical implications
+TONE:
+- Clear and direct
+- Professional but approachable
+- Focus on understanding, not verbosity
 
-Tone: Direct, conversational, professional but approachable.`,
-    ],
-  ]);
+OUTPUT:
+Return Markdown only.
+No preamble.
+No wrapping code fences.
+Start directly with the explanation.
+`;
+  }
 
-  /**
-   * Example Generation Prompt
-   *
-   * Creates relatable, concrete examples for concepts.
-   */
-  static readonly exampleGeneration = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      `You are an expert educator who excels at creating relatable, concrete examples that illuminate abstract concepts.
+  static generateExample(topic: string, context: string) {
+    return `
+You are an expert educator. Provide concrete examples that make the concept unmistakably clear.
 
-Your examples:
-- Use everyday situations or familiar contexts
-- Include specific details, not abstract placeholders
-- Clearly demonstrate how the concept applies
-- Progress from simple to complex when appropriate`,
-    ],
-    [
-      'human',
-      `Generate a concrete, relatable example for this concept.
+CONCEPT:
+- Topic: ${topic}
+- Context: ${context}
 
-Topic: {topic}
-Context: {context}
-Difficulty Level: {difficulty}
+TASK:
+Generate EXACTLY 2 or 3 high-quality examples.
 
-Example Quality Requirements:
-✓ Based on school, work, or everyday experiences
-✓ Includes specific, concrete details
-✓ Explicitly shows how it demonstrates the concept
-✓ Appropriate complexity for {difficulty} level
+RULES (STRICT):
+- Start IMMEDIATELY with the first example
+- Each example MUST demonstrate the concept clearly
+- Use different scenarios for each example
+- Explain WHY the example illustrates the concept
+- Include code ONLY when it adds real clarity
+- Do NOT repeat the same idea across examples
+- No meta-commentary
 
-Example Quality Spectrum:
-- Poor: "Consider a variable X in a dataset…"
-- Better: "Imagine analyzing sales for a small store…"
-- Best: "You're tracking monthly grocery spending: January ₦180,000, February ₦210,000…"`,
-    ],
-  ]);
+FORMATTING (Markdown):
+- Use ### headers for each example
+- **Bold** key ideas
+- Use bullet points for breakdowns
+- Use \`inline code\` for technical terms
+- Use fenced code blocks only when appropriate
+  - Always specify language
+  - Include explanatory comments
+
+REQUIRED STRUCTURE PER EXAMPLE:
+
+### Example X: Descriptive Title
+
+[Short scenario or setup]
+
+**Key aspects:**
+• **Aspect**: Explanation
+• **Aspect**: Explanation
+
+[Explanation of how this demonstrates the concept]
+
+\`\`\`language
+// Code example (if applicable)
+\`\`\`
+
+**Why this works:** Clear, concise explanation
+
+OUTPUT:
+Return the examples in Markdown.
+No preamble.
+Start directly with the first example.
+`;
+  }
+
+  static generateSummary(
+    title: string,
+    topic: string,
+    content: string,
+    learningGuide: any
+  ) {
+    return `
+You are an expert educational content editor. Your job is to synthesize study material into a clear, professional, high-signal reference summary.
+
+TASK:
+Create a structured summary that captures the essential knowledge from the provided material for fast review and long-term retention.
+
+═══════════════════════════════════════════════════════════════════════════════
+INPUT MATERIAL
+═══════════════════════════════════════════════════════════════════════════════
+
+- Title: ${title}
+- Topic: ${topic}
+- Content: ${content || 'Not provided'}
+${learningGuide ? `- Learning Guide: ${JSON.stringify(learningGuide)}` : ''}
+
+═══════════════════════════════════════════════════════════════════════════════
+NON-NEGOTIABLE RULES
+═══════════════════════════════════════════════════════════════════════════════
+
+SOURCE FIDELITY:
+- Every statement MUST be supported by the provided material
+- Do NOT introduce external facts, interpretations, or examples
+- Do NOT infer beyond what is explicitly or clearly implied
+- If material is limited, summarize only what exists
+
+EXCLUSIONS (STRICT):
+- NO quizzes, knowledge checks, or questions
+- NO exercises, activities, or assessments
+- NO step-by-step tutorials unless they are the core content
+- NO pedagogical language (e.g., “let’s explore”, “you’ll learn”)
+- NO motivational or engagement phrasing
+- NO references to the learning guide as a document
+
+TONE & STYLE:
+- Academic, neutral, and professional
+- Clear and direct phrasing
+- No colloquialisms or filler phrases
+- No emojis, symbols, or decorative language
+- Avoid “AI-sounding” phrases (e.g., “delve into”, “it’s worth noting”)
+
+LENGTH:
+- Target: 400–800 words
+- Absolute maximum: 1000 words
+- Every sentence must add informational value
+
+═══════════════════════════════════════════════════════════════════════════════
+SYNTHESIS APPROACH
+═══════════════════════════════════════════════════════════════════════════════
+
+- Identify the 3–5 most important ideas
+- Merge overlapping explanations into a single clear narrative
+- Present concepts in their most distilled, high-signal form
+- Use examples ONLY if they materially improve understanding
+- Prioritize conceptual clarity over exhaustive detail
+
+═══════════════════════════════════════════════════════════════════════════════
+FORMATTING STANDARDS (MARKDOWN)
+═══════════════════════════════════════════════════════════════════════════════
+
+HEADERS:
+- Use ## for main sections
+- Use ### only for meaningful subsections
+- Section titles must be specific (avoid “Introduction”, “Overview”)
+
+EMPHASIS:
+- **Bold** key terms on first mention
+- Use sparingly and intentionally
+
+LISTS:
+- Bullet points (•) for non-sequential items
+- Numbered lists only for ordered or ranked items
+- 1–2 sentences per bullet
+- Blank line between bullets
+
+CODE:
+- Use \`inline code\` for technical terms, variables, functions
+- Use fenced code blocks ONLY if essential
+- Always specify language (e.g., \`\`\`javascript)
+- No large or decorative code blocks
+
+BLOCKQUOTES:
+- Use > ONLY for the most important insight or principle
+- Maximum 1–2 blockquotes in total
+
+SPACING:
+- Blank lines before/after headers
+- Blank lines between paragraphs
+- Blank lines around lists and blockquotes
+
+LANGUAGE CONSISTENCY:
+- Define technical terms on first use
+- Use one term per concept (no synonyms)
+- Follow standard English hyphenation rules
+- Hyphenate compound adjectives before nouns only
+
+═══════════════════════════════════════════════════════════════════════════════
+REQUIRED STRUCTURE (MANDATORY)
+═══════════════════════════════════════════════════════════════════════════════
+
+# ${title}
+
+> One sentence stating what this topic is and why it matters.
+
+## Quick Takeaways
+
+• The single most important insight  
+• Second core principle or concept  
+• Third essential idea  
+• Optional fourth ONLY if critical
+
+## Core Concepts
+
+2–3 paragraphs explaining the foundational ideas.  
+Each paragraph must focus on a distinct concept.
+
+If there are multiple major areas, split them clearly:
+
+### Concept Area 1
+Explanation
+
+### Concept Area 2
+Explanation
+
+## Key Terminology
+
+• **Term**: Clear, precise definition  
+• **Term**: Clear, precise definition  
+• **Term**: Clear, precise definition  
+
+(Include 3–6 essential terms only)
+
+## Critical Insight
+
+> The most important principle, implication, or takeaway supported by the material.
+
+Optional short elaboration ONLY if it adds value.
+
+## Summary
+
+2–4 sentences synthesizing the topic.  
+No new information.  
+End with practical or conceptual significance.
+
+═══════════════════════════════════════════════════════════════════════════════
+QUALITY CHECK (SELF-VERIFY BEFORE OUTPUT)
+═══════════════════════════════════════════════════════════════════════════════
+
+✓ All content traceable to source  
+✓ No quizzes or pedagogical elements  
+✓ Clear hierarchy and scannability  
+✓ Terminology consistent  
+✓ High signal-to-noise ratio  
+✓ Professional tone throughout  
+✓ Markdown formatting correct  
+✓ Word count within limits  
+
+═══════════════════════════════════════════════════════════════════════════════
+OUTPUT
+═══════════════════════════════════════════════════════════════════════════════
+
+Return ONLY the Markdown summary.
+No preamble.
+No code fences.
+Start directly with the content.
+`;
+  }
+
+  static scoreTheoryQuestion(
+    question: string,
+    studentAnswer: string,
+    markingGuideline: any,
+    sampleAnswer?: string
+  ) {
+    return `
+You are an experienced educator and examiner specialized in fair and consistent evaluation of open-ended theory answers.
+
+TASK:
+Evaluate the student's answer based on the provided marking guidelines and, if available, the sample answer. Score fairly, provide constructive feedback, and identify strengths and improvement areas.
+
+QUESTION:
+${question}
+
+STUDENT ANSWER:
+${studentAnswer}
+
+MARKING GUIDELINES:
+${JSON.stringify(markingGuideline, null, 2)}
+
+${sampleAnswer ? `SAMPLE ANSWER (reference only):\n${sampleAnswer}\n` : ''}
+
+EVALUATION RULES:
+
+1. **Content-focused:** Score only the substance of the answer, not style or grammar.
+2. **Key points:** Identify which points from the marking guidelines are addressed.
+3. **Accuracy:** Verify factual correctness of statements.
+4. **Comprehension:** Assess depth of understanding.
+5. **Partial credit:** Award proportional points for partially correct responses.
+6. **Alternative valid perspectives:** Accept equivalent explanations and correct rewordings.
+7. **No penalty for minor errors** unless they affect clarity.
+8. **Context-aware:** Prioritize core concepts if the question focuses on fundamentals.
+
+SCORING PROCESS:
+
+1. Match student's statements to key points in the guidelines.
+2. Evaluate each point for correctness and completeness.
+3. Note any additional acceptable concepts not in the guidelines.
+4. Assign scores to each key point and calculate total.
+5. Determine overall quality level (excellent, good, adequate, poor).
+6. Provide constructive feedback highlighting strengths and improvement areas.
+
+OUTPUT FORMAT:
+Return ONLY valid JSON (no markdown, no code fences, no preamble). Include all fields exactly as below:
+
+{
+  "totalScore": 0,
+  "maxPoints": 0,
+  "percentage": 0,
+  "grade": "A/B/C/etc.",
+  "pointsBreakdown": [
+    {
+      "keyPoint": "Description of key point",
+      "maxValue": 0,
+      "awarded": 0,
+      "feedback": "Specific feedback on this point"
+    }
+  ],
+  "qualityLevel": "excellent/good/adequate/poor",
+  "strengths": [
+    "List key strengths of the answer"
+  ],
+  "areasForImprovement": [
+    "List actionable improvements"
+  ],
+  "additionalConceptsFound": [
+    "Any valid concepts beyond the marking guideline"
+  ],
+  "overallFeedback": "Comprehensive summary feedback combining strengths and improvements",
+  "encouragement": "Positive motivational note highlighting student's achievement"
+}
+
+VALIDATION CHECKLIST:
+✓ All key points evaluated fairly  
+✓ Partial credit applied correctly  
+✓ Feedback is specific, constructive, and actionable  
+✓ Tone is encouraging and professional  
+✓ JSON is valid and parseable  
+✓ No hallucinations or irrelevant content included  
+`;
+  }
+
+  static generateTheoryQuestions(
+    topic: string,
+    numberOfQuestions: number,
+    difficulty: string,
+    sourceContent: string = ''
+  ) {
+    return `
+You are an expert educational assessment designer specializing in open-ended theory questions that test deep understanding, critical thinking, and application.
+
+TASK:
+Generate exactly ${numberOfQuestions} high-quality theory questions using the parameters below. Include comprehensive marking guidelines and sample answers. Follow JSON output strictly.
+
+INPUT PARAMETERS:
+${topic ? `- Topic: ${topic}` : '- Topic: Not specified (derive from source content only)'}
+${sourceContent ? `- Source Content:\n${sourceContent}\n` : '- Source Content: None provided'}
+- Difficulty Level: ${difficulty}
+
+DESIGN PRINCIPLES:
+
+5. **SOURCE FIDELITY:** If source content is provided, base questions strictly on it.
+6. **GENERAL KNOWLEDGE:** If source content is NOT provided or is insufficient, use high-quality, factually accurate general knowledge about the topic.
+7. **NO HALLUCINATION:** If source content is provided but insufficient for the requested count, generate fewer questions rather than inventing.
+8. **DIVERSITY:** Questions should cover different aspects of the topic without redundancy.
+
+DIFFICULTY GUIDELINES:
+
+- **EASY:** Explain or describe; test understanding of core concepts; 2-4 key points.  
+  Example: "Explain what X is and why it is important."
+
+- **MEDIUM:** Compare, analyze, or apply concepts; 4-6 key points.  
+  Example: "Compare X and Y, explaining advantages and disadvantages."
+
+- **HARD:** Synthesize, evaluate, or solve problems; 6-8 key points with nuanced insight.  
+  Example: "Evaluate the impact of X on Y, considering multiple perspectives."
+
+MARKING GUIDELINES:
+
+- **Key Points:** Specific, measurable, and directly tied to the question.  
+- **Point Values:** Assign 1-3 points per key point; total 10-20 points depending on complexity.  
+- **Acceptable Concepts:** Include related ideas or valid alternative explanations.  
+- **Quality Criteria:** Define what constitutes excellent, good, adequate, or poor responses.
+
+OUTPUT FORMAT:
+Return ONLY valid JSON (no markdown, no code fences, no preamble):
+
+{
+  "title": "Theory Questions: ${topic || 'Untitled'}",
+  "topic": "${topic || 'General'}",
+  "difficulty": "${difficulty}",
+  "questions": [
+    {
+      "questionType": "theory",
+      "question": "Open-ended question requiring detailed explanation",
+      "markingGuideline": {
+        "maxPoints": 10,
+        "keyPoints": [
+          {"point": "Specific concept or fact to mention", "value": 2},
+          {"point": "Another critical concept", "value": 2}
+        ],
+        "acceptableConcepts": [
+          "Related concept that adds value",
+          "Alternative correct perspective"
+        ],
+        "qualityCriteria": {
+          "excellent": "Detailed, comprehensive answer covering all key points",
+          "good": "Mostly complete answer with minor gaps",
+          "adequate": "Partial answer covering some key points",
+          "poor": "Minimal or inaccurate answer"
+        }
+      },
+      "sampleAnswer": "Concise model answer demonstrating expected coverage and depth",
+      "explanation": "Brief note on what this question tests or why it is important",
+      "citation": "Source reference if applicable"
+    }
+  ]
+}
+
+QUALITY CHECKLIST:
+✓ Questions test understanding, not recall  
+✓ Marking guidelines are fair, detailed, and measurable  
+✓ Point distribution is logical and balanced  
+✓ Sample answers reflect expected quality  
+✓ Questions match difficulty level  
+✓ Source fidelity enforced  
+✓ JSON is valid and parseable  
+
+VALIDATION CHECKLIST:
+✓ Exactly ${numberOfQuestions} questions generated (or fewer if source limited)  
+✓ All required fields present and complete  
+✓ No invented information if source content provided  
+✓ No markdown or code fences in output  
+`;
+  }
 
   /**
    * Helper method to format source content section
    */
   static formatSourceContent(sourceContent?: string): string {
     if (!sourceContent) {
-      return 'Source Content: Not provided. Generate questions based on general knowledge of the topic.';
+      return 'Source Content: Not provided. Generate questions based on high-quality, factually accurate general knowledge of the topic.';
     }
     return `Source Content:
 ${sourceContent}
@@ -453,118 +1062,107 @@ ${fileContext}`;
   }
 
   /**
+   * Study Recommendations Prompt
+   *
+   * Generates personalized, data-driven study recommendations.
+   */
+  static studyRecommendations(weakTopics: string, recentAttempts: string) {
+    return `
+You are an expert learning strategist who provides actionable study recommendations based on student performance.
+
+INPUT DATA:
+- Weak Topics: ${weakTopics}
+- Recent Performance History (last 10 attempts): ${recentAttempts}
+
+ANALYSIS FRAMEWORK:
+1. **Performance Gaps:** Identify topics with lowest scores or highest error rates
+2. **Recency:** Prioritize topics not practiced in the last 5-7 days
+3. **Learning Progression:** Consider prerequisite relationships
+4. **Engagement:** Balance challenge with achievable targets
+
+PRIORITY LEVELS:
+- **HIGH:** Critical gaps (score <60%) or fundamental concepts not mastered
+- **MEDIUM:** Moderate gaps (score 60-75%) or important supporting topics
+- **LOW:** Minor gaps (score >75%) or enrichment topics
+
+REQUIREMENTS:
+✓ Provide clear rationale for each recommendation based on the data  
+✓ Focus on actionable steps students can take immediately  
+✓ Use constructive, encouraging language  
+✓ Keep responses concise and structured
+
+OUTPUT:
+Return ONLY valid JSON (no markdown, no fences, no preamble):
+
+{
+  "recommendations": [
+    {
+      "topic": "Topic Name",
+      "reason": "Clear explanation of why this is recommended",
+      "priority": "high|medium|low"
+    }
+  ]
+}
+`;
+  }
+
+  /**
    * Concept Extraction Prompt
    *
    * Extracts core learning concepts from quiz questions for weak area tracking.
    */
-  static readonly conceptExtraction = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      'You are an educational expert at identifying the core learning concepts being tested in quiz questions.',
-    ],
-    [
-      'human',
-      `Analyze these quiz questions and extract the core concepts being tested.
+  static conceptExtraction(questions: string) {
+    return `
+You are an expert in learning analytics and knowledge modeling.
 
-Questions:
-{questions}
+TASK:
+Extract the core learning concepts from each quiz question to track weak areas.
 
-For each question, identify the specific concept, skill, or knowledge area it tests.
+INPUT:
+- Quiz Questions:
+${questions}
 
-Requirements:
-- Return exactly one concept per question (same order as input)
-- Keep each concept concise (under 100 characters)
-- Use clear, professional terminology
-- Focus on the underlying concept, not just keywords
+REQUIREMENTS:
+- Identify the specific concept, skill, or knowledge area tested by each question  
+- Keep each concept concise (under 100 characters)  
+- Avoid generic terms; be as precise as possible  
+- Do not add explanations, examples, or external information
 
-Good Examples:
-✓ "Understanding photosynthesis process"
-✓ "Applying Pythagorean theorem"
-✓ "Identifying pronouns in sentences"
+OUTPUT:
+Return ONLY valid JSON (no markdown, no fences, no preamble):
 
-Bad Examples:
-✗ "This question is about biology" (too vague)
-✗ "Question about math" (not specific)
-✗ "The student needs to solve" (not a concept)`,
-    ],
-  ]);
+{
+  "concepts": ["Concept 1", "Concept 2", "..."]
+}
+`;
+  }
 
   /**
    * Understanding Summary Prompt
    *
    * Generates encouraging summaries of student understanding based on performance data.
    */
-  static readonly understandingSummary = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      `You are an encouraging teacher who provides constructive feedback on student performance.
+  static understandingSummary(topic: string, performance: string) {
+    return `
+You are an encouraging and data-driven educator providing constructive feedback.
 
-Your summaries:
-- Are growth-oriented and encouraging
-- Highlight both strengths and areas for improvement
-- Use specific, data-driven observations
-- Provide actionable next steps`,
-    ],
-    [
-      'human',
-      `Generate a concise summary of a student's understanding of "{topic}" based on their performance.
+TASK:
+Generate a concise summary of a student's understanding of "${topic}" based on performance data.
 
-Performance Data:
-{performance}
+INPUT:
+- Performance Data:
+${performance}
 
-Requirements:
-- Keep it under 150 words
-- Be encouraging and constructive
-- Highlight specific strengths
-- Suggest specific areas for improvement
-- Use Markdown for formatting
-- Start directly with the summary (no preamble)
+REQUIREMENTS:
+✓ Keep summary under 150 words  
+✓ Highlight specific strengths and achievements  
+✓ Identify areas for improvement with actionable guidance  
+✓ Use professional, supportive, and encouraging tone  
+✓ Present in clear, structured Markdown  
+✓ Start directly with the summary; no preamble or extraneous commentary
 
-Tone: Professional, supportive, and data-driven.`,
-    ],
-  ]);
-
-  /**
-   * Summary Generation Prompt
-   *
-   * Creates professional, structured summaries of study materials.
-   */
-  static readonly summaryGeneration = ChatPromptTemplate.fromMessages([
-    [
-      'system',
-      `You are an expert content summarizer who transforms educational materials into clear, professional reference documents.
-
-Your summaries:
-- Are accurate and faithful to source material
-- Use professional, academic yet accessible language
-- Are concise (400-800 words) but substantive
-- Have clear structural hierarchy
-- Emphasize the most critical concepts first`,
-    ],
-    [
-      'human',
-      `Create a polished, structured summary of this study material.
-
-Title: {title}
-Topic: {topic}
-Content: {content}
-Learning Guide: {learningGuide}
-
-Requirements:
-- Target length: 400-800 words (max 1000)
-- Use Markdown formatting
-- Structure: Title → Quick Takeaways (3-4 bullets) → Core Concepts → Key Terminology → Summary
-- Exclude: quizzes, exercises, knowledge checks, pedagogical scaffolding
-- Bold key terms on first mention
-- Use blockquotes for critical insights
-- Professional, direct tone (avoid AI filler phrases)
-
-Quality Standards:
-✓ Every statement is factually correct and traceable to source
-✓ No external information introduced
-✓ Clear information hierarchy
-✓ Logical flow between sections
-✓ Visual breathing room with blank lines`,
-    ],
-  ]);
+OUTPUT:
+Return only the summary text in Markdown format.
+`;
+  }
 }

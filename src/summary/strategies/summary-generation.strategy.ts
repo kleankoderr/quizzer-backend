@@ -100,14 +100,12 @@ export class SummaryGenerationStrategy implements JobStrategy<
       `Job ${jobId}: Generating AI summary for "${content.title}"`
     );
 
-    const prompt = await LangChainPrompts.summaryGeneration.format({
-      title: content.title,
-      topic: content.topic,
-      content: content.content || 'Not provided',
-      learningGuide: content.learningGuide
-        ? JSON.stringify(content.learningGuide)
-        : 'None',
-    });
+    const prompt = LangChainPrompts.generateSummary(
+      content.title,
+      content.topic,
+      content.content || 'Not provided',
+      content.learningGuide || null
+    );
 
     const summaryText = await this.langchainService.invoke(prompt, {
       task: 'summary',

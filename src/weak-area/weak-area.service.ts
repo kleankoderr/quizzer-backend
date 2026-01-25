@@ -1,10 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
-import {
-  QuizGenerationSchema,
-  ConceptListSchema,
-} from '../langchain/schemas/quiz.schema';
 import { LangChainPrompts } from '../langchain/prompts';
 
 @Injectable()
@@ -30,17 +26,16 @@ export class WeakAreaService {
       }
 
       // Generate quiz using LangChain
-      const prompt = await LangChainPrompts.quizGeneration.format({
-        difficulty: 'Medium',
-        topic: weakArea.topic,
-        sourceContentSection: LangChainPrompts.formatSourceContent(),
-        questionCount: '5',
-        questionTypes: 'standard - single-select',
-        focusAreas: LangChainPrompts.formatFocusAreas([weakArea.concept]),
-      });
+      const prompt = LangChainPrompts.generateQuiz(
+        weakArea.topic,
+        5,
+        'Medium',
+        'STANDARD',
+        'standard - single-select',
+        ''
+      );
 
-      const generatedQuiz = await this.langchainService.invokeWithStructure(
-        QuizGenerationSchema,
+      const generatedQuiz = await this.langchainService.invokeWithJsonParser(
         prompt,
         {
           task: 'quiz',
@@ -82,11 +77,10 @@ export class WeakAreaService {
     if (questions.length === 0) return [];
 
     try {
-      const prompt = await LangChainPrompts.conceptExtraction.format({
-        questions: JSON.stringify(questions.map((q) => q.question)),
-      });
-      const response = await this.langchainService.invokeWithStructure(
-        ConceptListSchema,
+      const prompt = LangChainPrompts.conceptExtraction(
+        JSON.stringify(questions.map((q) => q.question))
+      );
+      const response = await this.langchainService.invokeWithJsonParser(
         prompt,
         {
           task: 'concept_extraction',
