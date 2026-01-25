@@ -115,16 +115,19 @@ You are an expert in spaced repetition learning and flashcard design. Your goal 
 Task:
 Generate EXACTLY ${numberOfCards} high-quality flashcards.
 
-If the provided content does NOT support ${numberOfCards} quality cards:
-- Generate FEWER cards
-- Do NOT invent or infer missing information
-- Accuracy and learning value override quantity
+- If the provided content does NOT support ${numberOfCards} quality cards:
+  - Generate FEWER cards
+  - Do NOT invent or infer missing information
+  - Accuracy and learning value override quantity
 
 Context:
+═══════════════════════════════════════════════════════════════════════════════
 - Topic: ${topic || 'Derive strictly from source content'}
 - Source Content: ${sourceContent || 'None provided'}
+═══════════════════════════════════════════════════════════════════════════════
 
 Reasoning:
+═══════════════════════════════════════════════════════════════════════════════
 CORE FLASHCARD RULES:
 - ACCURACY & SOURCE FIDELITY: All cards MUST be factually correct. Derive cards EXCLUSIVELY from source if provided.
 - ATOMICITY: Each card MUST test exactly ONE discrete concept. Split complex ideas.
@@ -139,8 +142,10 @@ CARD STRUCTURE:
 QUALITY CONSTRAINTS:
 - DO: Keep atomic, use consistent phrasing, be concrete, make answers recallable.
 - DON’T: Use yes/no questions, test multiple ideas, create vague answers, copy long passages, introduce unstated assumptions.
+═══════════════════════════════════════════════════════════════════════════════
 
 Output:
+═══════════════════════════════════════════════════════════════════════════════
 Return ONLY valid JSON. No markdown. No commentary. No explanations outside JSON.
 
 {
@@ -154,16 +159,18 @@ Return ONLY valid JSON. No markdown. No commentary. No explanations outside JSON
     }
   ]
 }
+═══════════════════════════════════════════════════════════════════════════════
 
 Stopping conditions:
+═══════════════════════════════════════════════════════════════════════════════
 Before returning the JSON:
-- Confirm card count ≤ ${numberOfCards}
-- Confirm EVERY card:
-  - Tests exactly ONE concept
-  - Is answerable from the source content
-  - Has a clear front and definitive back
-- Confirm no hallucinated or external information
-- Confirm JSON is valid and parseable
+1. Confirm card count ≤ ${numberOfCards}
+2. Confirm EVERY card:
+   - Tests exactly ONE concept
+   - Is answerable from the source content
+   - Has a clear front and definitive back
+3. Confirm no hallucinated or external information
+4. Confirm JSON is valid and parseable
 
 Do NOT return the response until all checks pass.
 Begin directly with the JSON object.
