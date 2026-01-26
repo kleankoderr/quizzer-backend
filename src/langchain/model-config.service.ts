@@ -5,7 +5,7 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 
 /**
  * Simplified Model Configuration Service
- * Uses only Gemini 2.5 Flash for all AI generation tasks
+ * Uses only Gemini models for all AI generation tasks
  */
 @Injectable()
 export class ModelConfigService {
@@ -15,7 +15,6 @@ export class ModelConfigService {
   constructor(private readonly configService: ConfigService) {}
 
   /**
-   * Get the Gemini 2.5 Flash model instance
    * Returns a singleton instance with optimized configuration
    */
   getModel(): BaseChatModel {
@@ -24,6 +23,7 @@ export class ModelConfigService {
     }
 
     const apiKey = this.configService.get<string>('GOOGLE_API_KEY');
+    const model = this.configService.get<string>('GEMINI_MODEL', 'gemini-2.5-flash');
 
     if (!apiKey) {
       const error =
@@ -32,15 +32,15 @@ export class ModelConfigService {
       throw new Error(error);
     }
 
-    this.logger.log('Initializing Gemini 2.5 Flash model with optimizations');
+    this.logger.log(`Initializing Gemini ${model} model with optimizations`);
 
     this.model = new ChatGoogleGenerativeAI({
       apiKey,
-      model: 'gemini-2.5-flash',
+      model,
       temperature: 1,
     });
 
-    this.logger.log('Gemini 2.5 Flash model initialized successfully');
+    this.logger.log(`Gemini ${model} model initialized successfully`);
 
     return this.model;
   }
