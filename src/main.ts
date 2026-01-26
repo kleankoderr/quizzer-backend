@@ -40,8 +40,6 @@ async function bootstrap() {
   );
 }
 
-/* ---------------------------- Configuration ---------------------------- */
-
 function configureCors(app: any) {
   const allowedOrigins = parseEnvList('ALLOWED_ORIGINS');
   const allowedOriginPatterns = parseEnvList('ALLOWED_ORIGIN_PATTERNS').map(
@@ -59,7 +57,7 @@ function configureCors(app: any) {
   }
 
   app.enableCors({
-    origin: (origin: string | undefined, callback: Function) => {
+    origin: (origin: any, callback: any) => {
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
@@ -93,13 +91,9 @@ function configureGlobals(app: any, httpAdapterHost: HttpAdapterHost) {
     })
   );
 
-  app.useGlobalFilters(
-    new GlobalExceptionFilter(httpAdapterHost)
-  );
+  app.useGlobalFilters(new GlobalExceptionFilter(httpAdapterHost));
 
-  app.useGlobalInterceptors(
-    new ResponseTransformInterceptor()
-  );
+  app.useGlobalInterceptors(new ResponseTransformInterceptor());
 }
 
 function configureSwagger(app: any) {

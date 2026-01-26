@@ -15,7 +15,6 @@ import { SseAuthGuard } from './sse-auth.guard';
 
 @Controller('events')
 export class EventsController {
-
   constructor(
     private readonly eventEmitter: EventEmitter2,
     private readonly sseAuthService: SseAuthService
