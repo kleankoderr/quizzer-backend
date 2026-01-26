@@ -24,14 +24,6 @@ export class PlatformSettingsController {
     return this.platformSettings.getSettings();
   }
 
-  @Get('options')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @ApiOperation({ summary: 'Get available AI config options (admin only)' })
-  getAiOptions() {
-    return this.platformSettings.getAiOptions();
-  }
-
   @Patch()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, AdminGuard)

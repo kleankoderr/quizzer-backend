@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, IsObject } from 'class-validator';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PlatformSettingsDto {
@@ -16,9 +16,4 @@ export class PlatformSettingsDto {
   @IsOptional()
   @IsString()
   supportEmail?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsObject()
-  aiProviderConfig?: any;
 }

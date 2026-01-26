@@ -96,66 +96,15 @@ async function seedPlans() {
 }
 
 async function seedPlatformSettings() {
-  // 🔥 Always recreate (assuming only ONE row should ever exist)
-  await prisma.platformSettings.deleteMany();
-
-  const defaultAiConfig = {
-    providers: {
-      groq: {
-        defaultModel: 'fast',
-        models: {
-          fast: {
-            modelName: 'llama-3.3-70b-versatile',
-            temperature: 0.7,
-          },
-        },
-      },
-      gemini: {
-        defaultModel: 'flash',
-        models: {
-          flash: {
-            modelName: 'gemini-2.5-flash',
-            temperature: 0.7,
-          },
-          pro: {
-            modelName: 'gemini-2.5-pro',
-            temperature: 0.5,
-          },
-        },
-      },
-      openai: {
-        defaultModel: 'gpt4',
-        models: {
-          gpt4: {
-            modelName: 'gpt-4',
-            temperature: 0.7,
-          },
-        },
-      },
-    },
-    routing: {
-      defaultProvider: 'gemini',
-      taskRouting: {
-        quiz: 'gemini',
-        summary: 'gemini',
-        flashcard: 'gemini',
-        recommendation: 'groq',
-        'study-material': 'gemini',
-      },
-      complexityRouting: {
-        simple: 'groq',
-        medium: 'gemini',
-        complex: 'gemini',
-      },
-      multimodalProvider: 'gemini',
-    },
-  };
-
-  await prisma.platformSettings.create({
-    data: {
+  await prisma.platformSettings.upsert({
+    where: { id: 'platform-settings-id' },
+    update: {
       allowRegistration: true,
       maintenanceMode: false,
-      aiProviderConfig: defaultAiConfig as any,
+    },
+    create: {
+      allowRegistration: true,
+      maintenanceMode: false,
     },
   });
 
