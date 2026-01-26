@@ -1,5 +1,5 @@
 import { Processor } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CacheService } from '../common/services/cache.service';
 import { GenerateQuizDto } from './dto/quiz.dto';
@@ -26,6 +26,7 @@ export interface QuizJobData {
   files?: FileReference[];
 }
 
+@Injectable()
 @Processor('quiz-generation')
 export class QuizProcessor extends BaseProcessor<QuizJobData> {
   protected readonly logger = new Logger(QuizProcessor.name);

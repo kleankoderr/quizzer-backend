@@ -59,22 +59,25 @@ import { RagModule } from './rag/rag.module';
           'REDIS_URL',
           'redis://localhost:6379'
         );
-        const url = new URL(redisUrl);
+
+        // BullMQ/ioredis works best with the URI string directly or with these specific options
         return {
           connection: {
-            host: url.hostname,
-            port: Number.parseInt(url.port),
-            username: url?.username,
-            password: url?.password,
+            url: redisUrl,
+            maxRetriesPerRequest: null, // REQUIRED for BullMQ workers
+            enableReadyCheck: false,
           },
 
           // GLOBAL DEFAULT JOB OPTIONS FOR ALL QUEUES
           defaultJobOptions: {
-            attempts: 1, // No retry (1 attempt = 0 retries)
-            backoff: undefined, // Disable backoff
-            timeout: 60_000, // Job timeout: 60 seconds (kills job if not completed)
-            removeOnComplete: { age: 60 }, // Keep completed jobs 60s
-            removeOnFail: { age: 60 }, // Keep failed jobs for 60s (1 minute)
+            attempts: 3, // Increased from 1 to 3 for better reliability
+            backoff: {
+              type: 'exponential',
+              delay: 1000,
+            },
+            timeout: 60_000, // Job timeout: 60 seconds
+            removeOnComplete: { age: 3600 }, // Keep completed jobs for 1 hour
+            removeOnFail: { age: 86400 }, // Keep failed jobs for 24 hours
           },
         };
       },

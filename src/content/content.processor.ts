@@ -1,5 +1,5 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,6 +31,7 @@ export interface ContentJobData {
   }>;
 }
 
+@Injectable()
 @Processor('content-generation')
 export class ContentProcessor extends WorkerHost {
   private readonly logger = new Logger(ContentProcessor.name);

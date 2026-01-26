@@ -1,5 +1,5 @@
 import { Processor } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QuotaService } from '../common/services/quota.service';
 import { CacheService } from '../common/services/cache.service';
@@ -12,6 +12,7 @@ export interface SummaryJobData {
   userId: string;
 }
 
+@Injectable()
 @Processor('summary-generation')
 export class SummaryProcessor extends BaseProcessor<SummaryJobData, any> {
   protected readonly logger = new Logger(SummaryProcessor.name);

@@ -1,5 +1,5 @@
 import { Processor } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CacheService } from '../common/services/cache.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
@@ -25,6 +25,7 @@ export interface FlashcardJobData {
   files?: ProcessedFileData[];
 }
 
+@Injectable()
 @Processor('flashcard-generation')
 export class FlashcardProcessor extends BaseProcessor<FlashcardJobData, any> {
   protected readonly logger = new Logger(FlashcardProcessor.name);
