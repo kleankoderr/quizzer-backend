@@ -63,29 +63,42 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     const { dto } = context.data;
     const { inputSources, contentForAI } = context;
 
-    const startTime = Date.now();
-    this.logger.log(
-      `Job ${context.jobId}: Generating flashcards with ${inputSources.length} input source(s)`
-    );
+    try {
+      const startTime = Date.now();
+      this.logger.log(
+        `Job ${context.jobId}: Generating flashcards with ${inputSources.length} input source(s)`
+      );
 
-    const prompt = LangChainPrompts.generateFlashcards(
-      dto.topic || '',
-      dto.numberOfCards,
-      contentForAI || ''
-    );
+      const prompt = LangChainPrompts.generateFlashcards(
+        dto.topic || '',
+        dto.numberOfCards,
+        contentForAI || ''
+      );
 
-    const result = await this.langchainService.invokeWithJsonParser(prompt, {
-      task: 'flashcard',
-      userId: context.userId,
-      jobId: context.jobId,
-    });
+      const result = await this.langchainService.invokeWithJsonParser(prompt, {
+        task: 'flashcard',
+        userId: context.userId,
+        jobId: context.jobId,
+      });
 
-    const latency = Date.now() - startTime;
-    this.logger.log(
-      `Job ${context.jobId}: Flashcard generation completed in ${latency}ms`
-    );
+      const latency = Date.now() - startTime;
+      this.logger.log(
+        `Job ${context.jobId}: Flashcard generation completed in ${latency}ms`
+      );
 
-    return result;
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Job ${context.jobId}: Flashcard generation failed: ${error.message}`
+      );
+
+      throw new Error(
+        error.message?.includes('timeout') ||
+          error.message?.includes('timed out')
+          ? 'Flashcard generation timed out. Please try with a shorter topic or less content.'
+          : 'Failed to generate flashcards. Please try again.'
+      );
+    }
   }
 
   async postProcess(context: FlashcardContext, result: any): Promise<any> {

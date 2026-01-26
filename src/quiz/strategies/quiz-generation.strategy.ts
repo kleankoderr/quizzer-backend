@@ -101,9 +101,19 @@ export class QuizGenerationStrategy implements JobStrategy<
         // Validate structure and content
         if (!this.validateQuizResult(result)) {
           this.logger.warn(
-            `Job ${context.jobId}: Invalid quiz structure on attempt ${attempt}`
+            `Job ${context.jobId}: Quiz returned empty questions on attempt ${attempt}`
           );
-          throw new Error('Generated quiz failed validation');
+
+          // Only retry if questions are empty
+          if (attempt < maxRetries) {
+            const delay = 1000; // 1 second delay between retries
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+
+          throw new Error(
+            'Generated quiz has no questions after multiple attempts'
+          );
         }
 
         const latency = Date.now() - startTime;
@@ -117,21 +127,34 @@ export class QuizGenerationStrategy implements JobStrategy<
 
         return { questions, title, topic };
       } catch (error) {
-        this.logger.error(
-          `Job ${context.jobId}: Quiz generation attempt ${attempt} failed: ${error.message}`
-        );
+        // Only retry if it's an empty questions issue
+        const isEmptyQuestions = error.message?.includes('no questions');
 
-        if (attempt < maxRetries) {
-          // Exponential backoff
-          const delay = Math.pow(2, attempt) * 500;
+        if (isEmptyQuestions && attempt < maxRetries) {
+          this.logger.warn(
+            `Job ${context.jobId}: Retrying due to empty questions (${attempt}/${maxRetries})`
+          );
+          const delay = 1000;
           await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
         }
+
+        // For all other errors or final retry, fail immediately
+        this.logger.error(
+          `Job ${context.jobId}: Quiz generation failed: ${error.message}`
+        );
+        throw new Error(
+          error.message?.includes('timeout') ||
+            error.message?.includes('timed out')
+            ? 'Quiz generation timed out. Please try with a shorter topic or less content.'
+            : 'Failed to generate quiz. Please try again.'
+        );
       }
     }
 
     // If we reach here, all retries failed
     throw new Error(
-      'We encountered an issue generating your quiz after multiple attempts. Please try again with more specific content or a different topic.'
+      'Unable to generate quiz with valid questions. Please try again with different content.'
     );
   }
 

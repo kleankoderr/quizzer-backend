@@ -72,7 +72,7 @@ import { RagModule } from './rag/rag.module';
           defaultJobOptions: {
             attempts: 1, // No retry (1 attempt = 0 retries)
             backoff: undefined, // Disable backoff
-            ttl: 60_000, // Jobs expire after 60s
+            timeout: 60_000, // Job timeout: 60 seconds (kills job if not completed)
             removeOnComplete: { age: 60 }, // Keep completed jobs 60s
             removeOnFail: { age: 60 }, // Keep failed jobs for 60s (1 minute)
           },

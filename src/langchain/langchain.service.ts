@@ -11,8 +11,8 @@ export interface InvokeContext {
 @Injectable()
 export class LangChainService {
   private readonly logger = new Logger(LangChainService.name);
-  private readonly DEFAULT_TIMEOUT_MS = 60000; // 60 seconds
-  private readonly JSON_PARSER_TIMEOUT_MS = 60000; // 60 seconds
+  private readonly DEFAULT_TIMEOUT_MS = 55000; // 55 seconds (fails before BullMQ 60s timeout)
+  private readonly JSON_PARSER_TIMEOUT_MS = 55000; // 55 seconds
 
   constructor(private readonly modelConfig: ModelConfigService) {}
 
@@ -124,7 +124,7 @@ export class LangChainService {
   async invokeWithJsonParser(
     prompt: string,
     context?: InvokeContext,
-    maxRetries = 3
+    maxRetries = 1
   ): Promise<Record<string, any>> {
     const contextStr = context ? `[${context.task || 'unknown'}]` : '';
 

@@ -109,28 +109,50 @@ export class SummaryGenerationStrategy implements JobStrategy<
       content.learningGuide || null
     );
 
-    let summaryText = '';
-    const stream = this.langchainService.stream(prompt, {
-      userId: context.userId,
-      task: 'summary',
-    });
+    try {
+      let summaryText = '';
+      const stream = this.langchainService.stream(prompt, {
+        userId: context.userId,
+        task: 'summary',
+      });
 
-    for await (const chunk of stream) {
-      summaryText += chunk;
+      // Add timeout for streaming
+      const startTime = Date.now();
+      const STREAM_TIMEOUT_MS = 55_000; // 55 seconds
 
-      // Emit chunk event for real-time progress
-      this.eventEmitter.emit(
-        EVENTS.SUMMARY.CHUNK,
-        EventFactory.summaryChunk(context.userId, jobId, chunk)
+      for await (const chunk of stream) {
+        // Check timeout
+        if (Date.now() - startTime > STREAM_TIMEOUT_MS) {
+          throw new Error('Summary generation timed out');
+        }
+
+        summaryText += chunk;
+
+        // Emit chunk event for real-time progress
+        this.eventEmitter.emit(
+          EVENTS.SUMMARY.CHUNK,
+          EventFactory.summaryChunk(context.userId, jobId, chunk)
+        );
+      }
+
+      const shortCode = await this.summaryService.generateShortCode();
+
+      return {
+        summaryText,
+        shortCode,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Job ${jobId}: Summary generation failed: ${error.message}`
+      );
+
+      throw new Error(
+        error.message?.includes('timeout') ||
+          error.message?.includes('timed out')
+          ? 'Summary generation timed out. Please try with shorter content.'
+          : 'Failed to generate summary. Please try again.'
       );
     }
-
-    const shortCode = await this.summaryService.generateShortCode();
-
-    return {
-      summaryText,
-      shortCode,
-    };
   }
 
   async postProcess(context: SummaryContext, result: any): Promise<any> {
