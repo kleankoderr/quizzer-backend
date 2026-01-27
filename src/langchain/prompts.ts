@@ -34,6 +34,8 @@ ACCURACY & SOURCE FIDELITY:
 - If Source Content is provided:
   - Questions MUST be answerable using ONLY provided source content
   - Do NOT introduce external facts, assumptions, or examples
+  - Each question must be fully self-contained, include all necessary context, 
+    and must not reference any source text or external content (e.g., “based on the text” or “according to the source”). 
 - If Source Content is NOT provided or is insufficient (e.g., only topic name):
   - Use high-quality, factually accurate general knowledge about the Topic
 - Do NOT reword questions to change their meaning
