@@ -145,7 +145,7 @@ Return ONLY valid JSON. No markdown. No commentary. No explanations outside JSON
     {
       "front": "Clear, focused prompt",
       "back": "Accurate, complete answer",
-      "explanation": "Optional: context or memory aid"
+      "explanation": "context or memory aid"
     }
   ]
 }
