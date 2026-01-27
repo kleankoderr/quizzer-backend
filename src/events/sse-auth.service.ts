@@ -20,10 +20,6 @@ export class SseAuthService {
     const key = `${this.TOKEN_PREFIX}${token}`;
     const userId = await this.cacheService.get<string>(key);
 
-    if (userId) {
-      await this.cacheService.invalidate(key);
-    }
-
     return userId;
   }
 }
