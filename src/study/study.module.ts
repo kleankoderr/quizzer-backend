@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { StudyController } from './study.controller';
 import { StudyService } from './study.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AiModule } from '../ai/ai.module';
+import { LangChainModule } from '../langchain/langchain.module';
 
 @Module({
-  imports: [PrismaModule, AiModule],
+  imports: [PrismaModule, LangChainModule],
   controllers: [StudyController],
   providers: [StudyService],
   exports: [StudyService],

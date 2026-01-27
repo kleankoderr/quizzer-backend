@@ -8,7 +8,6 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { CacheModule } from './cache/cache.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
-import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { QuizModule } from './quiz/quiz.module';
 import { FlashcardModule } from './flashcard/flashcard.module';
@@ -32,7 +31,6 @@ import { QuoteModule } from './quote/quote.module';
 import { SearchModule } from './search/search.module';
 import { SchoolModule } from './school/school.module';
 import { CoachingModule } from './coaching/coaching.module';
-import { SettingsModule } from './settings/settings.module';
 import { EventsModule } from './events/events.module';
 import { UserDocumentModule } from './user-document/user-document.module';
 import { StudyPackModule } from './study-pack/study-pack.module';
@@ -43,6 +41,8 @@ import { WeakAreaModule } from './weak-area/weak-area.module';
 import { SummaryModule } from './summary/summary.module';
 import { EmailModule } from './email/email.module';
 import { OtpModule } from './otp/otp.module';
+import { LangChainModule } from './langchain/langchain.module';
+import { RagModule } from './rag/rag.module';
 
 @Module({
   imports: [
@@ -59,22 +59,25 @@ import { OtpModule } from './otp/otp.module';
           'REDIS_URL',
           'redis://localhost:6379'
         );
-        const url = new URL(redisUrl);
+
+        // BullMQ/ioredis works best with the URI string directly or with these specific options
         return {
           connection: {
-            host: url.hostname,
-            port: Number.parseInt(url.port),
-            username: url?.username,
-            password: url?.password,
+            url: redisUrl,
+            maxRetriesPerRequest: null, // REQUIRED for BullMQ workers
+            enableReadyCheck: false,
           },
 
           // GLOBAL DEFAULT JOB OPTIONS FOR ALL QUEUES
           defaultJobOptions: {
-            attempts: 1, // No retry (1 attempt = 0 retries)
-            backoff: undefined, // Disable backoff
-            ttl: 60_000, // Jobs expire after 60s
-            removeOnComplete: { age: 60 }, // Keep completed jobs 60s
-            removeOnFail: { age: 60 }, // Keep failed jobs for 60s (1 minute)
+            attempts: 3, // Increased from 1 to 3 for better reliability
+            backoff: {
+              type: 'exponential',
+              delay: 1000,
+            },
+            timeout: 60_000, // Job timeout: 60 seconds
+            removeOnComplete: { age: 3600 }, // Keep completed jobs for 1 hour
+            removeOnFail: { age: 86400 }, // Keep failed jobs for 24 hours
           },
         };
       },
@@ -92,7 +95,8 @@ import { OtpModule } from './otp/otp.module';
     FileStorageModule,
     CacheModule,
     SessionModule,
-    AiModule,
+    LangChainModule,
+    RagModule,
     AuthModule,
     QuizModule,
     FlashcardModule,
@@ -114,7 +118,6 @@ import { OtpModule } from './otp/otp.module';
     QuoteModule,
     SchoolModule,
     CoachingModule,
-    SettingsModule,
     OnboardingModule,
     SearchModule,
     EventsModule,

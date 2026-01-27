@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
 import { AssessmentService } from '../assessment/assessment.service';
 import { InsightsService } from '../insights/insights.service';
 import { RetentionLevel } from '@prisma/client';
@@ -27,7 +27,7 @@ export class CompanionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly assessmentService: AssessmentService,
     private readonly insightsService: InsightsService
   ) {}
@@ -177,9 +177,8 @@ export class CompanionService {
 
 The question should be encouraging, help them think about their learning process, and be 1-2 sentences max. Tailor the tone to be universally relatable and encouraging.`;
 
-      const question = await this.aiService.generateContent({
-        prompt,
-        maxTokens: 100,
+      const question = await this.langchainService.invoke(prompt, {
+        task: 'reflection',
       });
       return question.trim();
     } catch (error) {
@@ -303,9 +302,8 @@ The question should be encouraging, help them think about their learning process
 
 Keep it to 1-2 sentences, friendly and encouraging. Tailor the tone to be universally relatable and encouraging.`;
 
-      const motivation = await this.aiService.generateContent({
-        prompt,
-        maxTokens: 100,
+      const motivation = await this.langchainService.invoke(prompt, {
+        task: 'motivation',
       });
       return motivation.trim();
     } catch (error) {

@@ -1,10 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { CacheModule } from '../cache/cache.module';
 import { CacheService } from '../common/services/cache.service';
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { CommonModule } from '../common/common.module';
-import { PrismaModule } from '../prisma/prisma.module';
 import { AppModule } from '../app.module';
 
 async function verifyCache() {

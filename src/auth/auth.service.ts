@@ -10,10 +10,11 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { SignupDto, LoginDto, GoogleAuthDto } from './dto/auth.dto';
-import { SettingsService } from '../settings/settings.service';
+import { PlatformSettingsService } from '../common/services/platform-settings.service';
 import { SessionService } from '../session/session.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import axios from 'axios';
@@ -31,7 +32,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly settingsService: SettingsService,
+    private readonly configService: ConfigService,
+    private readonly platformSettingsService: PlatformSettingsService,
     private readonly sessionService: SessionService,
     private readonly subscriptionHelper: SubscriptionHelperService,
     private readonly eventEmitter: EventEmitter2,
@@ -43,7 +45,7 @@ export class AuthService {
 
   async signup(signupDto: SignupDto) {
     // Check if registration is allowed
-    const settings = await this.settingsService.getPublicSettings();
+    const settings = await this.platformSettingsService.getPublicSettings();
     if (!settings.allowRegistration) {
       throw new ForbiddenException(
         'Registration is currently disabled. Please check back later or contact support.'
@@ -315,7 +317,7 @@ export class AuthService {
         }
       } else {
         // Check if registration is allowed
-        const settings = await this.settingsService.getPublicSettings();
+        const settings = await this.platformSettingsService.getPublicSettings();
         if (!settings.allowRegistration) {
           throw new ForbiddenException(
             'Registration is currently disabled. Please check back later or contact support.'
@@ -357,7 +359,25 @@ export class AuthService {
       role: user.role,
     };
 
-    const accessToken = this.jwtService.sign(payload);
+    // Generate access token (15 minutes)
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: this.configService.get('JWT_EXPIRES_IN') || '15m',
+    });
+
+    // Generate refresh token (7 days)
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id, type: 'refresh' },
+      {
+        expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRES_IN') || '7d',
+      }
+    );
+
+    // Hash and store refresh token in database
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken: hashedRefreshToken },
+    });
 
     // Create session in Redis
     await this.sessionService.createSession({
@@ -387,6 +407,7 @@ export class AuthService {
         createdAt: user.createdAt,
       },
       accessToken,
+      refreshToken,
     };
   }
 
@@ -525,5 +546,67 @@ export class AuthService {
       message:
         'Password reset successful. You can now log in with your new password.',
     };
+  }
+
+  /**
+   * Refresh access token using refresh token
+   */
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      // Verify refresh token
+      const payload = this.jwtService.verify(refreshToken);
+
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedException('Invalid token type');
+      }
+
+      // Get user and verify refresh token
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!user || !user.refreshToken) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Verify stored refresh token matches
+      const isValid = await bcrypt.compare(refreshToken, user.refreshToken);
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Generate new access token
+      const newPayload = {
+        sub: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      };
+
+      const accessToken = this.jwtService.sign(newPayload, {
+        expiresIn: this.configService.get('JWT_EXPIRES_IN') || '15m',
+      });
+
+      // Update session in Redis
+      await this.sessionService.createSession({
+        userId: user.id,
+        email: user.email,
+        token: accessToken,
+      });
+
+      return { accessToken };
+    } catch (_error) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
+  /**
+   * Revoke refresh token (for logout)
+   */
+  async revokeRefreshToken(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { refreshToken: null },
+    });
   }
 }

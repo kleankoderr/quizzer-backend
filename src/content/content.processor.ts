@@ -1,14 +1,15 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
 import { EventFactory, EVENTS } from '../events/events.types';
-import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { LangChainPrompts } from '../langchain/prompts';
+import { InputPipeline } from '../input-pipeline/input-pipeline.service';
 
 export interface ContentJobData {
   userId: string;
@@ -25,18 +26,21 @@ export interface ContentJobData {
     googleFileUrl?: string;
     googleFileId?: string;
     documentId?: string;
+    mimetype?: string;
+    size?: number;
   }>;
 }
 
+@Injectable()
 @Processor('content-generation')
 export class ContentProcessor extends WorkerHost {
   private readonly logger = new Logger(ContentProcessor.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly userDocumentService: UserDocumentService,
+    private readonly inputPipeline: InputPipeline,
     private readonly quotaService: QuotaService,
     private readonly subscriptionHelper: SubscriptionHelperService,
     private readonly studyPackService: StudyPackService,
@@ -56,44 +60,35 @@ export class ContentProcessor extends WorkerHost {
     try {
       await job.updateProgress(10);
 
-      // Validate input - at least one of topic, content, or files must be provided
-      if (!dto.topic && !dto.content && (!files || files.length === 0)) {
-        throw new Error(
-          'At least one of topic, content, or files must be provided'
-        );
-      }
+      // Use input pipeline to process all input sources
+      const inputSources = await this.inputPipeline.process({
+        ...dto,
+        files,
+        userId,
+      });
 
-      const fileReferences =
-        files?.map((file) => ({
-          googleFileUrl: file.googleFileUrl,
-          googleFileId: file.googleFileId,
-          originalname: file.originalname,
-        })) || [];
-
-      this.logger.debug(
-        `Job ${jobId}: Using ${fileReferences.length} pre-uploaded file(s)`
+      this.logger.log(
+        `Job ${jobId}: Processing ${inputSources.length} input source(s)`
       );
 
       await job.updateProgress(20);
 
-      // Create UserDocument references for uploaded files
-      if (files && files.length > 0) {
-        await this.createUserDocumentReferences(userId, files, jobId);
-      }
+      // Combine sources with precedence: FILE > CONTENT > TITLE
+      const contentForAI = this.inputPipeline.combineInputSources(inputSources);
 
-      this.logger.log(
-        `Job ${jobId}: Generating content for topic: "${dto.topic || 'from files/text'}"`
-      );
+      this.logger.log(`Job ${jobId}: Generating study material`);
       await job.updateProgress(30);
 
-      // Use the unified single-call generation strategy
-      await job.updateProgress(60);
-
-      const result = await this.aiService.generateLearningGuideFromInputs(
-        dto.topic,
-        dto.content,
-        fileReferences
+      const prompt = LangChainPrompts.generateComprehensiveLearningGuide(
+        dto.topic || '',
+        contentForAI || ''
       );
+
+      const result = await this.langchainService.invokeWithJsonParser(prompt, {
+        task: 'study-material',
+        userId,
+        jobId,
+      });
 
       // Extract generated data from the unified response
       const { title, topic, description, learningGuide } = result;
@@ -102,13 +97,23 @@ export class ContentProcessor extends WorkerHost {
 
       const content = await this.prisma.content.create({
         data: {
-          title: title?.trim() || dto.title || 'Untitled Study Guide',
+          title: title?.trim() || dto.title || dto.topic || 'Untitled',
           topic: topic?.trim() || dto.topic || 'General',
           description: description?.trim(),
-          learningGuide,
-          userId,
+          learningGuide: learningGuide,
           content: '',
-          studyPackId: dto.studyPackId,
+          user: {
+            connect: {
+              id: userId,
+            },
+          },
+          ...(dto.studyPackId && {
+            studyPack: {
+              connect: {
+                id: dto.studyPackId,
+              },
+            },
+          }),
         },
       });
 
@@ -145,7 +150,7 @@ export class ContentProcessor extends WorkerHost {
         EVENTS.CONTENT.FAILED,
         EventFactory.contentFailed(userId, jobId, error.message)
       );
-      throw error;
+      throw new Error('Failed to generate study material.');
     }
   }
 
@@ -183,40 +188,6 @@ export class ContentProcessor extends WorkerHost {
       // Log error but don't fail content creation
       this.logger.warn(
         `Job ${jobId}: Failed to queue summary generation: ${error.message}`
-      );
-    }
-  }
-
-  /**
-   * Create UserDocument references for uploaded files
-   */
-  private async createUserDocumentReferences(
-    userId: string,
-    files: Array<{
-      originalname: string;
-      cloudinaryUrl?: string;
-      googleFileUrl?: string;
-      documentId?: string;
-    }>,
-    jobId: string
-  ): Promise<void> {
-    try {
-      for (const file of files) {
-        if (file.documentId) {
-          await this.userDocumentService.createUserDocument(
-            userId,
-            file.documentId,
-            file.originalname
-          );
-          this.logger.debug(
-            `Job ${jobId}: Created UserDocument reference for ${file.originalname}`
-          );
-        }
-      }
-    } catch (error) {
-      // Log warning but don't fail the job
-      this.logger.warn(
-        `Job ${jobId}: Failed to create UserDocument references: ${error.message}`
       );
     }
   }

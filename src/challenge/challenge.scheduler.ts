@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { ChallengeService } from './challenge.service';
 
 @Injectable()
@@ -20,7 +19,7 @@ export class ChallengeScheduler {
     }
   }
 
-  @Cron('0 0 * * 0') // Every sunday at midnight
+  // @Cron('0 0 * * 0') // Every sunday at midnight
   async handleWeeklyCron() {
     this.logger.log('Running weekly challenge generation...');
     try {
@@ -31,7 +30,7 @@ export class ChallengeScheduler {
     }
   }
 
-  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+  // @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
   async handleMonthlyCron() {
     this.logger.log('Running monthly challenge generation...');
     try {
@@ -42,7 +41,7 @@ export class ChallengeScheduler {
     }
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  // @Cron(CronExpression.EVERY_HOUR)
   async handleHotCron() {
     this.logger.log('Running hot challenge generation...');
     try {

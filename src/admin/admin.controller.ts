@@ -23,7 +23,6 @@ import {
   ModerationActionDto,
   CreateSchoolDto,
   UpdateSchoolDto,
-  PlatformSettingsDto,
 } from './dto/admin.dto';
 
 @ApiTags('Admin')
@@ -159,18 +158,6 @@ export class AdminController {
   @ApiOperation({ summary: 'Get generation analytics' })
   getAiAnalytics() {
     return this.adminService.getAiAnalytics();
-  }
-
-  @Get('settings')
-  @ApiOperation({ summary: 'Get platform settings' })
-  getSettings() {
-    return this.adminService.getSettings();
-  }
-
-  @Patch('settings')
-  @ApiOperation({ summary: 'Update platform settings' })
-  updateSettings(@Body() settingsDto: PlatformSettingsDto) {
-    return this.adminService.updateSettings(settingsDto);
   }
 
   @Delete('flashcard/:id')

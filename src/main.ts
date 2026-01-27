@@ -1,48 +1,89 @@
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
 import { json } from 'express';
+
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
 
+function parseEnvList(key: string): string[] {
+  return (
+    process.env[key]
+      ?.split(',')
+      .map((v) => v.trim())
+      .filter(Boolean) || []
+  );
+}
+
 async function bootstrap() {
-  const startTime = Date.now();
+  const startedAt = Date.now();
+
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
   });
 
-  console.log(`✅ Application created in ${Date.now() - startTime}ms`);
+  const httpAdapterHost = app.get(HttpAdapterHost);
 
-  // Get HTTP adapter for exception filter
-  const httpAdapter = app.get(HttpAdapterHost);
-
-  // Set trust proxy for accurate IP addresses behind load balancers
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
-
-  // Use custom JSON parser with size limit
   app.use(json({ limit: '50mb' }));
 
-  // Enable CORS - Allow all origins
-  console.log('🔒 CORS enabled for ALL origins');
+  configureCors(app);
+  configureGlobals(app, httpAdapterHost);
+  configureSwagger(app);
+
+  const port = Number(process.env.PORT) || 3000;
+  await app.listen(port);
+
+  console.log(
+    `🚀 Server running on port ${port} (${Date.now() - startedAt}ms)`
+  );
+}
+
+function configureCors(app: any) {
+  const allowedOrigins = parseEnvList('ALLOWED_ORIGINS');
+  const allowedOriginPatterns = parseEnvList('ALLOWED_ORIGIN_PATTERNS').map(
+    (p) => new RegExp(p)
+  );
+
+  if (allowedOrigins.length) {
+    console.log(`🔒 CORS origins: ${allowedOrigins.join(', ')}`);
+  }
+
+  if (allowedOriginPatterns.length) {
+    console.log(
+      `🔒 CORS patterns: ${allowedOriginPatterns.map(String).join(', ')}`
+    );
+  }
+
   app.enableCors({
-    origin: true, // Allow all origins
+    origin: (origin: any, callback: any) => {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      if (allowedOriginPatterns.some((pattern) => pattern.test(origin))) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
     credentials: true,
     allowedHeaders: [
       'Content-Type',
       'Authorization',
       'Accept',
       'Cache-Control',
+      'X-Requested-With',
+      'ngrok-skip-browser-warning',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    exposedHeaders: ['Cache-Control'],
   });
+}
 
-  // Use cookie-parser middleware
-  app.use(cookieParser());
-
-  // Global validation pipe
+function configureGlobals(app: any, httpAdapterHost: HttpAdapterHost) {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -50,27 +91,25 @@ async function bootstrap() {
     })
   );
 
-  // Global exception filter
-  app.useGlobalFilters(new GlobalExceptionFilter(httpAdapter));
+  app.useGlobalFilters(new GlobalExceptionFilter(httpAdapterHost));
 
-  // Global response transform interceptor
   app.useGlobalInterceptors(new ResponseTransformInterceptor());
+}
 
-  // Swagger setup
+function configureSwagger(app: any) {
+  if (process.env.NODE_ENV !== 'development') return;
+
   const config = new DocumentBuilder()
     .setTitle('Quizzer API')
-    .setDescription('The Quizzer API description')
+    .setDescription('Quizzer public API')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-
-  const totalTime = Date.now() - startTime;
-  console.log(`🎉 Application started on port ${port} in ${totalTime}ms`);
+  console.log('📚 Swagger available at /api');
 }
 
 bootstrap();

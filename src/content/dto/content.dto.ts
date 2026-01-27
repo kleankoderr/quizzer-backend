@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsInt,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateContentDto {
@@ -10,6 +16,7 @@ export class CreateContentDto {
   @IsString()
   @IsNotEmpty()
   @IsOptional()
+  @MaxLength(200)
   title?: string;
 
   @ApiProperty({
@@ -20,6 +27,7 @@ export class CreateContentDto {
   @IsString()
   @IsNotEmpty()
   @IsOptional()
+  @MaxLength(1500)
   content?: string;
 
   @ApiProperty({
@@ -30,6 +38,7 @@ export class CreateContentDto {
   @IsString()
   @IsNotEmpty()
   @IsOptional()
+  @MaxLength(200)
   topic?: string;
 
   @ApiProperty({
@@ -104,6 +113,7 @@ export class UpdateContentDto {
   })
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   title?: string;
 
   @ApiProperty({
@@ -113,6 +123,7 @@ export class UpdateContentDto {
   })
   @IsString()
   @IsOptional()
+  @MaxLength(1500)
   content?: string;
 
   @ApiProperty({
@@ -122,6 +133,7 @@ export class UpdateContentDto {
   })
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   topic?: string;
 
   @ApiProperty({

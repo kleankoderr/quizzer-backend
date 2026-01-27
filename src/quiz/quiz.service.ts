@@ -78,8 +78,6 @@ export class QuizService {
     private readonly studyPackService: StudyPackService
   ) {}
 
-  // ==================== QUIZ GENERATION ====================
-
   async generateQuiz(
     userId: string,
     dto: GenerateQuizDto,
@@ -110,13 +108,10 @@ export class QuizService {
           googleFileUrl: doc.googleFileUrl,
           googleFileId: doc.googleFileId,
           documentId: doc.documentId,
+          mimetype: doc.mimeType,
+          size: doc.size,
         })),
       });
-
-      // Fire and forget cache invalidation
-      this.invalidateUserCache(userId).catch((err) =>
-        this.logger.warn(`Cache invalidation failed: ${err.message}`)
-      );
 
       this.logger.log(`Quiz generation job created: ${job.id}`);
       return {
@@ -157,22 +152,20 @@ export class QuizService {
     };
   }
 
-  // ==================== QUIZ RETRIEVAL ====================
-
-  async getAllQuizzes(userId: string, page: number = 1, limit: number = 20) {
-    const cacheKey = `quizzes:all:${userId}:${page}:${limit}`;
-    const cached = await this.cacheService.get<any>(cacheKey);
-
-    if (cached) {
-      this.logger.debug(`Cache hit for user ${userId}`);
-      return cached;
-    }
-
+  async getAllQuizzes(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    studyPackId?: string
+  ) {
     const skip = (page - 1) * limit;
 
     const [quizzes, total] = await Promise.all([
       this.prisma.quiz.findMany({
-        where: { userId },
+        where: {
+          userId,
+          ...(studyPackId ? { studyPackId } : {}),
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -199,7 +192,10 @@ export class QuizService {
         },
       }),
       this.prisma.quiz.count({
-        where: { userId },
+        where: {
+          userId,
+          ...(studyPackId ? { studyPackId } : {}),
+        },
       }),
     ]);
 
@@ -222,7 +218,7 @@ export class QuizService {
       };
     });
 
-    const result = {
+    return {
       data: transformedQuizzes,
       meta: {
         total,
@@ -231,13 +227,6 @@ export class QuizService {
         totalPages: Math.ceil(total / limit),
       },
     };
-
-    await this.cacheService.set(cacheKey, result, CACHE_TTL_MS);
-    this.logger.debug(
-      `Cached ${transformedQuizzes.length} quizzes for user ${userId}`
-    );
-
-    return result;
   }
 
   async getQuizById(id: string, userId: string) {
@@ -295,8 +284,6 @@ export class QuizService {
     }));
   }
 
-  // ==================== QUIZ SUBMISSION ====================
-
   async submitQuiz(
     userId: string,
     quizId: string,
@@ -320,7 +307,7 @@ export class QuizService {
           totalQuestions: true,
         },
       }),
-      this.findAccessibleQuizOptimized(quizId, userId),
+      this.findAccessibleQuiz(quizId, userId),
     ]);
 
     // Handle duplicate
@@ -422,8 +409,6 @@ export class QuizService {
       feedback,
     };
   }
-
-  // ==================== ATTEMPT RETRIEVAL ====================
 
   async getAttemptById(attemptId: string, userId: string) {
     const attempt = await this.prisma.attempt.findUnique({
@@ -534,8 +519,6 @@ export class QuizService {
     });
   }
 
-  // ==================== QUIZ DELETION ====================
-
   async deleteQuiz(id: string, userId: string) {
     this.logger.log(`Deleting quiz ${id} for user ${userId}`);
 
@@ -578,44 +561,45 @@ export class QuizService {
 
     // Fire and forget file cleanup & cache invalidation
     this.cleanupQuizFilesAsync(quiz.sourceFiles);
-    this.invalidateUserCache(userId).catch(() => {});
     this.studyPackService.invalidateUserCache(userId).catch(() => {});
 
     this.logger.log(`Quiz ${id} deleted successfully`);
     return { success: true, message: 'Quiz deleted successfully' };
   }
 
-  // ==================== OPTIMIZED HELPER METHODS ====================
+  async updateTitle(id: string, userId: string, title: string) {
+    const quiz = await this.prisma.quiz.findFirst({
+      where: { id, userId },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+
+    const updatedQuiz = await this.prisma.quiz.update({
+      where: { id },
+      data: { title },
+    });
+
+    return updatedQuiz;
+  }
 
   /**
    * Fetch quiz with minimal fields and single query
    */
-  private async findAccessibleQuizOptimized(quizId: string, userId: string) {
-    // Try to fetch quiz directly with challenge access check in one query
+  private async findAccessibleQuiz(quizId: string, userId: string) {
     const quiz = await this.prisma.quiz.findFirst({
       where: {
         id: quizId,
         OR: [
-          { userId }, // User's own quiz
+          { userId },
           {
-            // Challenge quiz user has access to
             OR: [
               {
                 challenges: {
                   some: {
                     completions: {
                       some: { userId },
-                    },
-                  },
-                },
-              },
-              {
-                challengeQuizzes: {
-                  some: {
-                    challenge: {
-                      completions: {
-                        some: { userId },
-                      },
                     },
                   },
                 },
@@ -628,9 +612,39 @@ export class QuizService {
         id: true,
         questions: true,
         topic: true,
+        title: true,
         contentId: true,
         tags: true,
         quizType: true,
+        timeLimit: true,
+        studyPack: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        attempts: {
+          where: { userId },
+          orderBy: { completedAt: 'desc' },
+        },
+        challenges: {
+          include: {
+            completions: {
+              where: { userId },
+            },
+          },
+        },
+        challengeQuizzes: {
+          include: {
+            challenge: {
+              include: {
+                completions: {
+                  where: { userId },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -696,6 +710,7 @@ export class QuizService {
   private handlePostSubmissionAsync(context: PostSubmissionContext): void {
     const {
       userId,
+      quizId,
       challengeId,
       correctCount,
       totalQuestions,
@@ -707,7 +722,7 @@ export class QuizService {
     // All these run in background, don't block response
     Promise.all([
       // Invalidate caches
-      this.invalidateUserCache(userId),
+      this.cacheService.invalidate(`quiz:${quizId}:${userId}`),
       challengeId ? this.invalidateChallengeCache(userId) : Promise.resolve(),
 
       // Update streak
@@ -717,16 +732,16 @@ export class QuizService {
           this.logger.error(`Streak update failed: ${err.message}`)
         ),
 
-      // Update challenge progress
-      this.challengeService
-        .updateChallengeProgress(
-          userId,
-          'quiz',
-          correctCount === totalQuestions
-        )
-        .catch((err) =>
-          this.logger.error(`Challenge update failed: ${err.message}`)
-        ),
+      // Update challenge progress (disabled)
+      // this.challengeService
+      //   .updateChallengeProgress(
+      //     userId,
+      //     'quiz',
+      //     correctCount === totalQuestions
+      //   )
+      //   .catch((err) =>
+      //     this.logger.error(`Challenge update failed: ${err.message}`)
+      //   ),
 
       // Generate recommendations
       this.recommendationService
@@ -812,6 +827,8 @@ export class QuizService {
         hash: '', // Not needed for existing files
         isDuplicate: true, // Mark as duplicate since it's already uploaded
         documentId: userDoc.document.id,
+        mimeType: userDoc.document.mimeType,
+        size: userDoc.document.sizeBytes || 0,
       }));
     } catch (error) {
       this.logger.warn(
@@ -820,8 +837,6 @@ export class QuizService {
       return [];
     }
   }
-
-  // ==================== EXISTING HELPER METHODS ====================
 
   private async processUploadedFiles(
     userId: string,
@@ -859,80 +874,6 @@ export class QuizService {
 
   private transformQuizType(quizType: QuizType): string {
     return PRISMA_TO_QUIZ_TYPE[quizType] || 'standard';
-  }
-
-  private async findAccessibleQuiz(quizId: string, userId: string) {
-    let quiz = await this.prisma.quiz.findFirst({
-      where: { id: quizId, userId },
-      include: {
-        studyPack: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-        attempts: {
-          select: {
-            id: true,
-            score: true,
-            totalQuestions: true,
-            completedAt: true,
-            timeSpent: true,
-          },
-          orderBy: {
-            completedAt: 'desc',
-          },
-          take: 10,
-        },
-      },
-    });
-
-    if (!quiz) {
-      const challenge = await this.prisma.challenge.findFirst({
-        where: {
-          OR: [{ quizId: quizId }, { quizzes: { some: { quizId: quizId } } }],
-        },
-      });
-
-      if (challenge) {
-        quiz = await this.prisma.quiz.findUnique({
-          where: { id: quizId },
-          include: {
-            studyPack: {
-              select: {
-                id: true,
-                title: true,
-              },
-            },
-            attempts: {
-              where: {
-                userId: userId,
-              },
-              select: {
-                id: true,
-                score: true,
-                totalQuestions: true,
-                completedAt: true,
-                timeSpent: true,
-              },
-              orderBy: {
-                completedAt: 'desc',
-              },
-              take: 10,
-            },
-          },
-        });
-      }
-    }
-
-    if (quiz && Array.isArray(quiz.questions)) {
-      quiz.questions = (quiz.questions as any[]).map((q) => {
-        const { _correctAnswer, _explanation, ...rest } = q;
-        return rest;
-      }) as any;
-    }
-
-    return quiz;
   }
 
   private sanitizeQuizForDisplay(quiz: any) {
@@ -1108,10 +1049,6 @@ export class QuizService {
         );
       }
     }
-  }
-
-  private async invalidateUserCache(userId: string): Promise<void> {
-    await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
   }
 
   private async invalidateChallengeCache(userId: string): Promise<void> {

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Delete,
   Body,
   Param,
@@ -86,12 +87,14 @@ export class FlashcardController {
   async getAllFlashcardSets(
     @CurrentUser('sub') userId: string,
     @Query('page') page?: number,
-    @Query('limit') limit?: number
+    @Query('limit') limit?: number,
+    @Query('studyPackId') studyPackId?: string
   ) {
     return this.flashcardService.getAllFlashcardSets(
       userId,
       page ? Number(page) : 1,
-      limit ? Number(limit) : 20
+      limit ? Number(limit) : 20,
+      studyPackId
     );
   }
 
@@ -131,6 +134,21 @@ export class FlashcardController {
     @CurrentUser('sub') userId: string
   ) {
     return this.flashcardService.getFlashcardAttempts(id, userId);
+  }
+
+  @Patch(':id/title')
+  @ApiOperation({ summary: 'Update flashcard title' })
+  @ApiResponse({
+    status: 200,
+    description: 'Flashcard set title updated successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Flashcard set not found' })
+  async updateTitle(
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string,
+    @Body('title') title: string
+  ) {
+    return this.flashcardService.updateTitle(id, userId, title);
   }
 
   @Delete(':id')

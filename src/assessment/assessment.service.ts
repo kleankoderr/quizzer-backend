@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
 import { QuizType, RetentionLevel } from '@prisma/client';
+import { LangChainPrompts } from '../langchain/prompts';
 
 export interface PerformancePattern {
   averageScore: number;
@@ -18,7 +19,7 @@ export class AssessmentService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService
+    private readonly langchainService: LangChainService
   ) {}
 
   /**
@@ -332,36 +333,29 @@ export class AssessmentService {
    */
   private async extractConceptsFromQuestions(
     questions: string[],
-    topic: string
+    _topic: string
   ): Promise<string[]> {
     if (questions.length === 0) {
       return [];
     }
 
     try {
-      const prompt = `Extract the key learning concept being tested from each question.
-Return ONLY a JSON array of concept strings, one for each question.
-Keep each concept concise (max 50 characters).
+      const prompt = LangChainPrompts.conceptExtraction(
+        JSON.stringify(questions)
+      );
 
-Topic: ${topic}
-
-Questions:
-${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
-
-Example output format:
-["Photosynthesis process", "Newton's laws of motion", "French verb conjugation"]`;
-
-      const response = await this.aiService.generateContent({
+      const response = await this.langchainService.invokeWithJsonParser(
         prompt,
-        maxTokens: 500,
-      });
+        {
+          task: 'concept_extraction',
+        }
+      );
 
-      // Parse the AI response
-      const parsed = JSON.parse(response);
+      const concepts = response.concepts || [];
 
-      if (Array.isArray(parsed) && parsed.length === questions.length) {
+      if (Array.isArray(concepts) && concepts.length === questions.length) {
         // Truncate concepts to 100 chars to fit schema
-        return parsed.map((concept: string) =>
+        return concepts.map((concept: string) =>
           concept.substring(0, 100).trim()
         );
       }

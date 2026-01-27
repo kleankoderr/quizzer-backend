@@ -10,7 +10,7 @@ import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../common/services/cache.service';
 import { customAlphabet } from 'nanoid';
-import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
+import { QuotaService } from '../common/services/quota.service';
 
 const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
@@ -32,8 +32,8 @@ export class SummaryService {
     @InjectQueue('summary-generation')
     private readonly summaryQueue: Queue,
     private readonly prisma: PrismaService,
-    private readonly subscriptionHelper: SubscriptionHelperService,
-    private readonly cacheService: CacheService
+    private readonly cacheService: CacheService,
+    private readonly quotaService: QuotaService
   ) {}
 
   /**
@@ -44,14 +44,8 @@ export class SummaryService {
     studyMaterialId: string,
     userId: string
   ): Promise<{ jobId: string }> {
-    // Check user has premium subscription
-    const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
-
-    if (!isPremium) {
-      throw new ForbiddenException(
-        'Summary generation is only available for premium users'
-      );
-    }
+    // Check summary quota
+    await this.quotaService.checkQuota(userId, 'summary');
 
     // Verify the study material exists and belongs to the user
     const content = await this.prisma.content.findFirst({

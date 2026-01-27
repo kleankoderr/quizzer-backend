@@ -17,13 +17,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (request: Request) => {
-          return request?.cookies?.Authentication;
-        },
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        // Support query parameter for SSE connections (EventSource can't send headers)
         (request: Request) => {
           return (request?.query?.token as string) || undefined;
         },
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_SECRET'),
@@ -32,10 +30,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: Request, payload: any) {
-    // Extract token for session validation
-    const token =
-      req?.cookies?.Authentication ||
-      req?.headers?.authorization?.replace('Bearer ', '');
+    // Extract token from Authorization header for session validation
+    const token = req?.headers?.authorization?.replace('Bearer ', '');
 
     // Check if token is blacklisted
     if (token && (await this.sessionService.isTokenBlacklisted(token))) {

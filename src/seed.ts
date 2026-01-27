@@ -9,6 +9,7 @@ const pool = new Pool({
     ? false
     : { rejectUnauthorized: false },
 });
+
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
@@ -21,24 +22,13 @@ async function seedSuperAdmin() {
     return;
   }
 
-  const existingAdmin = await prisma.user.findUnique({
+  // 🔥 Always recreate
+  await prisma.user.deleteMany({
     where: { email: adminEmail },
   });
 
-  if (existingAdmin) {
-    console.log('✅ Super Admin exists:', adminEmail);
-
-    if (existingAdmin.role !== UserRole.SUPER_ADMIN) {
-      await prisma.user.update({
-        where: { id: existingAdmin.id },
-        data: { role: UserRole.SUPER_ADMIN, emailVerified: true },
-      });
-      console.log('   ↳ Updated to SUPER_ADMIN\n');
-    }
-    return;
-  }
-
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
   const admin = await prisma.user.create({
     data: {
       email: adminEmail,
@@ -55,6 +45,7 @@ async function seedSuperAdmin() {
 }
 
 async function seedPlans() {
+  // 🔥 Use upsert to avoid foreign key errors (so we don't delete plans users are subscribed to)
   const plans = [
     {
       id: 'free-plan-id',
@@ -69,6 +60,7 @@ async function seedPlans() {
         conceptExplanations: 5,
         smartRecommendations: 5,
         smartCompanions: 5,
+        summaries: 3,
         filesPerMonth: 10,
         storageLimitMB: 20,
       },
@@ -86,6 +78,7 @@ async function seedPlans() {
         conceptExplanations: 20,
         smartRecommendations: 20,
         smartCompanions: 20,
+        summaries: 15,
         filesPerMonth: 100,
         storageLimitMB: 1000,
       },
@@ -93,57 +86,35 @@ async function seedPlans() {
   ];
 
   for (const plan of plans) {
-    const existing = await prisma.subscriptionPlan.findUnique({
+    await prisma.subscriptionPlan.upsert({
       where: { id: plan.id },
+      update: plan,
+      create: plan,
     });
-
-    if (existing) {
-      console.log(`✅ ${plan.name} Plan already exists`);
-      continue;
-    }
-
-    await prisma.subscriptionPlan.create({ data: plan });
-    console.log(`✅ ${plan.name} Plan created: ₦${plan.price}/month`);
+    console.log(`✅ ${plan.name} Plan upserted: ₦${plan.price}/month`);
   }
 }
 
 async function seedPlatformSettings() {
-  const defaultAiConfig = {
-    files: 'gemini',
-    content: 'groq',
-    explanation: 'groq',
-    example: 'groq',
-    recommendations: 'groq',
-    summary: 'groq',
-  };
+  await prisma.platformSettings.upsert({
+    where: { id: 'platform-settings-id' },
+    update: {
+      allowRegistration: true,
+      maintenanceMode: false,
+    },
+    create: {
+      allowRegistration: true,
+      maintenanceMode: false,
+    },
+  });
 
-  const existing = await prisma.platformSettings.findFirst();
-
-  if (existing) {
-    await prisma.platformSettings.update({
-      where: { id: existing.id },
-      data: { aiProviderConfig: defaultAiConfig as any },
-    });
-    console.log('✅ Platform Settings updated');
-  } else {
-    await prisma.platformSettings.create({
-      data: {
-        allowRegistration: true,
-        maintenanceMode: false,
-        aiProviderConfig: defaultAiConfig as any,
-      },
-    });
-    console.log('✅ Platform Settings created');
-  }
+  console.log('✅ Platform Settings created');
 }
 
 async function main() {
   console.log('🌱 Seeding database...\n');
 
-  // Run super admin first
   await seedSuperAdmin();
-
-  // Run plans and settings in parallel (independent operations)
   await Promise.all([seedPlans(), seedPlatformSettings()]);
 
   console.log('\n🎉 Seeding completed!');

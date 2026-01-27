@@ -12,7 +12,6 @@ import { RecommendationService } from '../recommendation/recommendation.service'
 import { StreakService } from '../streak/streak.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { StudyService } from '../study/study.service';
-import { CacheService } from '../common/services/cache.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
 import {
   IFileStorageService,
@@ -27,8 +26,6 @@ import {
 import { UserDocumentService } from '../user-document/user-document.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
 
-const CACHE_TTL_MS = 300000; // 5 minutes
-
 @Injectable()
 export class FlashcardService {
   private readonly logger = new Logger(FlashcardService.name);
@@ -41,7 +38,6 @@ export class FlashcardService {
     private readonly streakService: StreakService,
     private readonly challengeService: ChallengeService,
     private readonly studyService: StudyService,
-    private readonly cacheService: CacheService,
     @Inject('GOOGLE_FILE_STORAGE_SERVICE')
     private readonly googleFileStorageService: IFileStorageService,
     @Inject(FILE_STORAGE_SERVICE)
@@ -84,11 +80,10 @@ export class FlashcardService {
           googleFileUrl: doc.googleFileUrl,
           googleFileId: doc.googleFileId,
           documentId: doc.documentId,
+          mimetype: doc.mimeType,
+          size: doc.size,
         })),
       });
-
-      // Invalidate cache preemptively
-      await this.invalidateUserCache(userId);
 
       this.logger.log(`Flashcard job created: ${job.id}`);
       return {
@@ -143,21 +138,17 @@ export class FlashcardService {
   async getAllFlashcardSets(
     userId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    studyPackId?: string
   ) {
-    const cacheKey = `flashcards:all:${userId}:${page}:${limit}`;
-    const cached = await this.cacheService.get(cacheKey);
-
-    if (cached) {
-      this.logger.debug(`Cache hit for user ${userId}`);
-      return cached;
-    }
-
     const skip = (page - 1) * limit;
 
     const [flashcardSets, total] = await Promise.all([
       this.prisma.flashcardSet.findMany({
-        where: { userId },
+        where: {
+          userId,
+          ...(studyPackId ? { studyPackId } : {}),
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -181,7 +172,10 @@ export class FlashcardService {
         },
       }),
       this.prisma.flashcardSet.count({
-        where: { userId },
+        where: {
+          userId,
+          ...(studyPackId ? { studyPackId } : {}),
+        },
       }),
     ]);
 
@@ -201,7 +195,7 @@ export class FlashcardService {
       };
     });
 
-    const result = {
+    return {
       data: transformedSets,
       meta: {
         total,
@@ -210,13 +204,6 @@ export class FlashcardService {
         totalPages: Math.ceil(total / limit),
       },
     };
-
-    await this.cacheService.set(cacheKey, result, CACHE_TTL_MS);
-    this.logger.debug(
-      `Cached ${transformedSets.length} sets for user ${userId}`
-    );
-
-    return result;
   }
 
   /**
@@ -316,9 +303,6 @@ export class FlashcardService {
         answers: cardResponses,
       },
     });
-
-    // Invalidate cache
-    await this.invalidateUserCache(userId);
 
     // Update streak with correct answers for XP
     await this.streakService.updateStreak(
@@ -423,12 +407,27 @@ export class FlashcardService {
       where: { id },
     });
 
-    // Invalidate cache
-    await this.invalidateUserCache(userId);
     await this.studyPackService.invalidateUserCache(userId);
 
     this.logger.log(`Flashcard set ${id} deleted`);
     return { success: true, message: 'Flashcard set deleted successfully' };
+  }
+
+  async updateTitle(id: string, userId: string, title: string) {
+    const set = await this.prisma.flashcardSet.findFirst({
+      where: { id, userId },
+    });
+
+    if (!set) {
+      throw new NotFoundException('Flashcard set not found');
+    }
+
+    const updatedSet = await this.prisma.flashcardSet.update({
+      where: { id },
+      data: { title },
+    });
+
+    return updatedSet;
   }
 
   /**
@@ -595,13 +594,6 @@ export class FlashcardService {
   }
 
   /**
-   * Invalidate user's flashcard cache
-   */
-  private async invalidateUserCache(userId: string): Promise<void> {
-    await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
-  }
-
-  /**
    * Update challenge progress asynchronously
    */
   private updateChallengeProgressAsync(
@@ -682,6 +674,8 @@ export class FlashcardService {
         hash: '', // Not needed for existing files
         isDuplicate: true, // Mark as duplicate since it's already uploaded
         documentId: userDoc.document.id,
+        mimeType: userDoc.document.mimeType,
+        size: userDoc.document.sizeBytes || 0,
       }));
     } catch (error) {
       this.logger.warn(

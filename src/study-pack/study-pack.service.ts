@@ -357,22 +357,29 @@ export class StudyPackService {
         throw new Error('Invalid item type');
     }
 
-    await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
-    if (previousStudyPackId && previousStudyPackId !== id) {
-      await this.cacheService.invalidate(
-        `study_packs:${previousStudyPackId}:${userId}`
+    // Non-blocking cache invalidation
+    try {
+      await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
+      if (previousStudyPackId && previousStudyPackId !== id) {
+        await this.cacheService.invalidate(
+          `study_packs:${previousStudyPackId}:${userId}`
+        );
+      }
+
+      if (type === 'quiz') {
+        await this.cacheService.invalidate(`quiz:${itemId}:${userId}`);
+      } else if (type === 'flashcard') {
+        await this.cacheService.invalidate(`flashcardSet:${itemId}:${userId}`);
+      } else if (type === 'content') {
+        await this.cacheService.invalidate(`content:${itemId}:${userId}`);
+      }
+
+      await this.incrementListVersion(userId);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to invalidate cache after move: ${error.message}`
       );
     }
-
-    if (type === 'quiz') {
-      await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
-    } else if (type === 'flashcard') {
-      await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
-    } else if (type === 'content') {
-      await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
-    }
-
-    await this.incrementListVersion(userId);
 
     return result;
   }
@@ -413,17 +420,15 @@ export class StudyPackService {
         throw new Error('Invalid item type');
     }
 
-    await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
-
-    if (type === 'quiz') {
-      await this.cacheService.invalidateByPattern(`quizzes:all:${userId}*`);
-    } else if (type === 'flashcard') {
-      await this.cacheService.invalidateByPattern(`flashcards:all:${userId}*`);
-    } else if (type === 'content') {
-      await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
+    // Non-blocking cache invalidation
+    try {
+      await this.cacheService.invalidate(`study_packs:${id}:${userId}`);
+      await this.incrementListVersion(userId);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to invalidate cache after remove: ${error.message}`
+      );
     }
-
-    await this.incrementListVersion(userId);
 
     return result;
   }

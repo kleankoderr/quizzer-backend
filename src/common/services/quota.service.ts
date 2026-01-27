@@ -11,7 +11,8 @@ export type QuotaFeature =
   | 'smartRecommendation'
   | 'smartCompanion'
   | 'fileUpload'
-  | 'weakAreaAnalysis';
+  | 'weakAreaAnalysis'
+  | 'summary';
 
 @Injectable()
 export class QuotaService {
@@ -184,6 +185,14 @@ export class QuotaService {
             userQuota.monthlyWeakAreaAnalysisCount
         ),
       },
+      summary: {
+        used: userQuota.monthlySummaryCount,
+        limit: planQuotas.summaries || 0,
+        remaining: Math.max(
+          0,
+          (planQuotas.summaries || 0) - userQuota.monthlySummaryCount
+        ),
+      },
       fileUpload: {
         used: userQuota.monthlyFileUploadCount,
         limit: filesPerMonth,
@@ -258,6 +267,7 @@ export class QuotaService {
         monthlySmartRecommendationCount: 0,
         monthlySmartCompanionCount: 0,
         monthlyWeakAreaAnalysisCount: 0,
+        monthlySummaryCount: 0,
         monthlyFileUploadCount: 0,
         monthlyResetAt: nextReset,
       },
@@ -281,6 +291,7 @@ export class QuotaService {
       smartCompanion: 'monthlySmartCompanionCount',
       fileUpload: 'monthlyFileUploadCount',
       weakAreaAnalysis: 'monthlyWeakAreaAnalysisCount',
+      summary: 'monthlySummaryCount',
     };
 
     await this.prisma.userQuota.update({
@@ -301,6 +312,7 @@ export class QuotaService {
       smartCompanion: userQuota.monthlySmartCompanionCount,
       fileUpload: userQuota.monthlyFileUploadCount,
       weakAreaAnalysis: userQuota.monthlyWeakAreaAnalysisCount,
+      summary: userQuota.monthlySummaryCount,
     };
     return usageMap[feature];
   }
@@ -335,6 +347,7 @@ export class QuotaService {
       smartCompanion: 'smartCompanions',
       fileUpload: 'filesPerMonth',
       weakAreaAnalysis: 'weakAreaAnalysis',
+      summary: 'summaries',
     };
 
     const quotaKey = featureMap[feature];

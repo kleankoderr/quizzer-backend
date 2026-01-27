@@ -2,6 +2,8 @@ import { Module, Global } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { EventsController } from './events.controller';
+import { SseAuthService } from './sse-auth.service';
+import { SseAuthGuard } from './sse-auth.guard';
 
 @Global()
 @Module({
@@ -13,6 +15,7 @@ import { EventsController } from './events.controller';
       ignoreErrors: false, // Output error if listener fails
     }),
   ],
-  exports: [EventEmitterModule],
+  providers: [SseAuthService, SseAuthGuard],
+  exports: [EventEmitterModule, SseAuthService],
 })
 export class EventsModule {}

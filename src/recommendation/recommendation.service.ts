@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import { LangChainService } from '../langchain/langchain.service';
 import { QuotaService } from '../common/services/quota.service';
 import { CacheService } from '../common/services/cache.service';
+import { LangChainPrompts } from '../langchain/prompts';
 
 @Injectable()
 export class RecommendationService {
@@ -10,7 +11,7 @@ export class RecommendationService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly quotaService: QuotaService,
     private readonly cacheService: CacheService
   ) {}
@@ -292,16 +293,28 @@ export class RecommendationService {
       this.logger.debug(
         `Calling AI service to generate ${recommendationLimit} recommendations for ${isPremium ? 'premium' : 'free'} user`
       );
-      const recommendations = await this.aiService.generateRecommendations({
-        weakTopics: weakTopics.slice(0, recommendationLimit), // Get topics based on tier
-        recentAttempts: attempts.map((a) => ({
-          topic: a.quiz?.topic,
-          score: a.score,
-          total: a.totalQuestions,
-        })),
-      });
 
-      // Limit recommendations based on user tier
+      const prompt = LangChainPrompts.studyRecommendations(
+        JSON.stringify(weakTopics.slice(0, recommendationLimit)),
+        JSON.stringify(
+          attempts.map((a) => ({
+            topic: a.quiz?.topic,
+            score: a.score,
+            total: a.totalQuestions,
+          }))
+        )
+      );
+
+      const response = await this.langchainService.invokeWithJsonParser(
+        prompt,
+        {
+          task: 'recommendation',
+        }
+      );
+
+      const recommendations = response.recommendations || [];
+
+      // Limit recommendations based on user tier (just in case)
       const limitedRecommendations = recommendations.slice(
         0,
         recommendationLimit

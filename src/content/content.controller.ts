@@ -115,13 +115,15 @@ export class ContentController {
     @CurrentUser('sub') userId: string,
     @Query('topic') topic?: string,
     @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10
+    @Query('limit') limit: number = 10,
+    @Query('studyPackId') studyPackId?: string
   ) {
     return this.contentService.getContents(
       userId,
       topic,
       Number(page),
-      Number(limit)
+      Number(limit),
+      studyPackId
     );
   }
 

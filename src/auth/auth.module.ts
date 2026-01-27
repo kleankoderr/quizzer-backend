@@ -6,7 +6,6 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SchoolModule } from '../school/school.module';
-import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -16,12 +15,11 @@ import { SettingsModule } from '../settings/settings.module';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET') || 'default-secret',
         signOptions: {
-          expiresIn: config.get('JWT_EXPIRES_IN') || '7d',
+          expiresIn: config.get('JWT_EXPIRES_IN') || '15m',
         },
       }),
     }),
     SchoolModule,
-    SettingsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

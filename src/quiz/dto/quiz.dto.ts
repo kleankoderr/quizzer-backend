@@ -6,6 +6,7 @@ import {
   Min,
   Max,
   IsArray,
+  MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -20,10 +21,12 @@ export type QuestionType =
 export class GenerateQuizDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   topic?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(1500)
   content?: string;
 
   @IsOptional()

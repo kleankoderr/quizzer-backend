@@ -72,6 +72,19 @@ export class AuthResponseDto {
 
   @ApiProperty({ description: 'JWT access token' })
   accessToken: string;
+
+  @ApiProperty({ description: 'JWT refresh token' })
+  refreshToken: string;
+}
+
+export class RefreshTokenDto {
+  @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'Refresh token',
+  })
+  @IsString()
+  @IsNotEmpty()
+  refreshToken: string;
 }
 
 export class VerifyEmailDto {

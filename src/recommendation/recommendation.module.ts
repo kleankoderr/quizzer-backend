@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { RecommendationController } from './recommendation.controller';
 import { RecommendationService } from './recommendation.service';
-import { AiModule } from '../ai/ai.module';
+import { LangChainModule } from '../langchain/langchain.module';
 import { QuotaService } from '../common/services/quota.service';
 
 @Module({
-  imports: [AiModule],
+  imports: [LangChainModule],
   controllers: [RecommendationController],
   providers: [RecommendationService, QuotaService],
   exports: [RecommendationService],

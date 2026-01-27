@@ -94,26 +94,6 @@ export class UpdateSchoolDto {
   name?: string;
 }
 
-export class PlatformSettingsDto {
-  @ApiProperty()
-  @IsBoolean()
-  allowRegistration: boolean;
-
-  @ApiProperty()
-  @IsBoolean()
-  maintenanceMode: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  supportEmail?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsObject()
-  aiProviderConfig?: Record<string, any>;
-}
-
 export class ModerationActionDto {
   @ApiProperty({ enum: ['DELETE', 'HIDE', 'IGNORE'] })
   @IsEnum(['DELETE', 'HIDE', 'IGNORE'])

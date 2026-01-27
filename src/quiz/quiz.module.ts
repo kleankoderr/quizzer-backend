@@ -3,7 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { QuizController } from './quiz.controller';
 import { QuizService } from './quiz.service';
 import { QuizProcessor } from './quiz.processor';
-import { AiModule } from '../ai/ai.module';
+import { LangChainModule } from '../langchain/langchain.module';
 import { RecommendationModule } from '../recommendation/recommendation.module';
 import { StreakModule } from '../streak/streak.module';
 import { ChallengeModule } from '../challenge/challenge.module';
@@ -12,6 +12,9 @@ import { FileStorageModule } from '../file-storage/file-storage.module';
 import { UserDocumentModule } from '../user-document/user-document.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StudyPackModule } from '../study-pack/study-pack.module';
+import { QuizGenerationStrategy } from './strategies/quiz-generation.strategy';
+import { RagModule } from '../rag/rag.module';
+import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
 
 @Module({
   imports: [
@@ -19,7 +22,8 @@ import { StudyPackModule } from '../study-pack/study-pack.module';
       name: 'quiz-generation',
     }),
     PrismaModule,
-    AiModule,
+    LangChainModule,
+    RagModule,
     RecommendationModule,
     StreakModule,
     ChallengeModule,
@@ -27,9 +31,10 @@ import { StudyPackModule } from '../study-pack/study-pack.module';
     FileStorageModule,
     UserDocumentModule,
     StudyPackModule,
+    InputPipelineModule,
   ],
   controllers: [QuizController],
-  providers: [QuizService, QuizProcessor],
+  providers: [QuizService, QuizProcessor, QuizGenerationStrategy],
   exports: [QuizService],
 })
 export class QuizModule {}

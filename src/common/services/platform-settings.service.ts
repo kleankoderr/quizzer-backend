@@ -3,12 +3,6 @@ import { CacheService } from './cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PlatformSettings } from '@prisma/client';
 
-export interface AiProviderConfig {
-  files?: 'groq' | 'gemini';
-  content?: 'groq' | 'gemini';
-  [key: string]: string | undefined;
-}
-
 @Injectable()
 export class PlatformSettingsService {
   private readonly CACHE_KEY = 'platform_settings';
@@ -48,7 +42,9 @@ export class PlatformSettingsService {
       data,
     });
 
+    // Invalidate cache
     await this.invalidateCache();
+
     // Re-cache immediately
     await this.cacheService.set(this.CACHE_KEY, updated, this.CACHE_TTL);
 
@@ -59,8 +55,12 @@ export class PlatformSettingsService {
     await this.cacheService.invalidate(this.CACHE_KEY);
   }
 
-  async getAiProviderConfig(): Promise<AiProviderConfig> {
+  async getPublicSettings() {
     const settings = await this.getSettings();
-    return (settings.aiProviderConfig as AiProviderConfig) || {};
+    return {
+      allowRegistration: settings.allowRegistration,
+      maintenanceMode: settings.maintenanceMode,
+      supportEmail: settings.supportEmail,
+    };
   }
 }

@@ -8,7 +8,6 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
 import { CacheService } from '../common/services/cache.service';
 import { CreateContentDto, UpdateContentDto } from './dto/content.dto';
 import { QuizService } from '../quiz/quiz.service';
@@ -26,6 +25,7 @@ import {
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
+import { LangChainService } from '../langchain/langchain.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -47,7 +47,7 @@ export class ContentService {
     @InjectQueue('content-generation')
     private readonly contentQueue: Queue,
     private readonly prisma: PrismaService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly quizService: QuizService,
     private readonly flashcardService: FlashcardService,
     private readonly cacheService: CacheService,
@@ -103,10 +103,10 @@ export class ContentService {
           googleFileUrl: doc.googleFileUrl,
           googleFileId: doc.googleFileId,
           documentId: doc.documentId,
+          mimetype: doc.mimeType,
+          size: doc.size,
         })),
       });
-
-      await this.invalidateUserCache(userId);
 
       this.logger.log(`Content job created: ${job.id}`);
       return {
@@ -159,7 +159,8 @@ export class ContentService {
     userId: string,
     topic?: string,
     page: number = DEFAULT_PAGE,
-    limit: number = DEFAULT_LIMIT
+    limit: number = DEFAULT_LIMIT,
+    studyPackId?: string
   ) {
     const skip = (page - 1) * limit;
 
@@ -168,6 +169,7 @@ export class ContentService {
         where: {
           userId,
           ...(topic ? { topic } : {}),
+          ...(studyPackId ? { studyPackId } : {}),
         },
         select: {
           id: true,
@@ -190,6 +192,7 @@ export class ContentService {
         where: {
           userId,
           ...(topic ? { topic } : {}),
+          ...(studyPackId ? { studyPackId } : {}),
         },
       }),
     ]);
@@ -304,7 +307,6 @@ export class ContentService {
       data: updateContentDto,
     });
 
-    await this.invalidateUserCache(userId);
     await this.studyPackService.invalidateUserCache(userId);
 
     return updatedContent;
@@ -336,7 +338,6 @@ export class ContentService {
       where: { id: contentId },
     });
 
-    await this.invalidateUserCache(userId);
     await this.studyPackService.invalidateUserCache(userId);
 
     this.logger.log(`Content ${contentId} deleted successfully`);
@@ -362,9 +363,13 @@ export class ContentService {
       return cached;
     }
 
-    const result = await this.aiService.generateExplanation({
-      topic: sectionTitle,
-      context: sectionContent,
+    const prompt = `Explain the concept "${sectionTitle}" in the context of:
+${sectionContent}
+
+Provide a clear, detailed explanation suitable for a student. Keep it engaging and informative.`;
+
+    const result = await this.langchainService.invoke(prompt, {
+      task: 'explanation',
     });
 
     await this.quotaService.incrementQuota(userId, 'conceptExplanation');
@@ -391,9 +396,13 @@ export class ContentService {
       return cached;
     }
 
-    const result = await this.aiService.generateExample({
-      topic: sectionTitle,
-      context: sectionContent,
+    const prompt = `Provide a practical example of the concept "${sectionTitle}" based on this content:
+${sectionContent}
+
+The example should be relatable and help illustrate the concept clearly.`;
+
+    const result = await this.langchainService.invoke(prompt, {
+      task: 'example',
     });
 
     await this.quotaService.incrementQuota(userId, 'conceptExplanation');
@@ -467,6 +476,8 @@ export class ContentService {
           hash: '', // Not needed for existing files
           isDuplicate: true, // Mark as duplicate since it's already uploaded
           documentId: userDoc.document.id,
+          mimeType: userDoc.document.mimeType,
+          size: userDoc.document.sizeBytes || 0,
         });
       } catch (error) {
         this.logger.warn(
@@ -611,12 +622,5 @@ export class ContentService {
         error.message
       );
     }
-  }
-
-  /**
-   * Invalidate user cache
-   */
-  private async invalidateUserCache(userId: string): Promise<void> {
-    await this.cacheService.invalidateByPattern(`content:all:${userId}*`);
   }
 }

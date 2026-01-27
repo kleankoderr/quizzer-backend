@@ -5,11 +5,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
 import { CacheService } from '../common/services/cache.service';
 import { LeaderboardService } from '../leaderboard/leaderboard.service';
 import { QuizType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
+import { LangChainService } from '../langchain/langchain.service';
+import { LangChainPrompts } from '../langchain/prompts';
+import { QuizUtils } from '../quiz/quiz.utils';
 
 /**
  * Transform Prisma QuizType enum to frontend-compatible format
@@ -77,7 +79,7 @@ export class ChallengeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cacheService: CacheService,
-    private readonly aiService: AiService,
+    private readonly langchainService: LangChainService,
     private readonly leaderboardService: LeaderboardService,
     private readonly configService: ConfigService
   ) {}
@@ -1199,23 +1201,31 @@ export class ChallengeService {
         }
 
         // Generate a new quiz for this challenge using AI
-        const generatedQuiz = await this.aiService.generateQuiz({
-          topic: topicQuiz.topic,
-          difficulty: optimalDifficulty as 'easy' | 'medium' | 'hard',
+        const prompt = LangChainPrompts.generateQuiz(
+          topicQuiz.topic,
           numberOfQuestions,
-          questionTypes, // Pass allowed question types based on difficulty
-          quizType: quizType.toLowerCase(), // Pass lowercase for AI service
-          userId: systemUserId,
-        } as any); // Cast to any because userId is not in the interface but might be needed or ignored
+          (optimalDifficulty as string) || 'Medium',
+          quizType.toLowerCase(),
+          questionTypes.join(', '),
+          ''
+        );
 
-        // Save the quiz to the database
+        const generatedQuiz = await this.langchainService.invokeWithJsonParser(
+          prompt,
+          {
+            task: 'quiz',
+          }
+        );
+
         const quiz = await this.prisma.quiz.create({
           data: {
-            title: generatedQuiz.title,
-            topic: generatedQuiz.topic,
+            title,
+            topic: topicQuiz.topic,
             difficulty: optimalDifficulty,
             quizType, // Use the enum value directly
-            questions: generatedQuiz.questions as any,
+            questions: QuizUtils.normalizeQuestions(
+              generatedQuiz.questions
+            ) as any,
             timeLimit, // Add time limit only for timed quizzes
             userId: systemUserId,
           },
@@ -1254,21 +1264,32 @@ export class ChallengeService {
     // 3. Mixed Challenge (General Knowledge or Random)
     const mixedTitle = 'Daily Mix';
     if (!existingTitles.has(mixedTitle.toLowerCase())) {
-      const generatedQuiz = await this.aiService.generateQuiz({
-        topic: 'General Knowledge',
-        difficulty: 'medium',
-        numberOfQuestions: 5,
-        quizType: 'standard',
-      });
+      const prompt = LangChainPrompts.generateQuiz(
+        'General Knowledge',
+        5,
+        'Medium',
+        'standard',
+        'single-select',
+        ''
+      );
+
+      const generatedQuiz = await this.langchainService.invokeWithJsonParser(
+        prompt,
+        {
+          task: 'quiz',
+        }
+      );
 
       // Save the quiz to the database
       const quiz = await this.prisma.quiz.create({
         data: {
-          title: generatedQuiz.title,
-          topic: generatedQuiz.topic,
+          title: mixedTitle,
+          topic: 'General Knowledge',
           difficulty: 'medium',
           quizType: QuizType.QUICK_CHECK,
-          questions: generatedQuiz.questions as any,
+          questions: QuizUtils.normalizeQuestions(
+            generatedQuiz.questions
+          ) as any,
           userId: systemUserId,
         },
       });
