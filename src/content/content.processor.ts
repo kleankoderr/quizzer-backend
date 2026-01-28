@@ -1,6 +1,6 @@
-import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, Injectable } from '@nestjs/common';
-import { Job, Queue } from 'bullmq';
+import { Job } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
@@ -43,9 +43,7 @@ export class ContentProcessor extends WorkerHost {
     private readonly inputPipeline: InputPipeline,
     private readonly quotaService: QuotaService,
     private readonly subscriptionHelper: SubscriptionHelperService,
-    private readonly studyPackService: StudyPackService,
-    @InjectQueue('summary-generation')
-    private readonly summaryQueue: Queue
+    private readonly studyPackService: StudyPackService
   ) {
     super();
   }
@@ -121,9 +119,6 @@ export class ContentProcessor extends WorkerHost {
 
       await this.studyPackService.invalidateUserCache(userId).catch(() => {});
 
-      // Auto-generate summary for premium users
-      await this.queueSummaryForPremiumUser(userId, content.id, jobId);
-
       await job.updateProgress(100);
       this.logger.log(
         `Job ${jobId}: Successfully completed (Content ID: ${content.id})`
@@ -151,44 +146,6 @@ export class ContentProcessor extends WorkerHost {
         EventFactory.contentFailed(userId, jobId, error.message)
       );
       throw new Error('Failed to generate study material.');
-    }
-  }
-
-  /**
-   * Queue summary generation for premium users
-   */
-  private async queueSummaryForPremiumUser(
-    userId: string,
-    studyMaterialId: string,
-    jobId: string
-  ): Promise<void> {
-    try {
-      // Check if user is premium using subscription (single source of truth)
-      const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
-
-      if (isPremium) {
-        await this.summaryQueue.add(
-          'generate-summary',
-          { studyMaterialId, userId },
-          {
-            priority: 2, // Medium priority
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 5000 },
-          }
-        );
-        this.logger.log(
-          `Job ${jobId}: Queued summary generation for premium user (Content ID: ${studyMaterialId})`
-        );
-      } else {
-        this.logger.debug(
-          `Job ${jobId}: User is not premium, skipping summary generation`
-        );
-      }
-    } catch (error) {
-      // Log error but don't fail content creation
-      this.logger.warn(
-        `Job ${jobId}: Failed to queue summary generation: ${error.message}`
-      );
     }
   }
 }
