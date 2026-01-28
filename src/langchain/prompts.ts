@@ -8,98 +8,146 @@ export class LangChainPrompts {
     sourceContent: string = ''
   ) {
     return `
-Role:
-You are a professional educational assessment designer. Your task is to create quizzes that measure understanding accurately, not guesswork or memorization.
+You are an expert educational assessment designer creating quiz questions that measure genuine understanding.
 
-Task:
-Generate EXACTLY ${numberOfQuestions} high-quality quiz questions.
+=== ASSESSMENT PARAMETERS ===
+Topic: ${topic || 'Derive from source content'}
+Target Questions: ${numberOfQuestions} (generate fewer if source material cannot support this many quality questions)
+Difficulty Level: ${difficulty}
+Quiz Type: ${quizType}
+Question Types: ${questionTypeInstructions}
 
-- If the source content cannot support ${numberOfQuestions} valid questions:
-  - Generate FEWER questions
-  - Do NOT invent content
-  - Never compromise quality for quantity
-- Confirm the number of questions in the final output
+Source Material:
+${sourceContent || '[No source content provided - use general knowledge about the topic]'}
 
-Context:
-- Topic: ${topic || 'Derive strictly from source content'}
-- Difficulty: ${difficulty}
-- Quiz Type: ${quizType}
-- Question Types: ${questionTypeInstructions}
+=== PHASE 1: ANALYZE & PLAN ===
+Before creating questions, consider:
 
-Source Content:
-${sourceContent || topic || 'None provided'}
+1. **Source Material Assessment:**
+   - How much valid content is available?
+   - Can it support ${numberOfQuestions} distinct, quality questions?
+   - What concepts are actually covered vs. assumed?
+   - Decision: Generate fewer questions rather than invent content
 
-Reasoning:
-ACCURACY & SOURCE FIDELITY:
-- If Source Content is provided:
-  - Questions MUST be answerable using ONLY provided source content
-  - Do NOT introduce external facts, assumptions, or examples
-  - Each question must be fully self-contained, include all necessary context, 
-    and must not reference any source text or external content (e.g., “based on the text” or “according to the source”). 
-- If Source Content is NOT provided or is insufficient (e.g., only topic name):
-  - Use high-quality, factually accurate general knowledge about the Topic
-- Do NOT reword questions to change their meaning
-- Each question MUST have one correct answer (multi-select may have multiple)
+2. **Conceptual Coverage:**
+   - What are the key concepts to assess?
+   - How do they relate to the difficulty level?
+   - What misconceptions might learners have?
+   - How can questions be distributed across concepts?
 
-PEDAGOGICAL QUALITY:
-- Easy → recall & basic understanding
-- Medium → application & interpretation
-- Hard → reasoning, synthesis, evaluation
-- Distractors MUST reflect plausible misconceptions
-- Avoid trick questions or test-taking gimmicks
+3. **Question Type Selection:**
+   - Which question formats best assess these concepts?
+   - What mix provides comprehensive assessment?
+   - Should questions progress in complexity?
 
-CLARITY & FAIRNESS:
-- Clear, direct, unambiguous language
-- No double negatives
-- Questions must stand alone (test the concept, not the reading)
-- Do NOT reference the source material in the question (e.g., avoid "according to the text", "based on the passage", "as mentioned in the source")
+=== PHASE 2: QUESTION DESIGN PRINCIPLES ===
 
-DIFFICULTY CALIBRATION:
-- EASY: Definitions, identification, direct recall
-- MEDIUM: Applying ideas to scenarios, interpreting examples, comparing concepts
-- HARD: Predicting outcomes, evaluating alternatives, integrating multiple concepts
+**Accuracy & Fidelity:**
+- If source content provided: Questions MUST be answerable using ONLY that content
+- If no source content: Use accurate, factual general knowledge about the topic
+- Each question is fully self-contained with all necessary context
+- Never reference "the text," "the passage," "the source," or similar
+- One definitively correct answer (except multi-select which may have multiple)
 
-QUESTION TYPE RULES:
-- GENERAL: Options MUST be plain text (no A), B), 1., •), parallel in grammar and length. Explanations MUST teach, not just justify. Avoid answer patterns.
-- TRUE / FALSE: Options: ["True", "False"], correctAnswer: 0 (True) or 1 (False). Statement must be clearly true or false.
-- SINGLE-SELECT (MCQ): EXACTLY 4 options, ONE correct answer (index 0–3), 3 plausible distractors. No “All of the above” / “None of the above”.
-- MULTI-SELECT: Clearly indicate “Select all that apply”, 4 options, at least 2 correct answers, correctAnswer: array of indices.
-- MATCHING: 4 items per column, one-to-one mappings, correctAnswer: object mapping left → right.
-- FILL-IN-THE-BLANK: Use ____ for blank, correctAnswer MUST be an array, include all reasonable variants, provide context.
+**Difficulty Calibration:**
+- **Easy**: Recall, recognition, basic definitions, simple identification
+- **Medium**: Application to scenarios, interpretation, comparison, inference
+- **Hard**: Analysis, synthesis, evaluation, predicting outcomes, integrating concepts
 
-QUESTION DISTRIBUTION:
-- Cover multiple question types if applicable
-- Distribute across topic areas
-- Avoid clustering on a single concept
-- Questions may progress logically if appropriate
+**Question Quality:**
+- Clear, unambiguous language
+- No double negatives or trick wording
+- Test the concept, not reading comprehension
+- Distractors reflect plausible misconceptions, not random wrong answers
+- Options parallel in structure, grammar, and approximate length
+- Explanations teach the underlying concept, not just justify the answer
 
-Output:
-Return ONLY valid JSON (no markdown, no fences, no commentary):
+**Fairness:**
+- No answer patterns (e.g., C always correct)
+- No "all of the above" or "none of the above" unless genuinely needed
+- No giveaway clues in option length or specificity
+- Question difficulty matches stated difficulty level
+
+=== PHASE 3: QUESTION TYPE SPECIFICATIONS ===
+
+The format of each question depends on its questionType:
+
+**TRUE-FALSE:**
+- Statement that is definitively true or false
+- Options: ["True", "False"]
+- correctAnswer: 0 (True) or 1 (False)
+- Avoid ambiguous statements
+
+**SINGLE-SELECT (Multiple Choice):**
+- One correct answer among options
+- Exactly 4 options (no more, no less)
+- correctAnswer: single index (0-3)
+- Three plausible distractors based on common errors
+- No option markers (A), B), 1., etc.) in the text
+
+**MULTI-SELECT:**
+- Question must clearly state "Select all that apply" or similar
+- 4 options total
+- At least 2 correct answers
+- correctAnswer: array of indices (e.g., [0, 2, 3])
+- Options can be independently true/false
+
+**MATCHING:**
+- Two columns of 4 items each
+- One-to-one correspondence
+- Format options as: { "left": ["Item 1", "Item 2", "Item 3", "Item 4"], "right": ["Match A", "Match B", "Match C", "Match D"] }
+- correctAnswer: object mapping left to right (e.g., {"Item 1": "Match B", "Item 2": "Match A"})
+
+**FILL-IN-THE-BLANK:**
+- Use ____ to indicate blank(s)
+- Provide enough context to make answer unambiguous
+- correctAnswer: array of acceptable answers/variants (e.g., ["photosynthesis", "Photosynthesis"])
+- Include common valid alternatives (abbreviations, variations)
+
+=== PHASE 4: QUALITY ASSURANCE ===
+
+Before finalizing, verify each question:
+- [ ] Answerable from source material (or valid general knowledge if no source)
+- [ ] Matches difficulty level specification
+- [ ] Follows format rules for its questionType
+- [ ] correctAnswer format matches questionType
+- [ ] Explanation teaches the concept
+- [ ] Language is clear and unambiguous
+- [ ] No invented facts or external assumptions
+- [ ] Options are parallel and plausible
+
+Overall quiz verification:
+- [ ] Total questions ≤ ${numberOfQuestions}
+- [ ] Distribution across concepts (not clustered on one idea)
+- [ ] Mix of question types if appropriate
+- [ ] No answer patterns
+- [ ] Valid JSON structure
+
+=== OUTPUT FORMAT ===
+Return only valid JSON (no markdown fences, no additional commentary):
 
 {
-  "title": "Clear, descriptive quiz title",
-  "topic": "${topic || 'Content-Based Quiz'}",
+  "title": "Descriptive quiz title",
+  "topic": "${topic || 'Quiz Topic'}",
   "questions": [
     {
-      "questionType": "single-select | true-false | multi-select | matching | fill-blank",
-      "question": "Question text",
-      "options": [],
-      "correctAnswer": 0 | [0,2] | ["answer"] | {},
-      "explanation": "Why the correct answer is correct and why others are not"
+      "questionType": "true-false | single-select | multi-select | matching | fill-blank",
+      "question": "Self-contained question text with all necessary context",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+      "correctAnswer": 0,
+      "explanation": "Teaching explanation of why the answer is correct and what makes other options incorrect"
     }
   ]
 }
 
-Stopping conditions:
-Before returning:
-1. Confirm number of questions ≤ ${numberOfQuestions}
-2. Each question:
-   - Matches questionType rules
-   - Has a valid correctAnswer format
-   - Is answerable from the source content
-3. JSON is parseable
-4. No hallucinated content
-5. Explanations teach, do not just justify
+Note: The correctAnswer format varies by questionType:
+- true-false, single-select: single index number
+- multi-select: array of index numbers
+- fill-blank: array of acceptable answer strings
+- matching: object mapping left items to right items
+
+=== SUCCESS CRITERION ===
+Each question accurately measures understanding of the concept it targets, at the appropriate difficulty level, without ambiguity or tricks.
 
 Begin directly with the JSON object.
 `;
@@ -111,55 +159,141 @@ Begin directly with the JSON object.
     sourceContent: string = ''
   ) {
     return `
-Role:
-You are an expert in spaced repetition learning and flashcard design. Your goal is to create flashcards that maximize long-term retention through clarity, atomicity, and pedagogical value.
+You are an expert in spaced repetition learning and evidence-based flashcard design.
 
-Task:
-Generate EXACTLY ${numberOfCards} high-quality flashcards.
+=== FLASHCARD PARAMETERS ===
+Topic: ${topic || 'Derive from source content'}
+Target Cards: ${numberOfCards} (generate fewer if source material cannot support this many quality cards)
 
-Context:
-- Topic: ${topic || 'Derive strictly from source content'}
-- Source Content: ${sourceContent || 'None provided'}
+Source Material:
+${sourceContent || '[No source content provided - use general knowledge about the topic]'}
 
-Reasoning:
-CORE FLASHCARD RULES:
-- ACCURACY & SOURCE FIDELITY: All cards MUST be factually correct. Derive cards EXCLUSIVELY from source if provided.
-- ATOMICITY: Each card MUST test exactly ONE discrete concept. Split complex ideas.
-- CLARITY & PRECISION: Front and back MUST be unambiguous. No vague pronouns. No source references on front.
-- PEDAGOGICAL VALUE: Focus on concepts worth remembering. Prefer understanding over trivia.
+=== PHASE 1: ANALYZE & PLAN ===
+Before creating flashcards, consider:
 
-CARD STRUCTURE:
-- FRONT: 5–15 words ideal (25 max). Direct question, term, fill-in-the-blank (____), or relationship.
-- BACK: 1–3 sentences ideal (5 max). Answer front directly and completely.
-- EXPLANATION (OPTIONAL): 1–4 sentences. Example, mnemonic, or clarification. Do NOT repeat back verbatim.
+1. **Content Assessment:**
+   - What discrete, memorable concepts are in this material?
+   - Can the source support ${numberOfCards} atomic flashcards?
+   - What's worth remembering long-term vs. what's just detail?
+   - Decision: Prioritize quality over hitting the exact number
 
-QUALITY CONSTRAINTS:
-- DO: Keep atomic, use consistent phrasing, be concrete, make answers recallable.
-- DON’T: Use yes/no questions, test multiple ideas, create vague answers, copy long passages, introduce unstated assumptions.
+2. **Concept Identification:**
+   - What are the key facts, definitions, relationships, or processes?
+   - Which concepts are atomic (single testable units)?
+   - Which complex ideas need to be split into multiple cards?
+   - What's the natural granularity for retention?
 
-Output:
-Return ONLY valid JSON. No markdown. No commentary. No explanations outside JSON.
+3. **Learning Goals:**
+   - What should someone be able to recall after using these cards?
+   - Which concepts build on each other?
+   - What misconceptions should be prevented?
+
+=== PHASE 2: FLASHCARD DESIGN PRINCIPLES ===
+
+**Atomicity (One Concept Per Card):**
+Each flashcard should test exactly one discrete piece of knowledge. If you're tempted to use "and" or list multiple items in an answer, split it into separate cards.
+
+Example of atomic: "What does HTTP stand for?" → "Hypertext Transfer Protocol"
+Example of non-atomic: "What are the three main types of rocks and how are they formed?" (split into 3+ cards)
+
+**Clarity & Precision:**
+- Front (prompt): Specific, unambiguous question or cue
+- Back (answer): Direct, complete response to the front
+- Avoid vague pronouns ("it," "this," "they") without clear referents
+- Don't reference "the source," "the text," or "above material"
+- Make each card self-contained
+
+**Effective Front Design:**
+Different prompt formats work for different content:
+- Direct questions: "What is X?"
+- Term recall: "Define: [term]"
+- Fill-in-blank: "The process of ____ converts sunlight to energy"
+- Relationship: "How does X relate to Y?"
+- Application: "When would you use X?"
+
+Choose the format that best tests the concept. Keep fronts concise (typically 5-15 words, maximum 25).
+
+**Effective Back Design:**
+- Answer the front directly and completely
+- Be specific and concrete, not vague
+- Keep it recallable (1-3 sentences ideal, maximum 5)
+- Include just enough detail to be accurate
+- Use consistent phrasing across related cards
+
+**Explanation Field (Optional Enhancement):**
+Use this field when additional context aids retention:
+- Memory aids or mnemonics
+- Concrete examples demonstrating the concept
+- Common confusion points clarified
+- Why this matters or how it connects to other concepts
+
+Don't simply repeat the back. If you have nothing meaningful to add, omit the explanation.
+
+**Pedagogical Value:**
+- Focus on concepts worth remembering long-term
+- Prefer understanding over trivia
+- Test meaningful relationships, not arbitrary facts
+- Consider: "Will recalling this help someone understand or apply the topic?"
+
+**What to Avoid:**
+- Yes/no questions (not informative for learning)
+- Testing multiple concepts in one card
+- Vague or ambiguous answers
+- Copying long passages verbatim
+- Information not present in source material
+- Overly complex language when simpler words work
+
+=== PHASE 3: SOURCE FIDELITY ===
+
+**If source content is provided:**
+- Extract flashcard content exclusively from that material
+- Don't introduce external facts or assumptions
+- If a concept is mentioned but not explained, don't create a card about it
+
+**If no source content:**
+- Use accurate, factual general knowledge about the topic
+- Ensure information is verifiable and commonly accepted
+
+**Always:**
+- One definitively correct answer per card
+- No invented facts or speculation
+- Information accurate as of your knowledge
+
+=== PHASE 4: QUALITY ASSURANCE ===
+
+Before finalizing, verify each card:
+- [ ] Tests exactly one atomic concept
+- [ ] Front is clear and specific
+- [ ] Back directly answers the front
+- [ ] Self-contained (no unclear references)
+- [ ] Grounded in source material or factual knowledge
+- [ ] Worth remembering for understanding the topic
+- [ ] Explanation adds value (or is omitted)
+
+Overall set verification:
+- [ ] Total cards ≤ ${numberOfCards}
+- [ ] Covers key concepts from the material
+- [ ] No redundant or overlapping cards
+- [ ] Consistent style and difficulty
+- [ ] Valid JSON structure
+
+=== OUTPUT FORMAT ===
+Return only valid JSON (no markdown fences, no additional commentary):
 
 {
-  "title": "Clear, specific flashcard set title",
-  "topic": "${topic || 'Content-Based Flashcards'}",
+  "title": "Descriptive flashcard set title",
+  "topic": "${topic || 'Flashcard Set'}",
   "cards": [
     {
-      "front": "Clear, focused prompt",
-      "back": "Accurate, complete answer",
-      "explanation": "context or memory aid"
+      "front": "Clear, focused prompt or question",
+      "back": "Direct, complete answer",
+      "explanation": "Optional: context, example, or memory aid (omit if nothing meaningful to add)"
     }
   ]
 }
 
-Stopping conditions:
-1. Confirm card count ≤ ${numberOfCards}
-2. Confirm EVERY card:
-   - Tests exactly ONE concept
-   - Is answerable from the source content
-   - Has a clear front and definitive back
-3. Confirm no hallucinated or external information
-4. Confirm JSON is valid and parseable
+=== SUCCESS CRITERION ===
+Someone using these flashcards can efficiently build long-term retention of the topic's key concepts through regular spaced repetition.
 
 Begin directly with the JSON object.
 `;
@@ -171,115 +305,140 @@ Begin directly with the JSON object.
     fileContext: string = ''
   ) {
     return `
-Role:
-You are an expert instructional designer. Your goal is to help beginners truly understand concepts, not memorize facts.
+You are an expert instructional designer creating learning materials for beginners.
 
-Task:
-Generate a structured, high-quality learning guide using ONLY the provided content. Do NOT invent facts, examples, or explanations.
+=== SOURCE MATERIAL ===
+Topic: ${topic || 'Derive from the content'}
+Primary Content:
+${sourceContent || '[No content provided]'}
 
-Context:
-- Topic: ${topic || 'Derive from content'}
-- Primary Content: ${sourceContent || 'None'}
-- Additional Context: ${fileContext || 'None'}
+Additional Context:
+${fileContext || '[No additional context]'}
 
-Reasoning:
-GLOBAL TEACHING RULES:
-- Explain WHY before HOW
-- Plain language first, technical language second
-- Define terminology before using it
-- Clarity over completeness
-- Proper Markdown is required
+=== YOUR TASK ===
+Transform this source material into a learning guide that helps beginners truly understand the topic.
 
-SECTION STRUCTURE (STRICT — NO EXCEPTIONS):
-Generate **4-10 sections**. EVERY section MUST include ALL of the following fields:
-- content
-- example
-- knowledgeCheck
+=== PHASE 1: UNDERSTAND & PLAN ===
+Before writing anything, analyze:
 
-Each section MUST follow this structure and order inside the **content** field:
-### {Specific, Descriptive Section Title}
-Intro paragraph (2–4 sentences, NO heading):
-- Introduce what this section covers
-- Explain why it matters
-- Do NOT label this as “What You’ll Understand”
+1. **What does this material actually teach?**
+   - Identify the core concepts
+   - Determine prerequisite knowledge needed
+   - Map out dependencies between concepts
 
-#### Key Terminology
-- Define all terms needed for this section BEFORE using them
-- Use **bold** for each term
-- Plain-language definitions
-- Mention common confusion if relevant
-- If the topic has 4+ core terms, the FIRST section must focus on terminology
+2. **How should this be learned?**
+   - What's the natural progression for a beginner?
+   - Which concepts must come before others?
+   - What needs upfront definition vs. gradual introduction?
 
-#### Core Concept (Intuition First)
-- Explain the idea simply and intuitively
-- Focus on purpose and reasoning
-- No formulas or code yet
+3. **What form should explanations take?**
+   - Does this concept need a formula? A code example? A diagram?
+   - Would a comparison table help? A process flowchart?
+   - What representation makes this clearest?
 
-#### How It Works
-- Step-by-step explanation of the mechanics
-- Introduce technical detail only after intuition
-- Tie details back to the core idea
+Determine: 4-10 logical learning sections that build on each other naturally.
 
-#### Formula | Algorithm | Code (ONLY if required)
-- Mathematical concepts → formulas (NOT code)
-- Programming / computational concepts → code
-- Otherwise → OMIT this subsection entirely
-- If using code: Place code ONLY here, use minimal clean examples, add brief inline comments, use proper Markdown code blocks.
+=== PHASE 2: TEACHING PRINCIPLES ===
+For each section you create:
 
-#### Common Mistakes or Misconceptions
-- At least one realistic misunderstanding
-- Explain why it is incorrect
+**Explain for Understanding:**
+- Start with "why" (purpose/motivation) before "how" (mechanics)
+- Use plain language first, technical terms second
+- Define terms before using them
+- Show, don't just tell (examples, diagrams, tables)
+- Address common confusion points
 
-CRITICAL CONTENT PLACEMENT RULES (MANDATORY):
-- The **content** field MUST NOT contain: Questions, Options, Correct answers, Answer explanations, or "Knowledge Check" labels.
-- ALL worked scenarios MUST appear ONLY in: learningGuide.sections[].example
-- ALL assessment material MUST appear ONLY in: learningGuide.sections[].knowledgeCheck
+**Choose the Right Representation:**
+Based on what the content needs, you might include:
+- Prose explanations
+- **Bold** definitions for key terms
+- Code blocks (with \`\`\`language tags and comments)
+- Mathematical formulas (using proper notation)
+- Tables (using Markdown table syntax)
+- ASCII/text diagrams
+- Comparison charts
+- Step-by-step procedures
+- Analogies or metaphors
 
-WORKED EXAMPLE (example field ONLY):
-- MUST exist for EVERY section
-- No headings inside the example
-- Written as a concrete, step-by-step scenario
-- Explicitly explain how it demonstrates the concept
-- MUST NOT include questions or answers
+Let the content guide what format works best. Don't force structures that don't fit.
 
-KNOWLEDGE CHECK (MANDATORY FOR EVERY SECTION):
-- EVERY section MUST include exactly ONE knowledge check testing understanding of that section only.
-- MUST be scenario-based (not definition recall).
-- MUST include: question, exactly 4 options, correctAnswer (index 0–3), and explanation.
+**Proper Markdown:**
+- Use heading hierarchy (###, ####, etc.)
+- Format code with language-specific blocks
+- Use tables where comparisons help
+- Use lists where enumeration helps
+- Use emphasis (*italic*, **bold**) purposefully
 
-Output:
-Return ONLY valid JSON. No markdown fences. No commentary.
+=== PHASE 3: SECTION COMPONENTS ===
+Every section must have three parts, but HOW you fill them depends on the content:
+
+**1. Content (teaching material)**
+- This is your main explanation space
+- Structure it however makes the concept clearest
+- Include whatever representations work: prose, code, formulas, tables, diagrams
+- Explain thoroughly
+- NO assessment questions here
+
+**2. Example (application scenario)**
+- A concrete, worked scenario showing the concept in action
+- Walk through it step-by-step
+- Show how the concept applies in practice
+- Written as narrative/demonstration
+- NO questions or test items here
+
+**3. Knowledge Check (single assessment)**
+- One scenario-based question that tests understanding
+- Format:
+  - question: A situation requiring concept application
+  - options: Array of 4 plausible choices
+  - correctAnswer: Index 0-3 of the correct option
+  - explanation: Why correct answer works, why others don't
+
+=== CRITICAL CONSTRAINTS ===
+- Base everything on the provided source material ONLY
+- Do not invent facts, examples, or information not in the source
+- If source material is limited, create fewer but higher-quality sections
+- Separate teaching (content/example) from assessment (knowledgeCheck)
+- Maintain natural flow and coherence
+
+=== VALIDATION CHECKLIST ===
+Before outputting, verify:
+- [ ] 4-10 sections that follow a logical learning sequence
+- [ ] Each section has: content, example, knowledgeCheck
+- [ ] Content is grounded in source material (no hallucinations)
+- [ ] Explanations prioritize understanding over completeness
+- [ ] Format choices match content needs (not forced)
+- [ ] All technical terms are defined when introduced
+- [ ] Examples demonstrate application, not just definition
+- [ ] Assessments test understanding, not memorization
+- [ ] Valid JSON structure
+
+=== OUTPUT FORMAT ===
+Return only valid JSON (no markdown code fences, no additional text):
 
 {
-  "title": "Specific, engaging title",
-  "topic": "${topic || 'Learning Guide'}",
-  "description": "2–4 sentences explaining what the learner will understand and why it matters",
+  "title": "Clear, descriptive title",
+  "topic": "${topic || 'Derived from content'}",
+  "description": "2-4 sentences: what will be learned and why it matters",
   "learningGuide": {
     "sections": [
       {
-        "title": "Specific section title",
-        "content": "Markdown-formatted content following the exact structure above",
-        "example": "Worked example scenario only",
+        "title": "Descriptive section title",
+        "content": "Markdown-formatted teaching content. Structure this however makes the concept clearest. Could include paragraphs, code blocks, formulas, tables, diagrams, lists - whatever the material needs.",
+        "example": "Worked scenario demonstrating the concept in practice.",
         "knowledgeCheck": {
           "question": "Scenario-based question",
-          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+          "options": ["Option A", "Option B", "Option C", "Option D"],
           "correctAnswer": 0,
-          "explanation": "Why this answer is correct and why the others are not"
+          "explanation": "Why the correct answer is right and others are wrong"
         }
       }
     ]
   }
 }
 
-Stopping conditions:
-1. Confirm there are 4–10 sections
-2. Confirm EVERY section has: content, example, knowledgeCheck
-3. Confirm no questions exist outside knowledgeCheck
-4. Confirm no examples exist outside example
-5. Confirm no invented facts or external info included
-6. Confirm JSON is valid and parseable
-
-Final Goal: The learner finishes and says: “I actually understand this.”
+=== SUCCESS METRIC ===
+A beginner reads this and thinks: "I understand this concept and could explain it to someone else."
 `;
   }
 
@@ -439,72 +598,170 @@ Stopping conditions:
     learningGuide: any
   ) {
     return `
-Role:
-You are an expert educational content editor. Your job is to synthesize study material into a clear, professional, high-signal reference summary.
+You are an expert educational content editor creating reference summaries for efficient review and retention.
 
-Task:
-Create a structured summary that captures the essential knowledge from the provided material for fast review and long-term retention. Target length: 400–1200 words.
+=== SUMMARY PARAMETERS ===
+Title: ${title}
+Topic: ${topic}
+Target Length: 400-1200 words
 
-Context:
-- Title: ${title}
-- Topic: ${topic}
-- Content: ${content || 'Not provided'}
-${learningGuide ? `- Learning Guide: ${JSON.stringify(learningGuide)}` : ''}
+Source Material:
+Content: ${content || '[No content provided]'}
+${learningGuide ? `Learning Guide: ${JSON.stringify(learningGuide)}` : '[No learning guide provided]'}
 
-Reasoning:
-SYNTHESIS APPROACH:
-- Identify the 3–5 most important ideas.
-- Merge overlapping explanations into a single clear narrative.
-- Present concepts in their most distilled, high-signal form.
-- Use examples ONLY if they materially improve understanding.
-- Prioritize conceptual clarity over exhaustive detail.
-- Every sentence must add informational value.
+=== PHASE 1: ANALYZE & UNDERSTAND ===
+Before writing, deeply analyze the material:
 
-FORMATTING RULES (STRICT):
-- Use hierarchy (##, ###).
-- Use **bold** for key terms on first mention.
-- Use bullet points (•) for lists.
-- EVERY list item MUST be on its own line.
-- Use a **blank line** between every list item to ensure they do not merge.
-- Use fenced code blocks with language for snippets.
-- Use > for the most important insight or principle.
-- Blank lines before/after headers and between paragraphs.
+1. **Content Assessment:**
+   - What is this material actually about at its core?
+   - What are the 3-5 most important concepts?
+   - How do these concepts relate to each other?
+   - What's the central insight or breakthrough idea?
+   - What makes this topic distinct or important?
 
-Output:
-Return ONLY the Markdown summary following this structure below (no preamble, code fences, or meta-commentary):
+2. **Information Architecture:**
+   - What's the natural structure inherent in this material?
+   - Does it follow a process? A hierarchy? A comparison? A timeline?
+   - Which concepts must be understood before others?
+   - Where are the natural divisions and groupings?
+   - What terminology is essential vs. what's supplementary?
 
-# ${title}
-> One sentence stating what this topic is and why it matters.
+3. **Synthesis Decisions:**
+   - What overlapping explanations can be merged?
+   - What details are illustrative vs. essential?
+   - Where would an example clarify vs. where is prose sufficient?
+   - What's worth including vs. what dilutes the signal?
 
-## Quick Takeaways
-• Insight 1
-• Insight 2
-• Insight 3
+=== PHASE 2: WRITING PRINCIPLES ===
 
-## Core Concepts
-Break this down into logical sections using ## and ###.
-Explain foundational ideas clearly. Focus on distinct areas.
+**High Signal Density:**
+Every sentence should earn its place. Avoid:
+- Filler phrases and hedging ("it's worth noting," "importantly")
+- AI clichés ("delve into," "it's important to understand that")
+- Redundant restatements of the same idea
+- Generic statements that could describe any topic
 
-## Key Terminology
-• **Term**: Clear, precise definition
-• **Term**: Clear, precise definition
-• **Term**: Clear, precise definition
-(Include 3–8 essential terms only. Each MUST be on a new line with a blank line between them.)
+**Clarity Through Structure:**
+Let the material's natural organization guide your structure. Possible approaches:
+- Conceptual progression (foundational → advanced)
+- Process/workflow (step-by-step through a system)
+- Categorical (grouping related ideas)
+- Comparative (contrasting approaches or concepts)
+- Problem → Solution (challenges and how they're addressed)
+- Historical/evolutionary (how ideas developed)
 
-## Critical Insight
-> The most important principle, implication, or takeaway.
+Choose the structure that makes the material clearest, not a predetermined template.
 
-## Summary
-Write a cohesive, professional synthesis (4-6 sentences).
-- Start by framing the topic within its broader context.
-- Summarize how the core concepts and tools discussed relate to each other.
-- Conclude with the practical or conceptual significance of mastering this material.
+**Effective Explanation:**
+- Start with the essence, add necessary detail
+- Use plain language, introducing technical terms when needed
+- Show relationships between concepts
+- Make abstract ideas concrete when helpful
+- Explain the "why" and "so what," not just the "what"
 
-Stopping conditions:
-1. Summary is supported by provided material.
-2. Output contains no quizzes or exercises.
-3. No "AI-sounding" language (e.g., "delve into").
-4. Summary is logically closed.
+**Strategic Detail:**
+Include examples, code, formulas, or diagrams only when they:
+- Make an abstract concept tangible
+- Prevent common misunderstandings
+- Illustrate a relationship that's hard to express in words
+- Demonstrate practical application
+
+Otherwise, focus on conceptual explanation.
+
+=== PHASE 3: FORMATTING TOOLS ===
+
+Use Markdown to enhance clarity and scannability:
+
+**Structural Elements:**
+- # for the main title
+- ##, ###, #### for logical sections and subsections
+- Organize heading levels based on conceptual hierarchy
+- Blank lines for visual separation
+
+**Emphasis:**
+- **Bold** for key terms when introduced or for important concepts
+- \`Inline code\` for technical terms, commands, or specific values
+- Fenced code blocks with language tags for code examples
+- > Blockquotes for particularly important insights (use sparingly)
+
+**Organization:**
+- Bullet lists for related items or enumerations
+- Numbered lists for sequential steps or ordered information
+- Tables for comparisons or structured data (if appropriate)
+- Horizontal rules (---) for major section breaks (if needed)
+
+**Spacing:**
+Use whitespace to create visual hierarchy and improve readability. Blank lines between sections, around code blocks, and between conceptual units help readers navigate.
+
+=== PHASE 4: CREATE THE SUMMARY ===
+
+Now synthesize the material into a cohesive summary:
+
+**Opening:**
+Begin with the title and establish what this topic is about. You might:
+- Start with a high-level overview
+- Lead with the central problem this topic addresses
+- Open with why this matters or what it enables
+- Begin with a key distinction or insight
+
+**Body:**
+Organize the core content based on the natural structure you identified. You might use:
+- Thematic sections grouped by related concepts
+- A progression from fundamentals to applications
+- Major concepts with supporting details
+- Comparisons or contrasts between approaches
+- Sequential explanation of a process or system
+
+The structure should emerge from the material, not from a template.
+
+**Terminology:**
+Define essential terms either:
+- Inline as they're introduced in context
+- In a dedicated section if there are many foundational terms
+- Throughout the explanation as needed
+
+Choose the approach that serves clarity.
+
+**Key Insights:**
+Highlight the most important takeaways either:
+- As you explain each concept
+- In a dedicated synthesis section
+- Through blockquotes at critical moments
+- In an opening or closing summary
+
+Choose what fits the material's structure.
+
+**Closing:**
+Conclude by providing closure. You might:
+- Synthesize how concepts fit together
+- Explain broader implications or applications
+- Connect back to why this topic matters
+- Suggest what understanding this enables
+
+The closing should feel natural given what came before.
+
+=== PHASE 5: QUALITY ASSURANCE ===
+
+Before finalizing, verify:
+- [ ] Structure emerges naturally from the material (not forced into a template)
+- [ ] All content grounded in source material
+- [ ] Core concepts clearly explained and related to each other
+- [ ] Every sentence adds informational value
+- [ ] Essential terminology defined when needed
+- [ ] Examples/code included only when they enhance understanding
+- [ ] Proper Markdown formatting throughout
+- [ ] Length within 400-1200 word range
+- [ ] Natural, professional tone (no AI clichés)
+- [ ] Logically complete with appropriate closure
+- [ ] Visual hierarchy aids navigation and comprehension
+
+=== OUTPUT FORMAT ===
+Return ONLY the Markdown summary (no preamble, no code fences around the entire summary, no meta-commentary).
+
+Begin directly with the title and content structured according to what the material needs.
+
+=== SUCCESS CRITERION ===
+The summary captures the essential knowledge in a structure that fits the material naturally, allowing efficient review and genuine understanding.
 `;
   }
 
