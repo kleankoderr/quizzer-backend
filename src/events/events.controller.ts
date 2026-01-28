@@ -7,7 +7,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Observable, map, filter } from 'rxjs';
+import { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AppEvent } from './events.types';
 import { SseAuthService } from './sse-auth.service';
@@ -32,16 +32,30 @@ export class EventsController {
   from(@Req() req: any): Observable<MessageEvent> {
     const userId = req.user.id;
 
-    return new Observable<AppEvent>((observer) => {
-      const handler = (event: AppEvent) => observer.next(event);
+    return new Observable<MessageEvent>((observer) => {
+      const handler = (event: AppEvent) => {
+        if (event?.userId === userId) {
+          observer.next({
+            data: event,
+            type: event.eventType,
+          });
+        }
+      };
+
+      // Heartbeat every 20 seconds to keep connection alive
+      const heartbeat = setInterval(() => {
+        observer.next({
+          data: { type: 'heartbeat', timestamp: Date.now() },
+          type: 'ping',
+        } as MessageEvent);
+      }, 20000);
+
       this.eventEmitter.on('**', handler);
-      return () => this.eventEmitter.off('**', handler);
-    }).pipe(
-      filter((event: AppEvent) => event?.userId === userId),
-      map((event: AppEvent) => ({
-        data: event,
-        type: event.eventType,
-      }))
-    );
+
+      return () => {
+        clearInterval(heartbeat);
+        this.eventEmitter.off('**', handler);
+      };
+    });
   }
 }

@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class SseAuthService {
   private readonly TOKEN_PREFIX = 'sse_auth_token:';
-  private readonly TOKEN_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly TOKEN_TTL = 15 * 60 * 1000; // 15 minutes
 
   constructor(private readonly cacheService: CacheService) {}
 
