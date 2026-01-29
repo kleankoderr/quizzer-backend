@@ -67,6 +67,7 @@ export class AuthService {
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
+      include: { preference: true },
     });
 
     if (existingUser) {
@@ -76,7 +77,6 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user with associated preference record
     const user = await this.prisma.user.create({
       data: {
         email,
@@ -87,6 +87,7 @@ export class AuthService {
           create: {},
         },
       },
+      include: { preference: true },
     });
 
     // Generate OTP
@@ -113,6 +114,7 @@ export class AuthService {
     // Find user
     const user = await this.prisma.user.findUnique({
       where: { email },
+      include: { preference: true },
     });
 
     if (!user?.password) {
@@ -195,6 +197,7 @@ export class AuthService {
     const user = await this.prisma.user.update({
       where: { email },
       data: { emailVerified: true },
+      include: { preference: true },
     });
 
     // Clear cache
@@ -308,6 +311,7 @@ export class AuthService {
       // Check if user exists
       let user = await this.prisma.user.findUnique({
         where: { email },
+        include: { preference: true },
       });
 
       if (user) {
@@ -316,6 +320,7 @@ export class AuthService {
           user = await this.prisma.user.update({
             where: { id: user.id },
             data: { googleId: uid },
+            include: { preference: true },
           });
         }
       } else {
@@ -340,6 +345,7 @@ export class AuthService {
               create: {},
             },
           },
+          include: { preference: true },
         });
       }
 
@@ -408,8 +414,8 @@ export class AuthService {
         grade: user.grade,
         role: user.role,
         isPremium, // Replacing plan field with isPremium for backwards compatibility
-        onboardingCompleted: user.onboardingCompleted,
-        assessmentPopupShown: user.assessmentPopupShown,
+        onboardingCompleted: user.preference?.onboardingCompleted || false,
+        assessmentPopupShown: user.preference?.assessmentPopupShown || false,
         createdAt: user.createdAt,
       },
       accessToken,
