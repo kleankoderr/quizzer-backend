@@ -73,7 +73,13 @@ export class QuizService {
   async generateQuiz(
     userId: string,
     dto: GenerateQuizDto,
-    files?: Express.Multer.File[]
+    files?: Express.Multer.File[],
+    adminContext?: {
+      scope: 'GLOBAL' | 'SCHOOL';
+      schoolId?: string;
+      isActive?: boolean;
+      publishedAt?: Date;
+    }
   ) {
     this.logger.log(
       `User ${userId} requesting ${dto.numberOfQuestions} question(s), difficulty: ${dto.difficulty}`
@@ -101,6 +107,7 @@ export class QuizService {
           mimetype: doc.mimeType,
           size: doc.size,
         })),
+        adminContext,
       });
 
       this.logger.log(`Quiz generation job created: ${job.id}`);
@@ -757,7 +764,9 @@ export class QuizService {
         ? this.prisma.user
             .update({
               where: { id: userId },
-              data: { preference: { update: { onboardingAssessmentCompleted: true } } },
+              data: {
+                preference: { update: { onboardingAssessmentCompleted: true } },
+              },
             })
             .catch((err) =>
               this.logger.error(`Onboarding update failed: ${err.message}`)

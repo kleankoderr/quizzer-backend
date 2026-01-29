@@ -75,7 +75,7 @@ import { RagModule } from './rag/rag.module';
               type: 'exponential',
               delay: 1000,
             },
-            timeout: 60_000, // Job timeout: 60 seconds
+            timeout: 300_000, // Job timeout: 5 minutes
             removeOnComplete: { age: 3600 }, // Keep completed jobs for 1 hour
             removeOnFail: { age: 86400 }, // Keep failed jobs for 24 hours
           },

@@ -42,6 +42,11 @@ model User {
   school           School?           @relation(fields: [schoolId], references: [id])
   schoolId         String?
 
+  adminQuizzes       AdminQuiz[]         @relation("AdminCreatedQuizzes")
+  adminFlashcardSets AdminFlashcardSet[] @relation("AdminCreatedFlashcardSets")
+  adminContents      AdminContent[]      @relation("AdminCreatedContent")
+  adminStudyPacks    AdminStudyPack[]    @relation("AdminCreatedStudyPacks")
+
   @@map("users")
 }
 
@@ -88,6 +93,7 @@ model Quiz {
   challengeQuizzes ChallengeQuiz[]
   challenges       Challenge[]
   content          Content?        @relation(fields: [contentId], references: [id])
+  adminQuiz        AdminQuiz?
   studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id])
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   reports          Report[]
@@ -99,21 +105,22 @@ model Quiz {
 }
 
 model FlashcardSet {
-  id          String     @id @default(uuid())
-  title       String
-  topic       String
-  cards       Json
-  userId      String
-  sourceType  String?
-  sourceFiles String[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  contentId   String?    @unique
-  studyPackId String?
-  attempts    Attempt[]
-  content     Content?   @relation(fields: [contentId], references: [id])
-  studyPack   StudyPack? @relation(fields: [studyPackId], references: [id])
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String             @id @default(uuid())
+  title             String
+  topic             String
+  cards             Json
+  userId            String
+  sourceType        String?
+  sourceFiles       String[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  contentId         String?            @unique
+  studyPackId       String?
+  attempts          Attempt[]
+  content           Content?           @relation(fields: [contentId], references: [id])
+  adminFlashcardSet AdminFlashcardSet?
+  studyPack         StudyPack?         @relation(fields: [studyPackId], references: [id])
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([studyPackId])
   @@index([userId])
@@ -276,6 +283,7 @@ model Content {
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   flashcardSet     FlashcardSet?
   quiz             Quiz?
+  adminContent     AdminContent?
   reports          Report[]
   summary          Summary?
   topicProgress    TopicProgress[]
@@ -384,6 +392,11 @@ model School {
   users        User[]
   userProfiles UserProfile[]
 
+  adminQuizzes       AdminQuiz[]
+  adminFlashcardSets AdminFlashcardSet[]
+  adminContents      AdminContent[]
+  adminStudyPacks    AdminStudyPack[]
+
   @@index([name])
   @@map("schools")
 }
@@ -457,18 +470,19 @@ model PlatformSettings {
 }
 
 model StudyPack {
-  id            String         @id @default(uuid())
-  title         String
-  description   String?
-  coverImage    String?
-  userId        String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  contents      Content[]
-  flashcardSets FlashcardSet[]
-  quizzes       Quiz[]
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userDocuments UserDocument[]
+  id             String          @id @default(uuid())
+  title          String
+  description    String?
+  coverImage     String?
+  userId         String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  contents       Content[]
+  flashcardSets  FlashcardSet[]
+  quizzes        Quiz[]
+  adminStudyPack AdminStudyPack?
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userDocuments  UserDocument[]
 
   @@index([userId])
   @@map("study_packs")
@@ -643,6 +657,130 @@ enum UserPlan {
 enum PlanType {
   Free
   Premium
+}
+
+enum ContentScope {
+  GLOBAL
+  SCHOOL
+}
+
+model AdminQuiz {
+  id        String       @id @default(uuid())
+  quizId    String       @unique
+  createdBy String // Admin user ID
+  scope     ContentScope // GLOBAL, SCHOOL
+  schoolId  String?
+
+  isActive    Boolean   @default(true)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  quiz           Quiz                 @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  creator        User                 @relation("AdminCreatedQuizzes", fields: [createdBy], references: [id])
+  school         School?              @relation(fields: [schoolId], references: [id])
+  studyPackItems AdminStudyPackItem[]
+
+  @@index([createdBy])
+  @@index([scope, schoolId])
+  @@index([isActive])
+  @@map("admin_quizzes")
+}
+
+model AdminFlashcardSet {
+  id             String       @id @default(uuid())
+  flashcardSetId String       @unique
+  createdBy      String
+  scope          ContentScope
+  schoolId       String?
+
+  isActive    Boolean   @default(true)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  flashcardSet   FlashcardSet         @relation(fields: [flashcardSetId], references: [id], onDelete: Cascade)
+  creator        User                 @relation("AdminCreatedFlashcardSets", fields: [createdBy], references: [id])
+  school         School?              @relation(fields: [schoolId], references: [id])
+  studyPackItems AdminStudyPackItem[]
+
+  @@index([createdBy])
+  @@index([scope, schoolId])
+  @@index([isActive])
+  @@map("admin_flashcard_sets")
+}
+
+model AdminContent {
+  id        String       @id @default(uuid())
+  contentId String       @unique
+  createdBy String
+  scope     ContentScope
+  schoolId  String?
+
+  isActive    Boolean   @default(true)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  content        Content              @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  creator        User                 @relation("AdminCreatedContent", fields: [createdBy], references: [id])
+  school         School?              @relation(fields: [schoolId], references: [id])
+  studyPackItems AdminStudyPackItem[]
+
+  @@index([createdBy])
+  @@index([scope, schoolId])
+  @@index([isActive])
+  @@map("admin_contents")
+}
+
+model AdminStudyPack {
+  id          String       @id @default(uuid())
+  studyPackId String       @unique
+  createdBy   String
+  scope       ContentScope
+  schoolId    String?
+
+  isActive    Boolean   @default(true)
+  publishedAt DateTime?
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  studyPack StudyPack            @relation(fields: [studyPackId], references: [id], onDelete: Cascade)
+  creator   User                 @relation("AdminCreatedStudyPacks", fields: [createdBy], references: [id])
+  school    School?              @relation(fields: [schoolId], references: [id])
+  items     AdminStudyPackItem[]
+
+  @@index([createdBy])
+  @@index([scope, schoolId])
+  @@index([isActive])
+  @@map("admin_study_packs")
+}
+
+model AdminStudyPackItem {
+  id               String @id @default(uuid())
+  adminStudyPackId String
+
+  // One of these will be set (polymorphic relation)
+  adminQuizId         String?
+  adminFlashcardSetId String?
+  adminContentId      String?
+
+  order      Int
+  isRequired Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  adminStudyPack    AdminStudyPack     @relation(fields: [adminStudyPackId], references: [id], onDelete: Cascade)
+  adminQuiz         AdminQuiz?         @relation(fields: [adminQuizId], references: [id], onDelete: Cascade)
+  adminFlashcardSet AdminFlashcardSet? @relation(fields: [adminFlashcardSetId], references: [id], onDelete: Cascade)
+  adminContent      AdminContent?      @relation(fields: [adminContentId], references: [id], onDelete: Cascade)
+
+  @@unique([adminStudyPackId, order])
+  @@index([adminStudyPackId])
+  @@index([adminQuizId])
+  @@index([adminFlashcardSetId])
+  @@index([adminContentId])
+  @@map("admin_study_pack_items")
 }
 
 model UserPreference {

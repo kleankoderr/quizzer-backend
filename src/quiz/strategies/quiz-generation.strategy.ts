@@ -6,14 +6,11 @@ import { StudyPackService } from '../../study-pack/study-pack.service';
 import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
-import { QuizType } from '@prisma/client';
+import { ContentScope, QuizType } from '@prisma/client';
 import { GenerateQuizDto } from '../dto/quiz.dto';
 import { QuizUtils } from '../quiz.utils';
 import { FileReference, QuizJobData } from '../quiz.processor';
-import {
-  JobContext,
-  JobStrategy,
-} from '../../common/queue/interfaces/job-strategy.interface';
+import { JobContext, JobStrategy } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
 import { InputSource } from '../../input-pipeline/input-source.interface';
 
@@ -165,7 +162,7 @@ export class QuizGenerationStrategy implements JobStrategy<
 
   async postProcess(context: QuizContext, result: any): Promise<any> {
     const { userId, data } = context;
-    const { dto, contentId, files } = data;
+    const { dto, contentId, files, adminContext } = data;
     const { questions, title, topic } = result;
 
     const quizType = this.mapQuizType(dto.quizType);
@@ -195,6 +192,24 @@ export class QuizGenerationStrategy implements JobStrategy<
     // Invalidate study pack cache if quiz is added to a study pack
     if (dto.studyPackId) {
       await this.studyPackService.invalidateUserCache(userId).catch(() => {});
+    }
+
+    // Create AdminQuiz if admin context is present
+    if (adminContext) {
+      this.logger.log(`Creating AdminQuiz for quiz ${quiz.id}`);
+      await this.prisma.adminQuiz.create({
+        data: {
+          quizId: quiz.id,
+          createdBy: userId,
+          scope:
+            adminContext.scope === 'GLOBAL'
+              ? ContentScope.GLOBAL
+              : ContentScope.SCHOOL,
+          schoolId: adminContext.schoolId,
+          isActive: adminContext.isActive ?? true,
+          publishedAt: adminContext.publishedAt,
+        },
+      });
     }
 
     return quiz;

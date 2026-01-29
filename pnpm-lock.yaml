@@ -125,6 +125,9 @@ importers:
       json5:
         specifier: ^2.2.3
         version: 2.2.3
+      jsonrepair:
+        specifier: ^3.13.2
+        version: 3.13.2
       keyv:
         specifier: ^5.5.5
         version: 5.5.5
@@ -3462,6 +3465,10 @@ packages:
   jsonpointer@5.0.1:
     resolution: {integrity: sha512-p/nXbhSEcu3pZRdkW1OfJhpsVtW1gd4Wa1fnQc9YLiTfAjn0312eMKimbdIQzuZl9aa9xUGaRlP9T/CJE/ditQ==}
     engines: {node: '>=0.10.0'}
+
+  jsonrepair@3.13.2:
+    resolution: {integrity: sha512-Leuly0nbM4R+S5SVJk3VHfw1oxnlEK9KygdZvfUtEtTawNDyzB4qa1xWTmFt1aeoA7sXZkVTRuIixJ8bAvqVUg==}
+    hasBin: true
 
   jsonwebtoken@9.0.3:
     resolution: {integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==}
@@ -8171,6 +8178,8 @@ snapshots:
       graceful-fs: 4.2.11
 
   jsonpointer@5.0.1: {}
+
+  jsonrepair@3.13.2: {}
 
   jsonwebtoken@9.0.3:
     dependencies:

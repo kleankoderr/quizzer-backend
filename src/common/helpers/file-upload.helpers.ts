@@ -122,11 +122,10 @@ export async function uploadToProviders(
   };
 
   // Upload compressed file to both providers in parallel
-  const cloudinaryResult = await
-    cloudinaryService.uploadFile(compressedFile, {
-      folder: 'quizzer/content',
-      resourceType: 'raw',
-    });
+  const cloudinaryResult = await cloudinaryService.uploadFile(compressedFile, {
+    folder: 'quizzer/content',
+    resourceType: 'raw',
+  });
 
   logger.log(`Uploaded ${file.originalname} to both providers`);
 
@@ -138,7 +137,7 @@ export async function uploadToProviders(
 
 export async function cleanupFailedUploads(
   documents: ProcessedDocument[],
-  cloudinaryService: IFileStorageService,
+  cloudinaryService: IFileStorageService
 ): Promise<void> {
   for (const doc of documents) {
     if (!doc.isDuplicate) {

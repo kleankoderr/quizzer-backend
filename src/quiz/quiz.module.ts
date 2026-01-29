@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { QuizController } from './quiz.controller';
+import { AdminQuizController } from './admin/admin-quiz.controller';
 import { QuizService } from './quiz.service';
+import { AdminQuizService } from './admin/admin-quiz.service';
 import { QuizProcessor } from './quiz.processor';
 import { LangChainModule } from '../langchain/langchain.module';
 import { RecommendationModule } from '../recommendation/recommendation.module';
@@ -33,8 +35,13 @@ import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
     StudyPackModule,
     InputPipelineModule,
   ],
-  controllers: [QuizController],
-  providers: [QuizService, QuizProcessor, QuizGenerationStrategy],
-  exports: [QuizService],
+  controllers: [QuizController, AdminQuizController],
+  providers: [
+    QuizService,
+    AdminQuizService,
+    QuizProcessor,
+    QuizGenerationStrategy,
+  ],
+  exports: [QuizService, AdminQuizService],
 })
 export class QuizModule {}

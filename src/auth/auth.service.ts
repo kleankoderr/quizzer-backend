@@ -600,7 +600,7 @@ export class AuthService {
         where: { id: payload.sub },
       });
 
-      if (!user || !user.refreshToken) {
+      if (!user?.refreshToken) {
         throw new UnauthorizedException('Invalid refresh token');
       }
 

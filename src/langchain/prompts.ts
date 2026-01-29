@@ -336,7 +336,13 @@ Before writing anything, analyze:
    - Would a comparison table help? A process flowchart?
    - What representation makes this clearest?
 
-Determine: 4-10 logical learning sections that build on each other naturally.
+4. **Is this historical or factual content?**
+   - For historical topics (events, figures, eras), present accurate timelines, causes, effects, and significance
+   - Include key dates, figures, and their roles
+   - Explain historical context and consequences
+   - Connect past events to their lasting impact
+
+Determine: 8-15 logical learning sections that build on each other naturally.
 
 === PHASE 2: TEACHING PRINCIPLES ===
 For each section you create:
@@ -347,6 +353,12 @@ For each section you create:
 - Define terms before using them
 - Show, don't just tell (examples, diagrams, tables)
 - Address common confusion points
+
+**Make Content Relatable:**
+- Use examples that connect to learners' everyday experiences
+- For Nigerian learners: occasionally reference familiar contexts (local businesses, Nigerian universities, Naira currency, local scenarios) where it naturally fits
+- Don't force cultural references - only include them when they genuinely help understanding
+- Balance universal examples with locally relevant ones
 
 **Choose the Right Representation:**
 Based on what the content needs, you might include:
@@ -359,6 +371,7 @@ Based on what the content needs, you might include:
 - Comparison charts
 - Step-by-step procedures
 - Analogies or metaphors
+- Historical timelines (for historical content)
 
 Let the content guide what format works best. Don't force structures that don't fit.
 
@@ -377,12 +390,14 @@ Every section must have three parts, but HOW you fill them depends on the conten
 - Structure it however makes the concept clearest
 - Include whatever representations work: prose, code, formulas, tables, diagrams
 - Explain thoroughly
+- For historical content: include context, timeline, key figures, causes and effects
 - NO assessment questions here
 
 **2. Example (application scenario)**
 - A concrete, worked scenario showing the concept in action
 - Walk through it step-by-step
 - Show how the concept applies in practice
+- Use relatable scenarios when appropriate
 - Written as narrative/demonstration
 - NO questions or test items here
 
@@ -397,13 +412,14 @@ Every section must have three parts, but HOW you fill them depends on the conten
 === CRITICAL CONSTRAINTS ===
 - Base everything on the provided source material ONLY
 - Do not invent facts, examples, or information not in the source
+- For historical content: maintain factual accuracy - dates, names, and events must be correct
 - If source material is limited, create fewer but higher-quality sections
 - Separate teaching (content/example) from assessment (knowledgeCheck)
 - Maintain natural flow and coherence
 
 === VALIDATION CHECKLIST ===
 Before outputting, verify:
-- [ ] 4-10 sections that follow a logical learning sequence
+- [ ] 8-15 sections that follow a logical learning sequence
 - [ ] Each section has: content, example, knowledgeCheck
 - [ ] Content is grounded in source material (no hallucinations)
 - [ ] Explanations prioritize understanding over completeness
@@ -411,6 +427,7 @@ Before outputting, verify:
 - [ ] All technical terms are defined when introduced
 - [ ] Examples demonstrate application, not just definition
 - [ ] Assessments test understanding, not memorization
+- [ ] Historical facts are accurate (if applicable)
 - [ ] Valid JSON structure
 
 === OUTPUT FORMAT ===
