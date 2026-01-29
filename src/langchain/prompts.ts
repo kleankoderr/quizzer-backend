@@ -365,7 +365,9 @@ Based on what the content needs, you might include:
 - Prose explanations
 - **Bold** definitions for key terms
 - Code blocks (with \`\`\`language tags and comments)
-- Mathematical formulas (using proper notation)
+- Mathematical formulas using LaTeX notation with $ delimiters:
+  - Inline math: $x^2 + y^2 = z^2$
+  - Block/display math: $$\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$$
 - Tables (using Markdown table syntax)
 - ASCII/text diagrams
 - Comparison charts
@@ -378,6 +380,7 @@ Let the content guide what format works best. Don't force structures that don't 
 **Proper Markdown:**
 - Use heading hierarchy (###, ####, etc.)
 - Format code with language-specific blocks
+- Use $ for inline math and $$ for display/block math (NOT \\( \\) or \\[ \\])
 - Use tables where comparisons help
 - Use lists where enumeration helps
 - Use emphasis (*italic*, **bold**) purposefully
