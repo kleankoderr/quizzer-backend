@@ -8,24 +8,22 @@ datasource db {
 }
 
 model User {
-  id               String            @id @default(uuid())
-  email            String            @unique
-  name             String
-  password         String?
-  emailVerified    Boolean           @default(false)
-  avatar           String?
+  id            String  @id @default(uuid())
+  email         String  @unique
+  name          String
+  password      String?
+  emailVerified Boolean @default(false)
+
   googleId         String?           @unique
   accessToken      String?
   refreshToken     String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-  grade            String?
-  schoolName       String?
   isActive         Boolean           @default(true)
   role             UserRole          @default(USER)
-  schoolId         String?
   plan             UserPlan          @default(FREE)
   preference       UserPreference?
+  profile          UserProfile?
   attempts         Attempt[]
   contents         Content[]
   flashcardSets    FlashcardSet[]
@@ -42,6 +40,7 @@ model User {
   userDocuments    UserDocument[]
   quota            UserQuota?
   school           School?           @relation(fields: [schoolId], references: [id])
+  schoolId         String?
 
   @@map("users")
 }
@@ -378,11 +377,12 @@ model StudySession {
 }
 
 model School {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
+  id           String        @id @default(uuid())
+  name         String        @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  users        User[]
+  userProfiles UserProfile[]
 
   @@index([name])
   @@map("schools")
@@ -659,4 +659,20 @@ model UserPreference {
 
   @@index([userId])
   @@map("user_preferences")
+}
+
+model UserProfile {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  grade      String?
+  schoolName String?
+  schoolId   String?
+  avatar     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school     School?  @relation(fields: [schoolId], references: [id])
+
+  @@index([userId])
+  @@map("user_profiles")
 }

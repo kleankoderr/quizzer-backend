@@ -67,7 +67,7 @@ export class AuthService {
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
-      include: { preference: true },
+      include: { preference: true, profile: true },
     });
 
     if (existingUser) {
@@ -86,8 +86,11 @@ export class AuthService {
         preference: {
           create: {},
         },
+        profile: {
+          create: {},
+        },
       },
-      include: { preference: true },
+      include: { preference: true, profile: true },
     });
 
     // Generate OTP
@@ -114,7 +117,7 @@ export class AuthService {
     // Find user
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { preference: true },
+      include: { preference: true, profile: true },
     });
 
     if (!user?.password) {
@@ -197,7 +200,7 @@ export class AuthService {
     const user = await this.prisma.user.update({
       where: { email },
       data: { emailVerified: true },
-      include: { preference: true },
+      include: { preference: true, profile: true },
     });
 
     // Clear cache
@@ -311,7 +314,7 @@ export class AuthService {
       // Check if user exists
       let user = await this.prisma.user.findUnique({
         where: { email },
-        include: { preference: true },
+        include: { preference: true, profile: true },
       });
 
       if (user) {
@@ -320,7 +323,7 @@ export class AuthService {
           user = await this.prisma.user.update({
             where: { id: user.id },
             data: { googleId: uid },
-            include: { preference: true },
+            include: { preference: true, profile: true },
           });
         }
       } else {
@@ -338,14 +341,18 @@ export class AuthService {
             email,
             name: name || email.split('@')[0],
             googleId: uid,
-            avatar: picture,
             password: null, // No password for Google users
             emailVerified: true, // Google users are verified by default
             preference: {
               create: {},
             },
+            profile: {
+              create: {
+                avatar: picture,
+              },
+            },
           },
-          include: { preference: true },
+          include: { preference: true, profile: true },
         });
       }
 
@@ -409,9 +416,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        avatar: user.avatar,
-        schoolName: user.schoolName,
-        grade: user.grade,
+        avatar: user.profile?.avatar,
+        schoolName: user.profile?.schoolName,
+        grade: user.profile?.grade,
         role: user.role,
         isPremium, // Replacing plan field with isPremium for backwards compatibility
         onboardingCompleted: user.preference?.onboardingCompleted || false,
@@ -430,11 +437,15 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        grade: true,
         role: true,
         createdAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            grade: true,
+          },
+        },
         preference: {
           select: {
             onboardingCompleted: true,
@@ -448,13 +459,16 @@ export class AuthService {
 
     // Flatten the preference relation for backward compatibility if needed,
     // or just pass it as is. The original code expected it at the root.
-    const { preference, ...userData } = user;
+    const { preference, profile, ...userData } = user;
 
     // Get premium status from subscription (single source of truth)
     const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
 
     return {
       ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
       onboardingCompleted: preference?.onboardingCompleted ?? false,
       assessmentPopupShown: preference?.assessmentPopupShown ?? false,
       isPremium, // Add isPremium based on subscription status

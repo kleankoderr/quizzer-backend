@@ -25,12 +25,16 @@ export class UserService {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        grade: true,
         role: true,
         createdAt: true,
         updatedAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            grade: true,
+          },
+        },
         preference: {
           select: {
             settings: true,
@@ -45,7 +49,7 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    const { preference, ...userData } = user;
+    const { preference, profile, ...userData } = user;
 
     // Get user statistics
     const [quizCount, flashcardCount, streak, totalAttempts] =
@@ -58,6 +62,9 @@ export class UserService {
 
     return {
       ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
       preferences: preference?.settings || {},
       assessmentPopupShown: preference?.assessmentPopupShown || false,
       onboardingCompleted: preference?.onboardingCompleted || false,
@@ -93,20 +100,31 @@ export class UserService {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
-        ...updateProfileDto,
-        schoolId,
+        name: updateProfileDto.name,
+        profile: {
+          update: {
+            schoolName: updateProfileDto.schoolName,
+            grade: updateProfileDto.grade,
+            schoolId,
+            avatar: updateProfileDto.avatar,
+          },
+        },
       },
       select: {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        schoolId: true,
-        grade: true,
         role: true,
         createdAt: true,
         updatedAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            schoolId: true,
+            grade: true,
+          },
+        },
         preference: {
           select: {
             settings: true,
@@ -117,10 +135,14 @@ export class UserService {
       },
     });
 
-    const { preference, ...userData } = updatedUser;
+    const { preference, profile, ...userData } = updatedUser;
 
     return {
       ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
+      schoolId: profile?.schoolId,
       preferences: preference?.settings || {},
       onboardingCompleted: preference?.onboardingCompleted || false,
       assessmentPopupShown: preference?.assessmentPopupShown || false,
@@ -150,12 +172,16 @@ export class UserService {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        grade: true,
         role: true,
         createdAt: true,
         updatedAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            grade: true,
+          },
+        },
         preference: {
           select: {
             settings: true,
@@ -166,10 +192,13 @@ export class UserService {
       },
     });
 
-    const { preference, ...userData } = updatedUser;
+    const { preference, profile, ...userData } = updatedUser;
 
     return {
       ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
       preferences: preference?.settings || {},
       onboardingCompleted: preference?.onboardingCompleted || false,
       assessmentPopupShown: preference?.assessmentPopupShown || false,
@@ -210,6 +239,7 @@ export class UserService {
   async uploadAvatar(userId: string, file: Express.Multer.File) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: { profile: true },
     });
 
     if (!user) {
@@ -223,10 +253,10 @@ export class UserService {
     });
 
     // Delete old avatar if it exists and is from Cloudinary
-    if (user.avatar?.includes('cloudinary')) {
+    if (user.profile?.avatar?.includes('cloudinary')) {
       try {
         // Extract public_id from Cloudinary URL
-        const urlParts = user.avatar.split('/');
+        const urlParts = user.profile.avatar.split('/');
         const filename = urlParts[urlParts.length - 1].split('.')[0];
         const folder = urlParts.slice(-3, -1).join('/');
         const publicId = `${folder}/${filename}`;
@@ -239,17 +269,27 @@ export class UserService {
     // Update user's avatar URL in database
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
-      data: { avatar: uploadResult.secureUrl },
+      data: {
+        profile: {
+          update: {
+            avatar: uploadResult.secureUrl,
+          },
+        },
+      },
       select: {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        grade: true,
         role: true,
         createdAt: true,
         updatedAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            grade: true,
+          },
+        },
         preference: {
           select: {
             settings: true,
@@ -260,10 +300,13 @@ export class UserService {
       },
     });
 
-    const { preference, ...userData } = updatedUser;
+    const { preference, profile, ...userData } = updatedUser;
 
     return {
       ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
       preferences: preference?.settings || {},
       onboardingCompleted: preference?.onboardingCompleted || false,
       assessmentPopupShown: preference?.assessmentPopupShown || false,

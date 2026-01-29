@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../common/services/cache.service';
 import { LeaderboardService } from '../leaderboard/leaderboard.service';
@@ -389,14 +384,23 @@ export class ChallengeService {
       completions.map(async (completion, index) => {
         const user = await this.prisma.user.findUnique({
           where: { id: completion.userId },
-          select: { id: true, name: true, avatar: true, schoolName: true },
+          select: {
+            id: true,
+            name: true,
+            profile: {
+              select: {
+                avatar: true,
+                schoolName: true,
+              },
+            },
+          },
         });
 
         return {
           userId: completion.userId,
           userName: user?.name || 'Unknown',
-          avatar: user?.avatar,
-          schoolName: user?.schoolName,
+          avatar: user?.profile?.avatar,
+          schoolName: user?.profile?.schoolName,
           score: completion.finalScore,
           rank: index + 1,
           completedAt: completion.completedAt?.toISOString(),
@@ -414,7 +418,16 @@ export class ChallengeService {
       if (userCompletion) {
         const user = await this.prisma.user.findUnique({
           where: { id: userId },
-          select: { id: true, name: true, avatar: true, schoolName: true },
+          select: {
+            id: true,
+            name: true,
+            profile: {
+              select: {
+                avatar: true,
+                schoolName: true,
+              },
+            },
+          },
         });
 
         let rank = null;
@@ -432,8 +445,8 @@ export class ChallengeService {
         currentUserEntry = {
           userId,
           userName: user?.name || 'Unknown',
-          avatar: user?.avatar,
-          schoolName: user?.schoolName,
+          avatar: user?.profile?.avatar,
+          schoolName: user?.profile?.schoolName,
           score: userCompletion.finalScore || 0,
           rank,
           completedAt: userCompletion.completedAt?.toISOString(),

@@ -1,20 +1,16 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { QuotaService } from '../common/services/quota.service';
-import { UserRole, Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import {
-  UserFilterDto,
-  UpdateUserStatusDto,
-  UpdateUserRoleDto,
   ContentFilterDto,
-  ModerationActionDto,
   CreateSchoolDto,
+  ModerationActionDto,
   UpdateSchoolDto,
+  UpdateUserRoleDto,
+  UpdateUserStatusDto,
+  UserFilterDto,
 } from './dto/admin.dto';
 
 @Injectable()
@@ -126,7 +122,11 @@ export class AdminService {
         where.OR = [
           { name: { contains: search, mode: 'insensitive' } },
           { email: { contains: search, mode: 'insensitive' } },
-          { schoolName: { contains: search, mode: 'insensitive' } },
+          {
+            profile: {
+              schoolName: { contains: search, mode: 'insensitive' },
+            },
+          },
         ];
       }
     }
@@ -173,8 +173,12 @@ export class AdminService {
           name: true,
           role: true,
           isActive: true,
-          schoolName: true,
-          grade: true,
+          profile: {
+            select: {
+              schoolName: true,
+              grade: true,
+            },
+          },
           createdAt: true,
           subscription: {
             select: {
@@ -200,7 +204,12 @@ export class AdminService {
     ]);
 
     return {
-      data: users,
+      data: users.map((u) => ({
+        ...u,
+        schoolName: u.profile?.schoolName,
+        grade: u.profile?.grade,
+        profile: undefined,
+      })),
       meta: {
         total,
         page: pageNum,
