@@ -1,28 +1,20 @@
 import {
-  Controller,
-  Post,
-  Get,
-  Put,
-  Delete,
+  BadRequestException,
   Body,
+  Controller,
+  Delete,
+  Get,
   Param,
+  Post,
+  Put,
   Query,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
-  UploadedFiles,
-  BadRequestException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-  ApiConsumes,
-  ApiBody,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContentService } from './content.service';
 import { CreateContentDto, UpdateContentDto } from './dto/content.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -183,12 +175,13 @@ export class ContentController {
     @Param('id') contentId: string,
     @Body() body: { sectionTitle: string; sectionContent: string }
   ) {
-    return this.contentService.generateExplanation(
+    const explanation = await this.contentService.generateExplanation(
       userId,
       contentId,
       body.sectionTitle,
       body.sectionContent
     );
+    return { explanation };
   }
 
   @CheckQuota('conceptExplanation')
@@ -201,11 +194,12 @@ export class ContentController {
     @Param('id') contentId: string,
     @Body() body: { sectionTitle: string; sectionContent: string }
   ) {
-    return this.contentService.generateExample(
+    const examples = await this.contentService.generateExample(
       userId,
       contentId,
       body.sectionTitle,
       body.sectionContent
     );
+    return { examples };
   }
 }

@@ -362,6 +362,15 @@ Provide a clear, detailed explanation suitable for a student. Keep it engaging a
 
     await this.cacheService.set(cacheKey, result, 43200000);
 
+    // Persist to learningGuide
+    await this.updateSectionGeneratedContent(
+      userId,
+      contentId,
+      sectionTitle,
+      'generatedExplanation',
+      result
+    );
+
     return result;
   }
 
@@ -395,7 +404,57 @@ The example should be relatable and help illustrate the concept clearly.`;
 
     await this.cacheService.set(cacheKey, result, 43200000);
 
+    // Persist to learningGuide
+    await this.updateSectionGeneratedContent(
+      userId,
+      contentId,
+      sectionTitle,
+      'generatedExample',
+      result
+    );
+
     return result;
+  }
+
+  /**
+   * Update generated content (explanation/example) in a section
+   */
+  private async updateSectionGeneratedContent(
+    userId: string,
+    contentId: string,
+    sectionTitle: string,
+    field: 'generatedExplanation' | 'generatedExample',
+    value: string
+  ) {
+    try {
+      const content = await this.prisma.content.findFirst({
+        where: { id: contentId, userId },
+        select: { learningGuide: true },
+      });
+
+      if (!content?.learningGuide) return;
+
+      const learningGuide = content.learningGuide as any;
+      const sectionIndex = learningGuide.sections?.findIndex(
+        (s: any) => s.title === sectionTitle
+      );
+
+      if (sectionIndex === -1 || sectionIndex === undefined) return;
+
+      learningGuide.sections[sectionIndex][field] = value;
+
+      await this.prisma.content.update({
+        where: { id: contentId },
+        data: { learningGuide },
+      });
+
+      // Invalidate content cache
+      await this.cacheService.invalidate(`content:${userId}:${contentId}`);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to persist ${field} for section "${sectionTitle}": ${error}`
+      );
+    }
   }
 
   // ==================== ANALYTICS ====================
