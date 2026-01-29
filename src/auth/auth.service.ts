@@ -1,19 +1,19 @@
 import { OAuth2Client } from 'google-auth-library';
 import {
-  Injectable,
-  UnauthorizedException,
+  BadRequestException,
   ConflictException,
   ForbiddenException,
-  BadRequestException,
-  NotFoundException,
-  HttpStatus,
   HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { SignupDto, LoginDto, GoogleAuthDto } from './dto/auth.dto';
+import { GoogleAuthDto, LoginDto, SignupDto } from './dto/auth.dto';
 import { PlatformSettingsService } from '../common/services/platform-settings.service';
 import { SessionService } from '../session/session.service';
 import { SubscriptionHelperService } from '../common/services/subscription-helper.service';
@@ -76,13 +76,16 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user with associated preference record
     const user = await this.prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
         emailVerified: false,
+        preference: {
+          create: {},
+        },
       },
     });
 
@@ -333,6 +336,9 @@ export class AuthService {
             avatar: picture,
             password: null, // No password for Google users
             emailVerified: true, // Google users are verified by default
+            preference: {
+              create: {},
+            },
           },
         });
       }
@@ -422,23 +428,32 @@ export class AuthService {
         schoolName: true,
         grade: true,
         role: true,
-        onboardingCompleted: true,
-        assessmentPopupShown: true,
         createdAt: true,
+        preference: {
+          select: {
+            onboardingCompleted: true,
+            assessmentPopupShown: true,
+          },
+        },
       },
     });
 
     if (!user) return null;
 
+    // Flatten the preference relation for backward compatibility if needed,
+    // or just pass it as is. The original code expected it at the root.
+    const { preference, ...userData } = user;
+
     // Get premium status from subscription (single source of truth)
     const isPremium = await this.subscriptionHelper.isPremiumUser(userId);
 
     return {
-      ...user,
+      ...userData,
+      onboardingCompleted: preference?.onboardingCompleted ?? false,
+      assessmentPopupShown: preference?.assessmentPopupShown ?? false,
       isPremium, // Add isPremium based on subscription status
     };
   }
-
   /**
    * Blacklist a token (for logout)
    */

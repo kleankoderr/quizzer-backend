@@ -1,24 +1,17 @@
-import { Injectable, NotFoundException, Logger, Inject } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecommendationService } from '../recommendation/recommendation.service';
 import { StreakService } from '../streak/streak.service';
-import { ChallengeService } from '../challenge/challenge.service';
 import { StudyService } from '../study/study.service';
 import { CacheService } from '../common/services/cache.service';
 import { GenerateQuizDto, SubmitQuizDto } from './dto/quiz.dto';
-import {
-  IFileStorageService,
-  FILE_STORAGE_SERVICE,
-} from '../file-storage/interfaces/file-storage.interface';
+import { FILE_STORAGE_SERVICE, IFileStorageService } from '../file-storage/interfaces/file-storage.interface';
 import { QuizType } from '@prisma/client';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
-import {
-  processFileUploads,
-  ProcessedDocument,
-} from '../common/helpers/file-upload.helpers';
+import { ProcessedDocument, processFileUploads } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
 
@@ -65,7 +58,6 @@ export class QuizService {
     private readonly prisma: PrismaService,
     private readonly recommendationService: RecommendationService,
     private readonly streakService: StreakService,
-    private readonly challengeService: ChallengeService,
     private readonly studyService: StudyService,
     private readonly cacheService: CacheService,
     @Inject('GOOGLE_FILE_STORAGE_SERVICE')
@@ -105,8 +97,6 @@ export class QuizService {
           originalname: doc.originalName,
           cloudinaryUrl: doc.cloudinaryUrl,
           cloudinaryId: doc.cloudinaryId,
-          googleFileUrl: doc.googleFileUrl,
-          googleFileId: doc.googleFileId,
           documentId: doc.documentId,
           mimetype: doc.mimeType,
           size: doc.size,
@@ -767,7 +757,7 @@ export class QuizService {
         ? this.prisma.user
             .update({
               where: { id: userId },
-              data: { onboardingAssessmentCompleted: true },
+              data: { preference: { update: { onboardingAssessmentCompleted: true } } },
             })
             .catch((err) =>
               this.logger.error(`Onboarding update failed: ${err.message}`)
@@ -851,7 +841,6 @@ export class QuizService {
         files,
         this.documentHashService,
         this.cloudinaryFileStorageService,
-        this.googleFileStorageService,
         this.fileCompressionService
       );
 

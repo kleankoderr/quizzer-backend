@@ -1,19 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-  Inject,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import {
-  IFileStorageService,
-  FILE_STORAGE_SERVICE,
-} from '../file-storage/interfaces/file-storage.interface';
+import { FILE_STORAGE_SERVICE, IFileStorageService } from '../file-storage/interfaces/file-storage.interface';
 
 import { SchoolService } from '../school/school.service';
 
@@ -38,17 +29,23 @@ export class UserService {
         schoolName: true,
         grade: true,
         role: true,
-        preferences: true,
-        assessmentPopupShown: true,
-        onboardingCompleted: true,
         createdAt: true,
         updatedAt: true,
+        preference: {
+          select: {
+            settings: true,
+            assessmentPopupShown: true,
+            onboardingCompleted: true,
+          },
+        },
       },
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    const { preference, ...userData } = user;
 
     // Get user statistics
     const [quizCount, flashcardCount, streak, totalAttempts] =
@@ -60,7 +57,10 @@ export class UserService {
       ]);
 
     return {
-      ...user,
+      ...userData,
+      preferences: preference?.settings || {},
+      assessmentPopupShown: preference?.assessmentPopupShown || false,
+      onboardingCompleted: preference?.onboardingCompleted || false,
       statistics: {
         totalQuizzes: quizCount,
         totalFlashcards: flashcardCount,
@@ -105,15 +105,26 @@ export class UserService {
         schoolId: true,
         grade: true,
         role: true,
-        preferences: true,
-        onboardingCompleted: true,
-        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
+        preference: {
+          select: {
+            settings: true,
+            onboardingCompleted: true,
+            assessmentPopupShown: true,
+          },
+        },
       },
     });
 
-    return updatedUser;
+    const { preference, ...userData } = updatedUser;
+
+    return {
+      ...userData,
+      preferences: preference?.settings || {},
+      onboardingCompleted: preference?.onboardingCompleted || false,
+      assessmentPopupShown: preference?.assessmentPopupShown || false,
+    };
   }
 
   async updateSettings(userId: string, updateSettingsDto: UpdateSettingsDto) {
@@ -128,7 +139,12 @@ export class UserService {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
-        preferences: updateSettingsDto.preferences,
+        preference: {
+          upsert: {
+            create: { settings: updateSettingsDto.preferences },
+            update: { settings: updateSettingsDto.preferences },
+          },
+        },
       },
       select: {
         id: true,
@@ -138,15 +154,26 @@ export class UserService {
         schoolName: true,
         grade: true,
         role: true,
-        preferences: true,
-        onboardingCompleted: true,
-        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
+        preference: {
+          select: {
+            settings: true,
+            onboardingCompleted: true,
+            assessmentPopupShown: true,
+          },
+        },
       },
     });
 
-    return updatedUser;
+    const { preference, ...userData } = updatedUser;
+
+    return {
+      ...userData,
+      preferences: preference?.settings || {},
+      onboardingCompleted: preference?.onboardingCompleted || false,
+      assessmentPopupShown: preference?.assessmentPopupShown || false,
+    };
   }
 
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
@@ -221,15 +248,26 @@ export class UserService {
         schoolName: true,
         grade: true,
         role: true,
-        preferences: true,
-        onboardingCompleted: true,
-        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
+        preference: {
+          select: {
+            settings: true,
+            onboardingCompleted: true,
+            assessmentPopupShown: true,
+          },
+        },
       },
     });
 
-    return updatedUser;
+    const { preference, ...userData } = updatedUser;
+
+    return {
+      ...userData,
+      preferences: preference?.settings || {},
+      onboardingCompleted: preference?.onboardingCompleted || false,
+      assessmentPopupShown: preference?.assessmentPopupShown || false,
+    };
   }
 
   async deleteAccount(userId: string) {
@@ -250,10 +288,26 @@ export class UserService {
   }
 
   async updateAssessmentPopupShown(userId: string) {
-    return this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { assessmentPopupShown: true },
-      select: { assessmentPopupShown: true },
+      data: {
+        preference: {
+          upsert: {
+            create: { assessmentPopupShown: true },
+            update: { assessmentPopupShown: true },
+          },
+        },
+      },
+      select: {
+        preference: {
+          select: {
+            assessmentPopupShown: true,
+          },
+        },
+      },
     });
+    return {
+      assessmentPopupShown: user.preference?.assessmentPopupShown || false,
+    };
   }
 }

@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../../common/services/cache.service';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import {
   IFileStorageService,
+  TransformOptions,
   UploadOptions,
   UploadResult,
-  TransformOptions,
 } from '../interfaces/file-storage.interface';
 import { FileCompressionService } from './file-compression.service';
 

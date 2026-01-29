@@ -17,15 +17,26 @@ export class OnboardingService {
   async getUserPreferences(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { preferences: true },
+      select: {
+        preference: {
+          select: { settings: true },
+        },
+      },
     });
-    return user?.preferences;
+    return user?.preference?.settings;
   }
 
   async saveUserPreferences(userId: string, data: any) {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { preferences: data },
+      data: {
+        preference: {
+          upsert: {
+            create: { settings: data },
+            update: { settings: data },
+          },
+        },
+      },
     });
   }
 
@@ -119,7 +130,14 @@ export class OnboardingService {
       // Mark onboarding as complete in user profile
       await this.prisma.user.update({
         where: { id: userId },
-        data: { onboardingCompleted: true },
+        data: {
+          preference: {
+            upsert: {
+              create: { onboardingCompleted: true },
+              update: { onboardingCompleted: true },
+            },
+          },
+        },
       });
 
       // Trigger assessment generation in the background

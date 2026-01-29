@@ -1,10 +1,7 @@
-import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserDocumentDto } from './dto/user-document.dto';
-import {
-  IFileStorageService,
-  FILE_STORAGE_SERVICE,
-} from '../file-storage/interfaces/file-storage.interface';
+import { FILE_STORAGE_SERVICE, IFileStorageService } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import { processFileUploads } from '../common/helpers/file-upload.helpers';
@@ -343,7 +340,6 @@ export class UserDocumentService {
         files,
         this.documentHashService,
         this.cloudinaryFileStorageService,
-        this.googleFileStorageService,
         this.fileCompressionService
       );
 

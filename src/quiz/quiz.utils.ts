@@ -52,7 +52,7 @@ export class QuizUtils {
             ? q.rightColumn
             : Array.from(
                 new Set(
-                  Object.values(normalizedCorrectAnswer || {}) as string[]
+                  Object.values(normalizedCorrectAnswer || {})
                 )
               );
 

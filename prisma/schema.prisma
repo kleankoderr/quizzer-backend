@@ -8,44 +8,40 @@ datasource db {
 }
 
 model User {
-  id                            String            @id @default(uuid())
-  email                         String            @unique
-  name                          String
-  password                      String?
-  emailVerified                 Boolean           @default(false)
-  avatar                        String?
-  googleId                      String?           @unique
-  accessToken                   String?
-  refreshToken                  String?
-  createdAt                     DateTime          @default(now())
-  updatedAt                     DateTime          @updatedAt
-  grade                         String?
-  preferences                   Json?
-  schoolName                    String?
-  fcmTokens                     String[]          @default([])
-  isActive                      Boolean           @default(true)
-  role                          UserRole          @default(USER)
-  onboardingCompleted           Boolean           @default(false)
-  onboardingAssessmentCompleted Boolean           @default(false)
-  schoolId                      String?
-  assessmentPopupShown          Boolean           @default(false)
-  plan                          UserPlan          @default(FREE)
-  attempts                      Attempt[]
-  contents                      Content[]
-  flashcardSets                 FlashcardSet[]
-  leaderboard                   LeaderboardEntry?
-  payments                      Payment[]
-  quizzes                       Quiz[]
-  reports                       Report[]
-  streak                        Streak?
-  studyPacks                    StudyPack[]
-  subscription                  Subscription?
-  summaryReactions              SummaryReaction[]
-  tasks                         Task[]
-  topicProgress                 TopicProgress[]
-  userDocuments                 UserDocument[]
-  quota                         UserQuota?
-  school                        School?           @relation(fields: [schoolId], references: [id])
+  id               String            @id @default(uuid())
+  email            String            @unique
+  name             String
+  password         String?
+  emailVerified    Boolean           @default(false)
+  avatar           String?
+  googleId         String?           @unique
+  accessToken      String?
+  refreshToken     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  grade            String?
+  schoolName       String?
+  isActive         Boolean           @default(true)
+  role             UserRole          @default(USER)
+  schoolId         String?
+  plan             UserPlan          @default(FREE)
+  preference       UserPreference?
+  attempts         Attempt[]
+  contents         Content[]
+  flashcardSets    FlashcardSet[]
+  leaderboard      LeaderboardEntry?
+  payments         Payment[]
+  quizzes          Quiz[]
+  reports          Report[]
+  streak           Streak?
+  studyPacks       StudyPack[]
+  subscription     Subscription?
+  summaryReactions SummaryReaction[]
+  tasks            Task[]
+  topicProgress    TopicProgress[]
+  userDocuments    UserDocument[]
+  quota            UserQuota?
+  school           School?           @relation(fields: [schoolId], references: [id])
 
   @@map("users")
 }
@@ -647,4 +643,20 @@ enum UserPlan {
 enum PlanType {
   Free
   Premium
+}
+
+model UserPreference {
+  id                            String   @id @default(uuid())
+  userId                        String   @unique
+  onboardingCompleted           Boolean  @default(false)
+  onboardingAssessmentCompleted Boolean  @default(false)
+  assessmentPopupShown          Boolean  @default(false)
+  fcmTokens                     String[] @default([])
+  settings                      Json?
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+  user                          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_preferences")
 }
