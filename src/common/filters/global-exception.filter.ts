@@ -1,11 +1,11 @@
 import {
-  ExceptionFilter,
-  Catch,
   ArgumentsHost,
+  BadRequestException,
+  Catch,
+  ExceptionFilter,
   HttpException,
   HttpStatus,
   Logger,
-  BadRequestException,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { ThrottlerException } from '@nestjs/throttler';
@@ -352,12 +352,20 @@ function extractErrorMessage(error: any): string {
     return error;
   }
   // Handle error objects with various structures
-  return (
+  const message =
     error?.response?.data?.message ||
     error?.response?.message ||
     error?.message ||
-    ''
-  );
+    '';
+
+  // Ensure we always return a string (message could be an array in validation errors)
+  if (Array.isArray(message)) {
+    return message.join(', ');
+  }
+  if (typeof message === 'object') {
+    return JSON.stringify(message);
+  }
+  return String(message);
 }
 
 /**

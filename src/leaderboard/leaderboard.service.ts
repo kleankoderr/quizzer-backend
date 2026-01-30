@@ -26,8 +26,12 @@ export class LeaderboardService {
           select: {
             id: true,
             name: true,
-            avatar: true,
-            schoolName: true,
+            profile: {
+              select: {
+                avatar: true,
+                schoolName: true,
+              },
+            },
           },
         },
       },
@@ -46,8 +50,12 @@ export class LeaderboardService {
             select: {
               id: true,
               name: true,
-              avatar: true,
-              schoolName: true,
+              profile: {
+                select: {
+                  avatar: true,
+                  schoolName: true,
+                },
+              },
             },
           },
         },
@@ -61,8 +69,8 @@ export class LeaderboardService {
         currentUserEntry = {
           userId: userStreak.userId,
           userName: userStreak.user.name,
-          avatar: userStreak.user.avatar,
-          schoolName: userStreak.user.schoolName,
+          avatar: userStreak.user.profile?.avatar,
+          schoolName: userStreak.user.profile?.schoolName,
           score: userStreak.totalXP,
           rank: rank + 1,
         };
@@ -73,8 +81,8 @@ export class LeaderboardService {
       entries: topStreaks.map((streak, index) => ({
         userId: streak.userId,
         userName: streak.user.name,
-        avatar: streak.user.avatar,
-        schoolName: streak.user.schoolName,
+        avatar: streak.user.profile?.avatar,
+        schoolName: streak.user.profile?.schoolName,
         score: streak.totalXP,
         rank: index + 1,
       })),
@@ -88,8 +96,8 @@ export class LeaderboardService {
               ? {
                   userId: currentUserId,
                   userName: currentStreak.user.name,
-                  avatar: currentStreak.user.avatar,
-                  schoolName: currentStreak.user.schoolName,
+                  avatar: currentStreak.user.profile?.avatar,
+                  schoolName: currentStreak.user.profile?.schoolName,
                   score: currentStreak.totalXP,
                   rank:
                     topStreaks.findIndex((s) => s.userId === currentUserId) + 1,
@@ -107,14 +115,20 @@ export class LeaderboardService {
   async getSchoolLeaderboard(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { schoolName: true },
+      select: {
+        profile: {
+          select: { schoolName: true },
+        },
+      },
     });
 
-    if (!user?.schoolName) {
+    const schoolName = user?.profile?.schoolName;
+
+    if (!schoolName) {
       return { entries: [], currentUser: null };
     }
 
-    const cacheKey = `leaderboard:school:${user.schoolName}:${userId}`;
+    const cacheKey = `leaderboard:school:${schoolName}:${userId}`;
     const cached = await this.cacheService.get(cacheKey);
 
     if (cached) {
@@ -125,7 +139,9 @@ export class LeaderboardService {
     const topStreaks = await this.prisma.streak.findMany({
       where: {
         user: {
-          schoolName: user.schoolName,
+          profile: {
+            schoolName: schoolName,
+          },
         },
       },
       take: 11,
@@ -135,8 +151,12 @@ export class LeaderboardService {
           select: {
             id: true,
             name: true,
-            avatar: true,
-            schoolName: true,
+            profile: {
+              select: {
+                avatar: true,
+                schoolName: true,
+              },
+            },
           },
         },
       },
@@ -154,8 +174,12 @@ export class LeaderboardService {
             select: {
               id: true,
               name: true,
-              avatar: true,
-              schoolName: true,
+              profile: {
+                select: {
+                  avatar: true,
+                  schoolName: true,
+                },
+              },
             },
           },
         },
@@ -165,14 +189,18 @@ export class LeaderboardService {
         const rank = await this.prisma.streak.count({
           where: {
             totalXP: { gt: userStreak.totalXP },
-            user: { schoolName: user.schoolName },
+            user: {
+              profile: {
+                schoolName: schoolName,
+              },
+            },
           },
         });
         currentUserEntry = {
           userId: userStreak.userId,
           userName: userStreak.user.name,
-          avatar: userStreak.user.avatar,
-          schoolName: userStreak.user.schoolName,
+          avatar: userStreak.user.profile?.avatar,
+          schoolName: userStreak.user.profile?.schoolName,
           score: userStreak.totalXP,
           rank: rank + 1,
         };
@@ -183,8 +211,8 @@ export class LeaderboardService {
       entries: topStreaks.map((streak, index) => ({
         userId: streak.userId,
         userName: streak.user.name,
-        avatar: streak.user.avatar,
-        schoolName: streak.user.schoolName,
+        avatar: streak.user.profile?.avatar,
+        schoolName: streak.user.profile?.schoolName,
         score: streak.totalXP,
         rank: index + 1,
       })),
@@ -196,8 +224,8 @@ export class LeaderboardService {
               ? {
                   userId: userId,
                   userName: currentStreak.user.name,
-                  avatar: currentStreak.user.avatar,
-                  schoolName: currentStreak.user.schoolName,
+                  avatar: currentStreak.user.profile?.avatar,
+                  schoolName: currentStreak.user.profile?.schoolName,
                   score: currentStreak.totalXP,
                   rank: topStreaks.findIndex((s) => s.userId === userId) + 1,
                 }

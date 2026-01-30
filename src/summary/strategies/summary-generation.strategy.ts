@@ -1,4 +1,4 @@
-import { Logger, Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -8,10 +8,7 @@ import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { SummaryJobData } from '../summary.processor';
-import {
-  JobContext,
-  JobStrategy,
-} from '../../common/queue/interfaces/job-strategy.interface';
+import { JobContext, JobStrategy } from '../../common/queue/interfaces/job-strategy.interface';
 
 export interface SummaryContext extends JobContext<SummaryJobData> {
   content: any;
@@ -118,7 +115,7 @@ export class SummaryGenerationStrategy implements JobStrategy<
 
       // Add timeout for streaming
       const startTime = Date.now();
-      const STREAM_TIMEOUT_MS = 55_000; // 55 seconds
+      const STREAM_TIMEOUT_MS = 300_000; // 5 minutes
 
       for await (const chunk of stream) {
         // Check timeout

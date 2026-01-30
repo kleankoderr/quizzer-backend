@@ -50,11 +50,7 @@ export class QuizUtils {
         const rightColumn =
           q.rightColumn && q.rightColumn.length > 0
             ? q.rightColumn
-            : Array.from(
-                new Set(
-                  Object.values(normalizedCorrectAnswer || {}) as string[]
-                )
-              );
+            : Array.from(new Set(Object.values(normalizedCorrectAnswer || {})));
 
         return {
           ...q,

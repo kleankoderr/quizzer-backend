@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -296,7 +290,11 @@ export class SummaryService {
               select: {
                 id: true,
                 name: true,
-                avatar: true,
+                profile: {
+                  select: {
+                    avatar: true,
+                  },
+                },
               },
             },
           },
@@ -336,6 +334,14 @@ export class SummaryService {
 
     const result = {
       ...summary,
+      studyMaterial: {
+        ...summary.studyMaterial,
+        user: {
+          ...summary.studyMaterial.user,
+          avatar: summary.studyMaterial.user.profile?.avatar,
+          profile: undefined,
+        },
+      },
       reactionCounts,
     };
 

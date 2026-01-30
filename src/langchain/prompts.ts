@@ -336,7 +336,13 @@ Before writing anything, analyze:
    - Would a comparison table help? A process flowchart?
    - What representation makes this clearest?
 
-Determine: 4-10 logical learning sections that build on each other naturally.
+4. **Is this historical or factual content?**
+   - For historical topics (events, figures, eras), present accurate timelines, causes, effects, and significance
+   - Include key dates, figures, and their roles
+   - Explain historical context and consequences
+   - Connect past events to their lasting impact
+
+Determine: 8-15 logical learning sections that build on each other naturally.
 
 === PHASE 2: TEACHING PRINCIPLES ===
 For each section you create:
@@ -348,23 +354,33 @@ For each section you create:
 - Show, don't just tell (examples, diagrams, tables)
 - Address common confusion points
 
+**Make Content Relatable:**
+- Use examples that connect to learners' everyday experiences
+- For Nigerian learners: occasionally reference familiar contexts (local businesses, Nigerian universities, Naira currency, local scenarios) where it naturally fits
+- Don't force cultural references - only include them when they genuinely help understanding
+- Balance universal examples with locally relevant ones
+
 **Choose the Right Representation:**
 Based on what the content needs, you might include:
 - Prose explanations
 - **Bold** definitions for key terms
 - Code blocks (with \`\`\`language tags and comments)
-- Mathematical formulas (using proper notation)
+- Mathematical formulas using LaTeX notation with $ delimiters:
+  - Inline math: $x^2 + y^2 = z^2$
+  - Block/display math: $$\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$$
 - Tables (using Markdown table syntax)
 - ASCII/text diagrams
 - Comparison charts
 - Step-by-step procedures
 - Analogies or metaphors
+- Historical timelines (for historical content)
 
 Let the content guide what format works best. Don't force structures that don't fit.
 
 **Proper Markdown:**
 - Use heading hierarchy (###, ####, etc.)
 - Format code with language-specific blocks
+- Use $ for inline math and $$ for display/block math (NOT \\( \\) or \\[ \\])
 - Use tables where comparisons help
 - Use lists where enumeration helps
 - Use emphasis (*italic*, **bold**) purposefully
@@ -377,12 +393,14 @@ Every section must have three parts, but HOW you fill them depends on the conten
 - Structure it however makes the concept clearest
 - Include whatever representations work: prose, code, formulas, tables, diagrams
 - Explain thoroughly
+- For historical content: include context, timeline, key figures, causes and effects
 - NO assessment questions here
 
 **2. Example (application scenario)**
 - A concrete, worked scenario showing the concept in action
 - Walk through it step-by-step
 - Show how the concept applies in practice
+- Use relatable scenarios when appropriate
 - Written as narrative/demonstration
 - NO questions or test items here
 
@@ -397,13 +415,14 @@ Every section must have three parts, but HOW you fill them depends on the conten
 === CRITICAL CONSTRAINTS ===
 - Base everything on the provided source material ONLY
 - Do not invent facts, examples, or information not in the source
+- For historical content: maintain factual accuracy - dates, names, and events must be correct
 - If source material is limited, create fewer but higher-quality sections
 - Separate teaching (content/example) from assessment (knowledgeCheck)
 - Maintain natural flow and coherence
 
 === VALIDATION CHECKLIST ===
 Before outputting, verify:
-- [ ] 4-10 sections that follow a logical learning sequence
+- [ ] 5-10 sections that follow a logical learning sequence
 - [ ] Each section has: content, example, knowledgeCheck
 - [ ] Content is grounded in source material (no hallucinations)
 - [ ] Explanations prioritize understanding over completeness
@@ -411,6 +430,7 @@ Before outputting, verify:
 - [ ] All technical terms are defined when introduced
 - [ ] Examples demonstrate application, not just definition
 - [ ] Assessments test understanding, not memorization
+- [ ] Historical facts are accurate (if applicable)
 - [ ] Valid JSON structure
 
 === OUTPUT FORMAT ===
@@ -439,6 +459,262 @@ Return only valid JSON (no markdown code fences, no additional text):
 
 === SUCCESS METRIC ===
 A beginner reads this and thinks: "I understand this concept and could explain it to someone else."
+`;
+  }
+
+  static generateLearningGuideOutline(
+    topic: string,
+    sourceContent: string = ''
+  ) {
+    return `
+You are an expert instructional designer creating a structured outline for a learning guide.
+
+=== SOURCE MATERIAL ===
+Topic: ${topic || 'Derive from the content'}
+Content:
+${sourceContent || '[No content provided]'}
+
+=== YOUR TASK ===
+Create a clear, logical outline for a learning guide WITHOUT writing the detailed content yet.
+
+=== PHASE 1: ANALYZE ===
+1. **Content Assessment:**
+   - What are the core concepts that must be taught?
+   - What's the natural learning progression?
+   - How many distinct concepts/topics are there?
+
+2. **Structure Planning:**
+   - Identify 5-10 major learning sections
+   - Ensure logical flow (prerequisites → applications)
+   - Group related concepts together
+
+=== PHASE 2: CREATE OUTLINE ===
+For each section:
+- **Title**: Clear, descriptive section title
+- **Keywords**: 3-5 key terms/concepts this section will cover
+
+Keep titles specific and action-oriented:
+✓ Understanding Variables and Data Types
+✓ World War II: Causes and Early Events
+✗ Introduction
+✗ Getting Started
+
+=== VALIDATION ===
+- [ ] 8-15 sections total
+- [ ] Logical progression from fundamentals to advanced
+- [ ] Each section has clear focus
+- [ ] Keywords identify core concepts
+- [ ] Based only on source material provided
+- [ ] Valid JSON structure
+
+=== OUTPUT FORMAT ===
+Return only valid JSON (no markdown fences, no additional text):
+
+{
+  "title": "Descriptive guide title",
+  "topic": "${topic || 'Derived from content'}",
+  "description": "2-3 sentences about what will be learned",
+  "sections": [
+    {
+      "title": "Clear section title",
+      "keywords": ["term1", "term2", "term3"]
+    }
+  ]
+}
+
+Begin directly with the JSON object.
+`;
+  }
+
+  static generateSectionContent(
+    sectionTitle: string,
+    keywords: string[],
+    topic: string,
+    sourceContent: string = ''
+  ) {
+    return `
+You are an expert educator creating concise, well-formatted learning content for a single section.
+
+=== SECTION PARAMETERS ===
+Section Title: ${sectionTitle}
+Key Concepts: ${keywords.join(', ')}
+Overall Topic: ${topic}
+
+Source Material:
+${sourceContent || '[No source content provided]'}
+
+=== YOUR TASK ===
+Create CONCISE, WELL-STRUCTURED content for THIS SECTION ONLY, with three components:
+
+1. **Content** (main teaching material)
+2. **Example** (practical demonstration)
+3. **Knowledge Check** (single assessment question)
+
+=== CONTENT COMPONENT ===
+**LENGTH REQUIREMENT: 300-400 words maximum**
+
+**Teaching Principles:**
+- Explain core concepts clearly and concisely
+- Use plain language, define only essential technical terms
+- Focus on key relationships between concepts
+- Include only what's necessary for understanding
+- Base everything on source material
+
+**CRITICAL FORMATTING RULES:**
+- **SHORT PARAGRAPHS**: Maximum 3-4 sentences per paragraph
+- **USE BULLET POINTS**: Break lists and steps into bullets
+- **VISUAL HIERARCHY**: Use headers, bold, and spacing
+- **NO WALLS OF TEXT**: Never write more than 4 sentences in a row without a break
+
+**Structure:**
+1. **Brief Introduction** (1-2 sentences)
+   - What is this concept?
+   - Why does it matter?
+
+2. **Core Explanation** (use bullets and short paragraphs)
+   - Break into 2-3 subsections with ### headers if needed
+   - Use bullet points for:
+     - Steps in a process
+     - List of features/characteristics
+     - Key points to remember
+   - Keep paragraphs to 2-3 sentences max
+   - Use **bold** for key terms
+
+3. **Key Takeaway** (1 sentence)
+
+**Formatting Options:**
+- ### Sub-headers (use for major subsections)
+- **Bold** for key terms and emphasis
+- Bullet lists (• or numbered)
+- Code blocks with \`\`\`language (only when essential)
+- Tables for comparisons (keep simple)
+- > Blockquotes for important notes
+- Mermaid diagrams for flowcharts, processes, and relationships
+
+**Mermaid Diagram Syntax (STRICT RULES):**
+When creating diagrams, use proper mermaid syntax inside \`\`\`mermaid code blocks.
+
+**Preferred Diagram Type:**
+Use **flowchart** (e.g., \`flowchart TD\` or \`flowchart LR\`) instead of \`graph\`.
+
+**CRITICAL SYNTAX RULES FOR AI:**
+1. **Quote All Labels**: Always wrap node text in double quotes: \`A["Process Name"]\`. This prevents errors with parentheses or special characters.
+2. **Simple Node IDs**: Use only simple letters (A, B, C, etc.) as IDs.
+3. **Node Shapes**:
+    - \`A["Text"]\` = Rectangle
+    - \`A("Text")\` = Rounded
+    - \`A{"Text"}\` = Diamond (Decision)
+    - \`A(("Text"))\` = Circle
+4. **No Unquoted Parentheses**: Never use \`A[Text (parens)]\`. Use \`A["Text (parens)"]\`.
+5. **Arrows**: Use standard \`-->\`, \`---\`, or \`-.->\`.
+6. **Labeled Edges**: Use \`A -->|label| B\`.
+7. **Direction**: Always include \`flowchart TD\` or \`flowchart LR\`.
+
+**Good Mermaid Example:**
+\`\`\`mermaid
+flowchart LR
+    A["Java Source"] --> B["Compiler"]
+    B --> C["Bytecode"]
+    C --> D["JVM"]
+\`\`\`
+
+2. **Simple Graphs** - Use LR (left-right) or TD (top-down):
+\`\`\`mermaid
+graph LR
+    A[Input] --> B[Process]
+    B --> C[Output]
+\`\`\`
+
+**Node Shapes:**
+- \`[Text]\` = Rectangle
+- \`(Text)\` = Rounded rectangle
+- \`{Text}\` = Diamond (for decisions)
+- \`((Text))\` = Circle
+
+**CRITICAL SYNTAX RULES:**
+- Use only simple node IDs (A, B, C, etc.)
+- Keep labels short and clear
+- Use only these arrow types: \`-->\`, \`---\`, \`-.->'
+- For labeled edges: \`A -->|label| B\`
+- NO special characters in node IDs
+- Always specify direction: flowchart TD, flowchart LR, graph TD, or graph LR
+- Test complex syntax - if unsure, keep it simple
+
+**Good Mermaid Example:**
+\`\`\`mermaid
+graph LR
+    A[Source Code] --> B[Compiler]
+    B --> C[Bytecode]
+    C --> D[Virtual Machine]
+    D --> E[Native Code]
+\`\`\`
+
+**Bad Example (AVOID - causes parse errors):**
+\`\`\`mermaid
+graph LR
+    A[Your Source Code (HelloWorld.java)] --> B[Compiler]
+\`\`\`
+Problem: Parentheses in labels can cause issues. Use square brackets only.
+
+**When to Use Diagrams:**
+- Only when they clarify relationships or processes better than text
+- Keep them simple - max 5-8 nodes
+- Prefer tables or bullet lists for simple comparisons
+
+
+**Bad Example (Dense):**
+"Python is not typically pre-installed on all systems, so your first step is to download the Python interpreter from the official website, python.org. Choose the latest version for your operating system. During installation, it's vital to check the box that says Add Python to PATH as this allows you to run Python commands from any directory in your command prompt or terminal."
+
+**Good Example (Well-Formatted):**
+"Python needs to be installed before you can use it.
+
+**Installation Steps:**
+• Download from python.org
+• Choose the latest stable version
+• **Important**: Check "Add Python to PATH" during installation
+
+This ensures Python runs from any directory on your system."
+
+=== EXAMPLE COMPONENT ===
+**LENGTH REQUIREMENT: 150-200 words maximum**
+
+- ONE concrete scenario with clear steps
+- Use bullet points for step-by-step walkthroughs
+- Break into small, digestible chunks
+- Make it practical and relatable
+
+=== KNOWLEDGE CHECK COMPONENT ===
+One scenario-based question:
+- **question**: Concise situation (1-2 sentences)
+- **options**: Array of 4 brief choices
+- **correctAnswer**: Index 0-3
+- **explanation**: Brief explanation (2-3 sentences)
+
+=== VALIDATION ===
+- [ ] Content is 300-400 words (NOT MORE)
+- [ ] NO paragraphs longer than 3-4 sentences
+- [ ] Uses bullet points for lists/steps
+- [ ] Has clear visual structure with headers/bold
+- [ ] Example is 150-200 words with bullets
+- [ ] Content explains all keywords clearly
+- [ ] Valid JSON structure
+
+=== OUTPUT FORMAT ===
+Return only valid JSON (no markdown fences):
+
+{
+  "title": "${sectionTitle}",
+  "content": "Well-formatted markdown with short paragraphs, bullets, headers...",
+  "example": "Brief scenario with bullet steps...",
+  "knowledgeCheck": {
+    "question": "Scenario question",
+    "options": ["A", "B", "C", "D"],
+    "correctAnswer": 0,
+    "explanation": "Brief explanation"
+  }
+}
+
+Begin directly with the JSON object.
 `;
   }
 
@@ -688,7 +964,36 @@ Use Markdown to enhance clarity and scannability:
 - Bullet lists for related items or enumerations
 - Numbered lists for sequential steps or ordered information
 - Tables for comparisons or structured data (if appropriate)
+- Mermaid diagrams for flowcharts, processes, and relationships
 - Horizontal rules (---) for major section breaks (if needed)
+
+**Mermaid Diagram Syntax (STRICT RULES):**
+When creating diagrams, use proper mermaid syntax inside \`\`\`mermaid code blocks.
+
+**Rules for Stability:**
+1. **Quote All Labels**: Always wrap node text in double quotes: \`A["Process Name"]\`. This prevents errors with parentheses or special characters.
+2. **Simple Node IDs**: Use only simple letters (A, B, C, etc.) as IDs.
+3. **Preferred Diagram Type**: Use **flowchart** (e.g., \`flowchart TD\` or \`flowchart LR\`) instead of \`graph\`.
+4. **Node Shapes**:
+    - \`A["Text"]\` = Rectangle
+    - \`A("Text")\` = Rounded
+    - \`A{"Text"}\` = Diamond (Decision)
+    - \`A(("Text"))\` = Circle
+5. **Arrows**: Use standard \`-->\`, \`---\`, or \`-.->\`.
+6. **Labeled Edges**: Use \`A -->|label| B\`.
+7. **Direction**: Always include \`flowchart TD\` or \`flowchart LR\`.
+
+**Good Mermaid Example:**
+\`\`\`mermaid
+flowchart LR
+    A["Input"] --> B["Processing"]
+    B --> C["Output"]
+\`\`\`
+
+**When to Use Diagrams:**
+- Only when they clarify relationships or processes better than text
+- Keep them simple - max 8-10 nodes
+- Ensure they add genuine value to the review experience
 
 **Spacing:**
 Use whitespace to create visual hierarchy and improve readability. Blank lines between sections, around code blocks, and between conceptual units help readers navigate.

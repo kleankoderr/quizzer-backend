@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, PlanType } from '@prisma/client';
+import { PlanType, PrismaClient, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -35,9 +35,13 @@ async function seedSuperAdmin() {
       password: hashedPassword,
       name: 'Super Admin',
       role: UserRole.SUPER_ADMIN,
-      schoolName: 'Quizzer HQ',
-      grade: 'Admin',
       emailVerified: true,
+      profile: {
+        create: {
+          schoolName: 'Quizzer HQ',
+          grade: 'Admin',
+        },
+      },
     },
   });
 

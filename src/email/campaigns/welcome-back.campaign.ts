@@ -40,16 +40,22 @@ export class WelcomeBackCampaign implements CampaignStrategy {
         id: true,
         email: true,
         name: true,
-        schoolName: true,
+        profile: {
+          select: {
+            schoolName: true,
+          },
+        },
       },
     });
   }
 
-  async renderEmail(user: Partial<User>): Promise<EmailContent> {
+  async renderEmail(
+    user: Partial<User & { profile: { schoolName: string } }>
+  ): Promise<EmailContent> {
     const html = getWelcomeBackEmailTemplate(
       user.name,
       4, // TODO: These should ideally come from real stats
-      user.schoolName || undefined
+      user.profile?.schoolName || undefined
     );
 
     return {

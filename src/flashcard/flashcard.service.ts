@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-  Inject,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,16 +7,10 @@ import { StreakService } from '../streak/streak.service';
 import { ChallengeService } from '../challenge/challenge.service';
 import { StudyService } from '../study/study.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
-import {
-  IFileStorageService,
-  FILE_STORAGE_SERVICE,
-} from '../file-storage/interfaces/file-storage.interface';
+import { FILE_STORAGE_SERVICE, IFileStorageService } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
-import {
-  processFileUploads,
-  ProcessedDocument,
-} from '../common/helpers/file-upload.helpers';
+import { ProcessedDocument, processFileUploads } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
 
@@ -77,8 +65,6 @@ export class FlashcardService {
           originalname: doc.originalName,
           cloudinaryUrl: doc.cloudinaryUrl,
           cloudinaryId: doc.cloudinaryId,
-          googleFileUrl: doc.googleFileUrl,
-          googleFileId: doc.googleFileId,
           documentId: doc.documentId,
           mimetype: doc.mimeType,
           size: doc.size,
@@ -466,7 +452,6 @@ export class FlashcardService {
         files,
         this.documentHashService,
         this.cloudinaryFileStorageService,
-        this.googleFileStorageService,
         this.fileCompressionService
       );
 

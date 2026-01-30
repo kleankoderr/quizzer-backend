@@ -1,19 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-  Inject,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import {
-  IFileStorageService,
-  FILE_STORAGE_SERVICE,
-} from '../file-storage/interfaces/file-storage.interface';
+import { FILE_STORAGE_SERVICE, IFileStorageService } from '../file-storage/interfaces/file-storage.interface';
 
 import { SchoolService } from '../school/school.service';
 
@@ -34,21 +25,31 @@ export class UserService {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        grade: true,
         role: true,
-        preferences: true,
-        assessmentPopupShown: true,
-        onboardingCompleted: true,
         createdAt: true,
         updatedAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            grade: true,
+          },
+        },
+        preference: {
+          select: {
+            settings: true,
+            assessmentPopupShown: true,
+            onboardingCompleted: true,
+          },
+        },
       },
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    const { preference, profile, ...userData } = user;
 
     // Get user statistics
     const [quizCount, flashcardCount, streak, totalAttempts] =
@@ -60,7 +61,13 @@ export class UserService {
       ]);
 
     return {
-      ...user,
+      ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
+      preferences: preference?.settings || {},
+      assessmentPopupShown: preference?.assessmentPopupShown || false,
+      onboardingCompleted: preference?.onboardingCompleted || false,
       statistics: {
         totalQuizzes: quizCount,
         totalFlashcards: flashcardCount,
@@ -93,27 +100,53 @@ export class UserService {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
-        ...updateProfileDto,
-        schoolId,
+        name: updateProfileDto.name,
+        profile: {
+          update: {
+            schoolName: updateProfileDto.schoolName,
+            grade: updateProfileDto.grade,
+            schoolId,
+            avatar: updateProfileDto.avatar,
+          },
+        },
       },
       select: {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        schoolId: true,
-        grade: true,
         role: true,
-        preferences: true,
-        onboardingCompleted: true,
-        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            schoolId: true,
+            grade: true,
+          },
+        },
+        preference: {
+          select: {
+            settings: true,
+            onboardingCompleted: true,
+            assessmentPopupShown: true,
+          },
+        },
       },
     });
 
-    return updatedUser;
+    const { preference, profile, ...userData } = updatedUser;
+
+    return {
+      ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
+      schoolId: profile?.schoolId,
+      preferences: preference?.settings || {},
+      onboardingCompleted: preference?.onboardingCompleted || false,
+      assessmentPopupShown: preference?.assessmentPopupShown || false,
+    };
   }
 
   async updateSettings(userId: string, updateSettingsDto: UpdateSettingsDto) {
@@ -128,25 +161,48 @@ export class UserService {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
-        preferences: updateSettingsDto.preferences,
+        preference: {
+          upsert: {
+            create: { settings: updateSettingsDto.preferences },
+            update: { settings: updateSettingsDto.preferences },
+          },
+        },
       },
       select: {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        grade: true,
         role: true,
-        preferences: true,
-        onboardingCompleted: true,
-        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            grade: true,
+          },
+        },
+        preference: {
+          select: {
+            settings: true,
+            onboardingCompleted: true,
+            assessmentPopupShown: true,
+          },
+        },
       },
     });
 
-    return updatedUser;
+    const { preference, profile, ...userData } = updatedUser;
+
+    return {
+      ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
+      preferences: preference?.settings || {},
+      onboardingCompleted: preference?.onboardingCompleted || false,
+      assessmentPopupShown: preference?.assessmentPopupShown || false,
+    };
   }
 
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
@@ -183,6 +239,7 @@ export class UserService {
   async uploadAvatar(userId: string, file: Express.Multer.File) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: { profile: true },
     });
 
     if (!user) {
@@ -196,10 +253,10 @@ export class UserService {
     });
 
     // Delete old avatar if it exists and is from Cloudinary
-    if (user.avatar?.includes('cloudinary')) {
+    if (user.profile?.avatar?.includes('cloudinary')) {
       try {
         // Extract public_id from Cloudinary URL
-        const urlParts = user.avatar.split('/');
+        const urlParts = user.profile.avatar.split('/');
         const filename = urlParts[urlParts.length - 1].split('.')[0];
         const folder = urlParts.slice(-3, -1).join('/');
         const publicId = `${folder}/${filename}`;
@@ -212,24 +269,48 @@ export class UserService {
     // Update user's avatar URL in database
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
-      data: { avatar: uploadResult.secureUrl },
+      data: {
+        profile: {
+          update: {
+            avatar: uploadResult.secureUrl,
+          },
+        },
+      },
       select: {
         id: true,
         email: true,
         name: true,
-        avatar: true,
-        schoolName: true,
-        grade: true,
         role: true,
-        preferences: true,
-        onboardingCompleted: true,
-        assessmentPopupShown: true,
         createdAt: true,
         updatedAt: true,
+        profile: {
+          select: {
+            avatar: true,
+            schoolName: true,
+            grade: true,
+          },
+        },
+        preference: {
+          select: {
+            settings: true,
+            onboardingCompleted: true,
+            assessmentPopupShown: true,
+          },
+        },
       },
     });
 
-    return updatedUser;
+    const { preference, profile, ...userData } = updatedUser;
+
+    return {
+      ...userData,
+      avatar: profile?.avatar,
+      schoolName: profile?.schoolName,
+      grade: profile?.grade,
+      preferences: preference?.settings || {},
+      onboardingCompleted: preference?.onboardingCompleted || false,
+      assessmentPopupShown: preference?.assessmentPopupShown || false,
+    };
   }
 
   async deleteAccount(userId: string) {
@@ -250,10 +331,26 @@ export class UserService {
   }
 
   async updateAssessmentPopupShown(userId: string) {
-    return this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { assessmentPopupShown: true },
-      select: { assessmentPopupShown: true },
+      data: {
+        preference: {
+          upsert: {
+            create: { assessmentPopupShown: true },
+            update: { assessmentPopupShown: true },
+          },
+        },
+      },
+      select: {
+        preference: {
+          select: {
+            assessmentPopupShown: true,
+          },
+        },
+      },
     });
+    return {
+      assessmentPopupShown: user.preference?.assessmentPopupShown || false,
+    };
   }
 }

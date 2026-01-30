@@ -1,4 +1,5 @@
 import { EVENTS } from './events.constants';
+
 export { EVENTS };
 export type { EventType } from './events.constants';
 
@@ -209,6 +210,40 @@ export interface SummaryFailedEvent extends ErrorEvent {
   studyMaterialId: string;
 }
 
+// ==================== LEARNING GUIDE EVENTS ====================
+
+export interface LearningGuideOutlineCompletedEvent extends BaseEvent {
+  eventType: typeof EVENTS.LEARNING_GUIDE.OUTLINE_COMPLETED;
+  contentId: string;
+  sections: Array<{ title: string; keywords?: string[] }>;
+}
+
+export interface LearningGuideSectionStartedEvent extends BaseEvent {
+  eventType: typeof EVENTS.LEARNING_GUIDE.SECTION_STARTED;
+  contentId: string;
+  sectionIndex: number;
+  sectionTitle: string;
+}
+
+export interface LearningGuideSectionChunkEvent extends BaseEvent {
+  eventType: typeof EVENTS.LEARNING_GUIDE.SECTION_CHUNK;
+  contentId: string;
+  sectionIndex: number;
+  chunk: string;
+}
+
+export interface LearningGuideSectionCompletedEvent extends BaseEvent {
+  eventType: typeof EVENTS.LEARNING_GUIDE.SECTION_COMPLETED;
+  contentId: string;
+  sectionIndex: number;
+}
+
+export interface LearningGuideAllSectionsCompletedEvent extends BaseEvent {
+  eventType: typeof EVENTS.LEARNING_GUIDE.ALL_SECTIONS_COMPLETED;
+  contentId: string;
+  totalSections: number;
+}
+
 // ==================== UNION TYPE ====================
 
 /**
@@ -243,8 +278,15 @@ export type AppEvent =
   | UserLevelUpEvent
   // Summary events
   | SummaryProgressEvent
+  | SummaryChunkEvent
   | SummaryCompletedEvent
-  | SummaryFailedEvent;
+  | SummaryFailedEvent
+  // Learning Guide events
+  | LearningGuideOutlineCompletedEvent
+  | LearningGuideSectionStartedEvent
+  | LearningGuideSectionChunkEvent
+  | LearningGuideSectionCompletedEvent
+  | LearningGuideAllSectionsCompletedEvent;
 
 // ==================== EVENT FACTORIES ====================
 
@@ -535,6 +577,70 @@ export const EventFactory = {
     studyMaterialId,
     error,
     details,
+    timestamp: Date.now(),
+  }),
+
+  learningGuideOutlineCompleted: (
+    userId: string,
+    contentId: string,
+    sections: Array<{ title: string; keywords?: string[] }>
+  ): LearningGuideOutlineCompletedEvent => ({
+    eventType: EVENTS.LEARNING_GUIDE.OUTLINE_COMPLETED,
+    userId,
+    contentId,
+    sections,
+    timestamp: Date.now(),
+  }),
+
+  learningGuideSectionStarted: (
+    userId: string,
+    contentId: string,
+    sectionIndex: number,
+    sectionTitle: string
+  ): LearningGuideSectionStartedEvent => ({
+    eventType: EVENTS.LEARNING_GUIDE.SECTION_STARTED,
+    userId,
+    contentId,
+    sectionIndex,
+    sectionTitle,
+    timestamp: Date.now(),
+  }),
+
+  learningGuideSectionChunk: (
+    userId: string,
+    contentId: string,
+    sectionIndex: number,
+    chunk: string
+  ): LearningGuideSectionChunkEvent => ({
+    eventType: EVENTS.LEARNING_GUIDE.SECTION_CHUNK,
+    userId,
+    contentId,
+    sectionIndex,
+    chunk,
+    timestamp: Date.now(),
+  }),
+
+  learningGuideSectionCompleted: (
+    userId: string,
+    contentId: string,
+    sectionIndex: number
+  ): LearningGuideSectionCompletedEvent => ({
+    eventType: EVENTS.LEARNING_GUIDE.SECTION_COMPLETED,
+    userId,
+    contentId,
+    sectionIndex,
+    timestamp: Date.now(),
+  }),
+
+  learningGuideAllSectionsCompleted: (
+    userId: string,
+    contentId: string,
+    totalSections: number
+  ): LearningGuideAllSectionsCompletedEvent => ({
+    eventType: EVENTS.LEARNING_GUIDE.ALL_SECTIONS_COMPLETED,
+    userId,
+    contentId,
+    totalSections,
     timestamp: Date.now(),
   }),
 };

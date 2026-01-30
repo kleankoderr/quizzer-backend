@@ -6,14 +6,11 @@ import { StudyPackService } from '../../study-pack/study-pack.service';
 import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
-import { QuizType } from '@prisma/client';
+import { ContentScope, QuizType } from '@prisma/client';
 import { GenerateQuizDto } from '../dto/quiz.dto';
 import { QuizUtils } from '../quiz.utils';
 import { FileReference, QuizJobData } from '../quiz.processor';
-import {
-  JobContext,
-  JobStrategy,
-} from '../../common/queue/interfaces/job-strategy.interface';
+import { JobContext, JobStrategy } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
 import { InputSource } from '../../input-pipeline/input-source.interface';
 
@@ -78,84 +75,51 @@ export class QuizGenerationStrategy implements JobStrategy<
     const { dto } = context.data;
     const { inputSources, contentForAI } = context;
 
-    const maxRetries = 3;
+    try {
+      const startTime = Date.now();
+      this.logger.log(
+        `Job ${context.jobId}: Generating quiz with ${inputSources.length} source(s)`
+      );
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const startTime = Date.now();
-        this.logger.log(
-          `Job ${context.jobId}: Generating quiz (Attempt ${attempt}/${maxRetries}) with ${inputSources.length} source(s)`
-        );
+      const prompt = await this.buildQuizPrompt(dto, contentForAI);
 
-        const prompt = await this.buildQuizPrompt(dto, contentForAI);
+      const result = await this.langchainService.invokeWithJsonParser(prompt, {
+        task: 'quiz',
+        userId: context.userId,
+        jobId: context.jobId,
+      });
 
-        const result = await this.langchainService.invokeWithJsonParser(
-          prompt,
-          {
-            task: 'quiz',
-            userId: context.userId,
-            jobId: context.jobId,
-          }
-        );
+      // Validate structure and content
+      if (!this.validateQuizResult(result)) {
+        this.logger.warn(`Job ${context.jobId}: Quiz returned empty questions`);
 
-        // Validate structure and content
-        if (!this.validateQuizResult(result)) {
-          this.logger.warn(
-            `Job ${context.jobId}: Quiz returned empty questions on attempt ${attempt}`
-          );
-
-          // Only retry if questions are empty
-          if (attempt < maxRetries) {
-            const delay = 1000; // 1 second delay between retries
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            continue;
-          }
-
-          throw new Error(
-            'Generated quiz has no questions after multiple attempts'
-          );
-        }
-
-        const latency = Date.now() - startTime;
-        this.logger.log(
-          `Job ${context.jobId}: Quiz generation completed in ${latency}ms`
-        );
-
-        const questions = QuizUtils.normalizeQuestions(result.questions);
-        const title = result.title || dto.topic || 'Untitled Quiz';
-        const topic = result.topic || dto.topic || null;
-
-        return { questions, title, topic };
-      } catch (error) {
-        // Only retry if it's an empty questions issue
-        const isEmptyQuestions = error.message?.includes('no questions');
-
-        if (isEmptyQuestions && attempt < maxRetries) {
-          this.logger.warn(
-            `Job ${context.jobId}: Retrying due to empty questions (${attempt}/${maxRetries})`
-          );
-          const delay = 1000;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          continue;
-        }
-
-        // For all other errors or final retry, fail immediately
-        this.logger.error(
-          `Job ${context.jobId}: Quiz generation failed: ${error.message}`
-        );
         throw new Error(
-          error.message?.includes('timeout') ||
-            error.message?.includes('timed out')
-            ? 'Quiz generation timed out. Please try with a shorter topic or less content.'
-            : 'Failed to generate quiz. Please try again.'
+          'Generated quiz has no questions. Please try again with different content.'
         );
       }
-    }
 
-    // If we reach here, all retries failed
-    throw new Error(
-      'Unable to generate quiz with valid questions. Please try again with different content.'
-    );
+      const latency = Date.now() - startTime;
+      this.logger.log(
+        `Job ${context.jobId}: Quiz generation completed in ${latency}ms`
+      );
+
+      const questions = QuizUtils.normalizeQuestions(result.questions);
+      const title = result.title || dto.topic || 'Untitled Quiz';
+      const topic = result.topic || dto.topic || null;
+
+      return { questions, title, topic };
+    } catch (error) {
+      this.logger.error(
+        `Job ${context.jobId}: Quiz generation failed: ${error.message}`
+      );
+
+      throw new Error(
+        error.message?.includes('timeout') ||
+          error.message?.includes('timed out')
+          ? 'Quiz generation timed out. Please try with a shorter topic or less content.'
+          : 'Failed to generate quiz. Please try again.'
+      );
+    }
   }
 
   private validateQuizResult(result: any): boolean {
@@ -165,7 +129,7 @@ export class QuizGenerationStrategy implements JobStrategy<
 
   async postProcess(context: QuizContext, result: any): Promise<any> {
     const { userId, data } = context;
-    const { dto, contentId, files } = data;
+    const { dto, contentId, files, adminContext } = data;
     const { questions, title, topic } = result;
 
     const quizType = this.mapQuizType(dto.quizType);
@@ -195,6 +159,24 @@ export class QuizGenerationStrategy implements JobStrategy<
     // Invalidate study pack cache if quiz is added to a study pack
     if (dto.studyPackId) {
       await this.studyPackService.invalidateUserCache(userId).catch(() => {});
+    }
+
+    // Create AdminQuiz if admin context is present
+    if (adminContext) {
+      this.logger.log(`Creating AdminQuiz for quiz ${quiz.id}`);
+      await this.prisma.adminQuiz.create({
+        data: {
+          quizId: quiz.id,
+          createdBy: userId,
+          scope:
+            adminContext.scope === 'GLOBAL'
+              ? ContentScope.GLOBAL
+              : ContentScope.SCHOOL,
+          schoolId: adminContext.schoolId,
+          isActive: adminContext.isActive ?? true,
+          publishedAt: adminContext.publishedAt,
+        },
+      });
     }
 
     return quiz;

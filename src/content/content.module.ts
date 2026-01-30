@@ -3,6 +3,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { ContentService } from './content.service';
 import { ContentController } from './content.controller';
 import { ContentProcessor } from './content.processor';
+import { ContentGenerationStrategy } from './strategies/content-generation.strategy';
+import { SectionGenerationProcessor } from './section-generation.processor';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LangChainModule } from '../langchain/langchain.module';
 import { QuizModule } from '../quiz/quiz.module';
@@ -16,7 +18,7 @@ import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
   imports: [
     BullModule.registerQueue(
       { name: 'content-generation' },
-      { name: 'summary-generation' }
+      { name: 'section-generation' }
     ),
     PrismaModule,
     LangChainModule,
@@ -28,7 +30,12 @@ import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
     InputPipelineModule,
   ],
   controllers: [ContentController],
-  providers: [ContentService, ContentProcessor],
+  providers: [
+    ContentService,
+    ContentProcessor,
+    ContentGenerationStrategy,
+    SectionGenerationProcessor,
+  ],
   exports: [ContentService],
 })
 export class ContentModule {}

@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Inject,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,16 +6,10 @@ import { CacheService } from '../common/services/cache.service';
 import { CreateContentDto, UpdateContentDto } from './dto/content.dto';
 import { QuizService } from '../quiz/quiz.service';
 import { FlashcardService } from '../flashcard/flashcard.service';
-import {
-  IFileStorageService,
-  FILE_STORAGE_SERVICE,
-} from '../file-storage/interfaces/file-storage.interface';
+import { FILE_STORAGE_SERVICE, IFileStorageService } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
-import {
-  processFileUploads,
-  ProcessedDocument,
-} from '../common/helpers/file-upload.helpers';
+import { ProcessedDocument, processFileUploads } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
@@ -100,8 +88,6 @@ export class ContentService {
           originalname: doc.originalName,
           cloudinaryUrl: doc.cloudinaryUrl,
           cloudinaryId: doc.cloudinaryId,
-          googleFileUrl: doc.googleFileUrl,
-          googleFileId: doc.googleFileId,
           documentId: doc.documentId,
           mimetype: doc.mimeType,
           size: doc.size,
@@ -376,6 +362,15 @@ Provide a clear, detailed explanation suitable for a student. Keep it engaging a
 
     await this.cacheService.set(cacheKey, result, 43200000);
 
+    // Persist to learningGuide
+    await this.updateSectionGeneratedContent(
+      userId,
+      contentId,
+      sectionTitle,
+      'generatedExplanation',
+      result
+    );
+
     return result;
   }
 
@@ -409,7 +404,57 @@ The example should be relatable and help illustrate the concept clearly.`;
 
     await this.cacheService.set(cacheKey, result, 43200000);
 
+    // Persist to learningGuide
+    await this.updateSectionGeneratedContent(
+      userId,
+      contentId,
+      sectionTitle,
+      'generatedExample',
+      result
+    );
+
     return result;
+  }
+
+  /**
+   * Update generated content (explanation/example) in a section
+   */
+  private async updateSectionGeneratedContent(
+    userId: string,
+    contentId: string,
+    sectionTitle: string,
+    field: 'generatedExplanation' | 'generatedExample',
+    value: string
+  ) {
+    try {
+      const content = await this.prisma.content.findFirst({
+        where: { id: contentId, userId },
+        select: { learningGuide: true },
+      });
+
+      if (!content?.learningGuide) return;
+
+      const learningGuide = content.learningGuide as any;
+      const sectionIndex = learningGuide.sections?.findIndex(
+        (s: any) => s.title === sectionTitle
+      );
+
+      if (sectionIndex === -1 || sectionIndex === undefined) return;
+
+      learningGuide.sections[sectionIndex][field] = value;
+
+      await this.prisma.content.update({
+        where: { id: contentId },
+        data: { learningGuide },
+      });
+
+      // Invalidate content cache
+      await this.cacheService.invalidate(`content:${userId}:${contentId}`);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to persist ${field} for section "${sectionTitle}": ${error}`
+      );
+    }
   }
 
   // ==================== ANALYTICS ====================
@@ -471,8 +516,6 @@ The example should be relatable and help illustrate the concept clearly.`;
           originalName: userDoc.displayName,
           cloudinaryUrl: userDoc.document.cloudinaryUrl,
           cloudinaryId: userDoc.document.id, // Use document ID as fallback
-          googleFileUrl: userDoc.document.googleFileUrl || undefined,
-          googleFileId: undefined, // Not available in DTO
           hash: '', // Not needed for existing files
           isDuplicate: true, // Mark as duplicate since it's already uploaded
           documentId: userDoc.document.id,
@@ -527,7 +570,6 @@ The example should be relatable and help illustrate the concept clearly.`;
         files,
         this.documentHashService,
         this.cloudinaryFileStorageService,
-        this.googleFileStorageService,
         this.fileCompressionService
       );
 
