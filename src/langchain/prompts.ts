@@ -634,7 +634,7 @@ graph LR
 **CRITICAL SYNTAX RULES:**
 - Use only simple node IDs (A, B, C, etc.)
 - Keep labels short and clear
-- Use only these arrow types: \`-->\`, \`---\`, \`-.->\'
+- Use only these arrow types: \`-->\`, \`---\`, \`-.->'
 - For labeled edges: \`A -->|label| B\`
 - NO special characters in node IDs
 - Always specify direction: flowchart TD, flowchart LR, graph TD, or graph LR
@@ -964,7 +964,36 @@ Use Markdown to enhance clarity and scannability:
 - Bullet lists for related items or enumerations
 - Numbered lists for sequential steps or ordered information
 - Tables for comparisons or structured data (if appropriate)
+- Mermaid diagrams for flowcharts, processes, and relationships
 - Horizontal rules (---) for major section breaks (if needed)
+
+**Mermaid Diagram Syntax (STRICT RULES):**
+When creating diagrams, use proper mermaid syntax inside \`\`\`mermaid code blocks.
+
+**Rules for Stability:**
+1. **Quote All Labels**: Always wrap node text in double quotes: \`A["Process Name"]\`. This prevents errors with parentheses or special characters.
+2. **Simple Node IDs**: Use only simple letters (A, B, C, etc.) as IDs.
+3. **Preferred Diagram Type**: Use **flowchart** (e.g., \`flowchart TD\` or \`flowchart LR\`) instead of \`graph\`.
+4. **Node Shapes**:
+    - \`A["Text"]\` = Rectangle
+    - \`A("Text")\` = Rounded
+    - \`A{"Text"}\` = Diamond (Decision)
+    - \`A(("Text"))\` = Circle
+5. **Arrows**: Use standard \`-->\`, \`---\`, or \`-.->\`.
+6. **Labeled Edges**: Use \`A -->|label| B\`.
+7. **Direction**: Always include \`flowchart TD\` or \`flowchart LR\`.
+
+**Good Mermaid Example:**
+\`\`\`mermaid
+flowchart LR
+    A["Input"] --> B["Processing"]
+    B --> C["Output"]
+\`\`\`
+
+**When to Use Diagrams:**
+- Only when they clarify relationships or processes better than text
+- Keep them simple - max 8-10 nodes
+- Ensure they add genuine value to the review experience
 
 **Spacing:**
 Use whitespace to create visual hierarchy and improve readability. Blank lines between sections, around code blocks, and between conceptual units help readers navigate.
