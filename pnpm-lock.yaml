@@ -198,12 +198,18 @@ importers:
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
+      '@types/minimist':
+        specifier: ^1.2.5
+        version: 1.2.5
       '@types/multer':
         specifier: ^2.0.0
         version: 2.0.0
       '@types/node':
         specifier: ^24.10.0
         version: 24.10.8
+      '@types/normalize-package-data':
+        specifier: ^2.4.4
+        version: 2.4.4
       '@types/passport-jwt':
         specifier: ^4.0.1
         version: 4.0.1

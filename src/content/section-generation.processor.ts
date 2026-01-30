@@ -103,6 +103,32 @@ export class SectionGenerationProcessor extends WorkerHost {
     );
 
     try {
+      // Check if section already has content (e.g., pre-generated first section)
+      const content = await this.prisma.content.findUnique({
+        where: { id: contentId },
+        select: { learningGuide: true },
+      });
+
+      const learningGuide = content?.learningGuide as any;
+      const existingSection = learningGuide?.sections?.[sectionIndex];
+
+      if (existingSection?.content && existingSection.content.length > 0) {
+        this.logger.log(
+          `Content ${contentId}: Section ${sectionIndex + 1} ("${title}") already has content. Skipping generation.`
+        );
+
+        // Emit section completed event to keep UI/UX consistent
+        this.eventEmitter.emit(
+          EVENTS.LEARNING_GUIDE.SECTION_COMPLETED,
+          EventFactory.learningGuideSectionCompleted(
+            userId,
+            contentId,
+            sectionIndex
+          )
+        );
+        return;
+      }
+
       // Generate section content prompt
       const prompt = LangChainPrompts.generateSectionContent(
         title,

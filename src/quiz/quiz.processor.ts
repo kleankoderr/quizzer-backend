@@ -30,6 +30,9 @@ export interface QuizJobData {
     isActive?: boolean;
     publishedAt?: Date;
   };
+  chunkIndex?: number;
+  existingQuizId?: string;
+  totalQuestionsRequested?: number;
 }
 
 @Injectable()

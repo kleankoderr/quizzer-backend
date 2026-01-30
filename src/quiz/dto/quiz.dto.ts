@@ -113,6 +113,7 @@ export class QuizListItemDto {
   createdAt: Date;
   questionCount: number; // Instead of full questions array
   attemptCount?: number; // Instead of full attempts array
+  totalQuestionsRequested?: number;
   studyPack?: {
     id: string;
     title: string;
@@ -126,6 +127,7 @@ export class QuizDetailDto extends QuizListItemDto {
   contentId?: string;
   studyPackId?: string;
   sourceFiles?: string[];
+  totalQuestionsRequested?: number;
 }
 
 export class QuizSubmissionResultDto {

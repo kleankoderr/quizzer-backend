@@ -112,18 +112,18 @@ export class ContentGenerationStrategy implements JobStrategy<
     const { contentForAI } = context;
     const { title, topic, description, sections } = result;
 
-    // Create content with empty sections structure
+    // Create content with sections structure, including pre-generated first section content
     const content = await this.prisma.content.create({
       data: {
         title: title?.trim() || dto.title || dto.topic || 'Untitled',
         topic: topic?.trim() || dto.topic || 'General',
         description: description?.trim(),
         learningGuide: {
-          sections: sections.map((s: any) => ({
+          sections: sections.map((s: any, index: number) => ({
             title: s.title,
-            content: '',
-            example: '',
-            knowledgeCheck: null,
+            content: index === 0 ? s.content || '' : '',
+            example: index === 0 ? s.example || '' : '',
+            knowledgeCheck: index === 0 ? s.knowledgeCheck || null : null,
           })),
         },
         content: '',
@@ -141,6 +141,12 @@ export class ContentGenerationStrategy implements JobStrategy<
         }),
       },
     });
+
+    if (sections[0]?.content) {
+      this.logger.log(
+        `Job ${context.jobId}: First section "${sections[0].title}" was pre-generated with the outline.`
+      );
+    }
 
     this.logger.log(
       `Job ${context.jobId}: Created content ${content.id} with ${sections.length} empty sections`

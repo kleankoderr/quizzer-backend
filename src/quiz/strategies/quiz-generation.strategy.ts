@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Job, Queue } from 'bullmq';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
 import { StudyPackService } from '../../study-pack/study-pack.service';
+import { CacheService } from '../../common/services/cache.service';
 import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
@@ -37,7 +40,10 @@ export class QuizGenerationStrategy implements JobStrategy<
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
     private readonly inputPipeline: InputPipeline,
-    private readonly studyPackService: StudyPackService
+    private readonly studyPackService: StudyPackService,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly cacheService: CacheService,
+    @InjectQueue('quiz-generation') private readonly quizQueue: Queue
   ) {}
 
   async preProcess(job: Job<QuizJobData>): Promise<QuizContext> {
@@ -73,15 +79,49 @@ export class QuizGenerationStrategy implements JobStrategy<
 
   async execute(context: QuizContext): Promise<any> {
     const { dto } = context.data;
-    const { inputSources, contentForAI } = context;
+    const { contentForAI } = context;
+    const { chunkIndex = 0, existingQuizId } = context.data;
 
     try {
       const startTime = Date.now();
+      const totalRequested =
+        context.data.totalQuestionsRequested || dto.numberOfQuestions;
+
+      const existingQuestions = await this.getExistingQuestions(existingQuizId);
+      const alreadyGeneratedCount = existingQuizId
+        ? existingQuestions.length
+        : (chunkIndex || 0) * 5;
+
+      const remainingCount = totalRequested - alreadyGeneratedCount;
+      const currentChunkSize = Math.min(5, remainingCount);
+
+      if (currentChunkSize <= 0) {
+        this.logger.log(
+          `Job ${context.jobId}: All questions generated (${alreadyGeneratedCount}/${totalRequested}). Stopping.`
+        );
+        return { questions: [], title: dto.topic, topic: dto.topic };
+      }
+
+      if (chunkIndex > 10) {
+        this.logger.warn(
+          `Job ${context.jobId}: Max chunk index reached (10). Force stopping generation.`
+        );
+        return { questions: [], title: dto.topic, topic: dto.topic };
+      }
+
       this.logger.log(
-        `Job ${context.jobId}: Generating quiz with ${inputSources.length} source(s)`
+        `Job ${context.jobId}: Generating quiz chunk ${chunkIndex + 1} (${currentChunkSize} questions) for quiz ${existingQuizId || 'NEW'}`
       );
 
-      const prompt = await this.buildQuizPrompt(dto, contentForAI);
+      const previousQuestions =
+        chunkIndex > 0 ? existingQuestions.map((q: any) => q.question) : [];
+
+      const prompt = await this.buildChunkPrompt(
+        dto,
+        contentForAI,
+        currentChunkSize,
+        previousQuestions
+      );
 
       const result = await this.langchainService.invokeWithJsonParser(prompt, {
         task: 'quiz',
@@ -91,16 +131,18 @@ export class QuizGenerationStrategy implements JobStrategy<
 
       // Validate structure and content
       if (!this.validateQuizResult(result)) {
-        this.logger.warn(`Job ${context.jobId}: Quiz returned empty questions`);
+        this.logger.warn(
+          `Job ${context.jobId}: Quiz chunk returned empty questions`
+        );
 
         throw new Error(
-          'Generated quiz has no questions. Please try again with different content.'
+          'Generated quiz chunk has no questions. Please try again with different content.'
         );
       }
 
       const latency = Date.now() - startTime;
       this.logger.log(
-        `Job ${context.jobId}: Quiz generation completed in ${latency}ms`
+        `Job ${context.jobId}: Quiz chunk generation completed in ${latency}ms`
       );
 
       const questions = QuizUtils.normalizeQuestions(result.questions);
@@ -127,28 +169,56 @@ export class QuizGenerationStrategy implements JobStrategy<
     return result.questions.length !== 0;
   }
 
+  private async getExistingQuestions(quizId?: string): Promise<any[]> {
+    if (!quizId) return [];
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+      select: { questions: true },
+    });
+    return quiz && Array.isArray(quiz.questions) ? quiz.questions : [];
+  }
+
   async postProcess(context: QuizContext, result: any): Promise<any> {
+    const { data } = context;
+    const { chunkIndex = 0, existingQuizId } = data;
+
+    if (chunkIndex === 0 && !existingQuizId) {
+      return this.handleInitialChunk(context, result);
+    } else if (existingQuizId) {
+      return this.handleBackgroundChunk(context, result);
+    }
+
+    return null;
+  }
+
+  private async handleInitialChunk(
+    context: QuizContext,
+    result: any
+  ): Promise<any> {
     const { userId, data } = context;
     const { dto, contentId, files, adminContext } = data;
     const { questions, title, topic } = result;
 
+    const totalRequested =
+      data.totalQuestionsRequested || dto.numberOfQuestions;
     const quizType = this.mapQuizType(dto.quizType);
     const sourceType = this.determineSourceType(dto, files);
     const sourceFiles = this.extractFileUrls(files);
 
     const quiz = await this.prisma.quiz.create({
       data: {
-        title: title,
+        title,
         topic: topic?.trim() || null,
         difficulty: dto.difficulty,
         quizType,
         timeLimit: dto.timeLimit,
-        questions: questions,
+        questions,
         userId,
         sourceType,
         sourceFiles,
         contentId,
         studyPackId: dto.studyPackId,
+        totalQuestionsRequested: totalRequested,
       },
     });
 
@@ -156,30 +226,190 @@ export class QuizGenerationStrategy implements JobStrategy<
       await this.linkToContent(contentId, quiz.id);
     }
 
-    // Invalidate study pack cache if quiz is added to a study pack
     if (dto.studyPackId) {
       await this.studyPackService.invalidateUserCache(userId).catch(() => {});
     }
 
-    // Create AdminQuiz if admin context is present
     if (adminContext) {
-      this.logger.log(`Creating AdminQuiz for quiz ${quiz.id}`);
-      await this.prisma.adminQuiz.create({
-        data: {
-          quizId: quiz.id,
-          createdBy: userId,
-          scope:
-            adminContext.scope === 'GLOBAL'
-              ? ContentScope.GLOBAL
-              : ContentScope.SCHOOL,
-          schoolId: adminContext.schoolId,
-          isActive: adminContext.isActive ?? true,
-          publishedAt: adminContext.publishedAt,
-        },
-      });
+      await this.createAdminQuiz(quiz.id, userId, adminContext);
+    }
+
+    if (totalRequested > questions.length) {
+      this.logger.log(
+        `Job ${context.jobId}: Initial chunk done. Queueing next chunks for quiz ${quiz.id}`
+      );
+      await this.queueNextChunk(context, quiz.id, 1, totalRequested);
     }
 
     return quiz;
+  }
+
+  private async handleBackgroundChunk(
+    context: QuizContext,
+    result: any
+  ): Promise<any> {
+    const { userId, data } = context;
+    const { existingQuizId, chunkIndex = 0 } = data;
+    const { questions } = result;
+
+    const existingQuiz = await this.prisma.quiz.findUnique({
+      where: { id: existingQuizId },
+      select: { questions: true, totalQuestionsRequested: true },
+    });
+
+    if (!existingQuiz) {
+      throw new Error(`Existing quiz ${existingQuizId} not found`);
+    }
+
+    const totalRequested =
+      existingQuiz.totalQuestionsRequested || data.totalQuestionsRequested;
+    const updatedQuestions = [
+      ...(existingQuiz.questions as any[]),
+      ...questions,
+    ];
+
+    const updatedQuiz = await this.prisma.quiz.update({
+      where: { id: existingQuizId },
+      data: { questions: updatedQuestions },
+    });
+
+    this.logger.log(
+      `Job ${context.jobId}: Updated quiz ${existingQuizId} with chunk ${chunkIndex + 1}. Total questions: ${updatedQuestions.length}/${totalRequested}`
+    );
+
+    this.emitProgress(
+      userId,
+      context.jobId,
+      existingQuizId,
+      questions.length,
+      updatedQuestions.length,
+      totalRequested
+    );
+
+    await this.invalidateQuizCache(existingQuizId, userId);
+
+    if (
+      totalRequested > updatedQuestions.length &&
+      questions.length > 0 &&
+      chunkIndex < 10
+    ) {
+      await this.queueNextChunk(
+        context,
+        existingQuizId,
+        chunkIndex + 1,
+        totalRequested
+      );
+    } else if (
+      totalRequested > updatedQuestions.length &&
+      questions.length === 0
+    ) {
+      this.logger.warn(
+        `Job ${context.jobId}: No new questions added in chunk ${chunkIndex + 1}. Stopping.`
+      );
+    }
+
+    return updatedQuiz;
+  }
+
+  private async createAdminQuiz(
+    quizId: string,
+    userId: string,
+    adminContext: any
+  ): Promise<void> {
+    this.logger.log(`Creating AdminQuiz for quiz ${quizId}`);
+    await this.prisma.adminQuiz.create({
+      data: {
+        quizId,
+        createdBy: userId,
+        scope:
+          adminContext.scope === 'GLOBAL'
+            ? ContentScope.GLOBAL
+            : ContentScope.SCHOOL,
+        schoolId: adminContext.schoolId,
+        isActive: adminContext.isActive ?? true,
+        publishedAt: adminContext.publishedAt,
+      },
+    });
+  }
+
+  private emitProgress(
+    userId: string,
+    jobId: string,
+    quizId: string,
+    added: number,
+    current: number,
+    total: number
+  ): void {
+    this.eventEmitter.emit(
+      EVENTS.QUIZ.PROGRESS,
+      EventFactory.quizProgress(
+        userId,
+        jobId,
+        'chunk-completed',
+        Math.round((current / total) * 100),
+        `Generated ${current} of ${total} questions`,
+        {
+          quizId,
+          questionsAdded: added,
+          currentCount: current,
+          totalCount: total,
+        }
+      )
+    );
+  }
+
+  private async invalidateQuizCache(
+    quizId: string,
+    userId: string
+  ): Promise<void> {
+    await Promise.all([
+      this.cacheService.invalidateByPattern(`quiz:${quizId}:*`),
+      this.cacheService.invalidate(`quiz:${quizId}:${userId}`),
+    ]).catch(() => {});
+  }
+
+  private async queueNextChunk(
+    context: QuizContext,
+    quizId: string,
+    nextChunkIndex: number,
+    totalRequested: number
+  ): Promise<void> {
+    const { data } = context;
+    await this.quizQueue.add(
+      'generate-remaining-chunks',
+      {
+        ...data,
+        existingQuizId: quizId,
+        chunkIndex: nextChunkIndex,
+        totalQuestionsRequested: totalRequested,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+      }
+    );
+  }
+
+  protected async buildChunkPrompt(
+    dto: GenerateQuizDto,
+    content: string | undefined,
+    chunkSize: number,
+    previousQuestions: string[] = []
+  ): Promise<string> {
+    const questionTypes =
+      dto.questionTypes && dto.questionTypes.length > 0
+        ? dto.questionTypes.join(', ')
+        : 'single-select, true-false, fill-blank';
+
+    return LangChainPrompts.generateQuiz(
+      dto.topic || '',
+      chunkSize,
+      dto.difficulty || 'Medium',
+      dto.quizType || QuizType.STANDARD,
+      questionTypes,
+      content || '',
+      previousQuestions
+    );
   }
 
   getEventData(context: QuizContext, result: any): any {

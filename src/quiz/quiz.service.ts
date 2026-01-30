@@ -175,6 +175,7 @@ export class QuizService {
           timeLimit: true,
           createdAt: true,
           questions: true,
+          totalQuestionsRequested: true,
           _count: {
             select: {
               attempts: true,
@@ -211,6 +212,7 @@ export class QuizService {
         createdAt: quiz.createdAt,
         questionCount: questions.length,
         attemptCount: quiz._count.attempts,
+        totalQuestionsRequested: quiz.totalQuestionsRequested,
         studyPack: quiz.studyPack,
       };
     });
@@ -610,6 +612,7 @@ export class QuizService {
         questions: true,
         topic: true,
         title: true,
+        totalQuestionsRequested: true,
         contentId: true,
         tags: true,
         quizType: true,
