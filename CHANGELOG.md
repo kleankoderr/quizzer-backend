@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/kleankoderr/quizzer-backend/compare/backend-v1.2.0...backend-v1.3.0) (2026-01-30)
+
+
+### Features
+
+* Enhance flashcard and quiz generation with chunking and progress tracking ([32077dc](https://github.com/kleankoderr/quizzer-backend/commit/32077dcdeff3b258568e904059417ffd6228b075))
+
 ## [1.2.0](https://github.com/kleankoderr/quizzer-backend/compare/backend-v1.1.0...backend-v1.2.0) (2026-01-30)
 
 
