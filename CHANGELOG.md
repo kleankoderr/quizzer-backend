@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/kleankoderr/quizzer-backend/compare/backend-v1.1.0...backend-v1.2.0) (2026-01-30)
+
+
+### Features
+
+* Add step to retrieve latest tag for GitHub release workflow ([d3b4481](https://github.com/kleankoderr/quizzer-backend/commit/d3b44817b6ab1961011ad8daa4f90fb1db3b8268))
+
 ## 1.1.0 (2026-01-30)
 
 
