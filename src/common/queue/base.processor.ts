@@ -17,7 +17,7 @@ export abstract class BaseProcessor<
 > extends WorkerHost {
   protected abstract readonly logger: Logger;
 
-  constructor(
+  protected constructor(
     protected readonly eventEmitter: EventEmitter2,
     protected readonly quotaService: QuotaService,
     protected readonly cacheService: CacheService,

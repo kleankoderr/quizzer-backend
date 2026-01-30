@@ -120,74 +120,56 @@ export class LangChainService {
 
   /**
    * Invoke with JSON parser fallback (for models that don't support structured output well)
-   * Includes retry logic with exponential backoff
    */
   async invokeWithJsonParser(
     prompt: string,
-    context?: InvokeContext,
-    maxRetries = 1
+    context?: InvokeContext
   ): Promise<Record<string, any>> {
     const contextStr = context ? `[${context.task || 'unknown'}]` : '';
+    const startTime = Date.now();
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      const startTime = Date.now();
+    try {
+      this.logger.log(`${contextStr} Starting JSON parser invocation`);
 
-      try {
-        this.logger.log(
-          `${contextStr} JSON parser attempt ${attempt}/${maxRetries}`
-        );
+      const model = this.modelConfig.getModel();
+      const response = await this.withTimeout(
+        model.invoke(prompt),
+        this.JSON_PARSER_TIMEOUT_MS,
+        'Model invocation timed out during JSON parsing.'
+      );
+      const content = response.content as string;
 
-        const model = this.modelConfig.getModel();
-        const response = await this.withTimeout(
-          model.invoke(prompt),
-          this.JSON_PARSER_TIMEOUT_MS,
-          'Model invocation timed out during JSON parsing.'
-        );
-        const content = response.content as string;
+      const parseResult: JsonParseResult = safeJsonParse(content);
 
-        const parseResult: JsonParseResult = safeJsonParse(content);
-
-        if (!parseResult.success) {
-          const textSample = content.substring(0, 500);
-          this.logger.error(
-            `${contextStr} All JSON extraction strategies failed. Text sample: ${textSample}`
-          );
-          throw new Error('Could not extract valid JSON from response');
-        }
-
-        this.logger.debug(
-          `${contextStr} JSON parsed successfully using strategy: ${parseResult.strategy}`
-        );
-
-        const latency = Date.now() - startTime;
-
-        this.logger.log(
-          `${contextStr} JSON parsing successful on attempt ${attempt} (${latency}ms)`
-        );
-
-        return parseResult.data as Record<string, any>;
-      } catch (error) {
-        const latency = Date.now() - startTime;
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-
+      if (!parseResult.success) {
+        const textSample = content.substring(0, 500);
         this.logger.error(
-          `${contextStr} Attempt ${attempt}/${maxRetries} failed after ${latency}ms: ${errorMessage}`
+          `${contextStr} All JSON extraction strategies failed. Text sample: ${textSample}`
         );
-
-        if (attempt === maxRetries) {
-          throw new Error(
-            'Failed to generate valid content. Please try again or simplify your request.'
-          );
-        }
-
-        // Exponential backoff: 2^attempt * 1000ms
-        const backoffMs = Math.pow(2, attempt) * 1000;
-        await this.delay(backoffMs);
+        throw new Error('Could not extract valid JSON from response');
       }
-    }
 
-    throw new Error('Unexpected end of retry loop');
+      this.logger.debug(
+        `${contextStr} JSON parsed successfully using strategy: ${parseResult.strategy}`
+      );
+
+      const latency = Date.now() - startTime;
+      this.logger.log(`${contextStr} JSON parsing successful (${latency}ms)`);
+
+      return parseResult.data as Record<string, any>;
+    } catch (error) {
+      const latency = Date.now() - startTime;
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      this.logger.error(
+        `${contextStr} JSON parsing failed after ${latency}ms: ${errorMessage}`
+      );
+
+      throw new Error(
+        'Failed to generate valid content. Please try again or simplify your request.'
+      );
+    }
   }
 
   /**
@@ -204,9 +186,5 @@ export class LangChainService {
         setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
       ),
     ]);
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
