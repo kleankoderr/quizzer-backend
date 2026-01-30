@@ -1,5 +1,5 @@
 import { Processor } from '@nestjs/bullmq';
-import { Logger, Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CacheService } from '../common/services/cache.service';
 import { GenerateFlashcardDto } from './dto/flashcard.dto';
@@ -23,6 +23,9 @@ export interface FlashcardJobData {
   userId: string;
   dto: GenerateFlashcardDto;
   files?: ProcessedFileData[];
+  chunkIndex?: number;
+  existingFlashcardSetId?: string;
+  totalCardsRequested?: number;
 }
 
 @Injectable()

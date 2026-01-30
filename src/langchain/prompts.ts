@@ -5,7 +5,8 @@ export class LangChainPrompts {
     difficulty: string,
     quizType: string,
     questionTypeInstructions: string,
-    sourceContent: string = ''
+    sourceContent: string = '',
+    previousQuestions: string[] = []
   ) {
     return `
 You are an expert educational assessment designer creating quiz questions that measure genuine understanding.
@@ -19,6 +20,11 @@ Question Types: ${questionTypeInstructions}
 
 Source Material:
 ${sourceContent || '[No source content provided - use general knowledge about the topic]'}
+
+=== AVOID THESE QUESTIONS ===
+${this.formatPreviousQuestions(previousQuestions)}
+- CRITICAL: Do NOT generate questions similar to the ones listed above.
+- Ensure all new questions cover different aspects or concepts.
 
 === PHASE 1: ANALYZE & PLAN ===
 Before creating questions, consider:
@@ -156,7 +162,8 @@ Begin directly with the JSON object.
   static generateFlashcards(
     topic: string,
     numberOfCards: number,
-    sourceContent: string = ''
+    sourceContent: string = '',
+    previousCards: string[] = []
   ) {
     return `
 You are an expert in spaced repetition learning and evidence-based flashcard design.
@@ -167,6 +174,11 @@ Target Cards: ${numberOfCards} (generate fewer if source material cannot support
 
 Source Material:
 ${sourceContent || '[No source content provided - use general knowledge about the topic]'}
+
+=== AVOID THESE CARDS ===
+${this.formatPreviousQuestions(previousCards)}
+- CRITICAL: Do NOT generate cards similar to the ones listed above (comparing fronts).
+- Ensure all new cards cover different aspects or concepts.
 
 === PHASE 1: ANALYZE & PLAN ===
 Before creating flashcards, consider:
@@ -499,12 +511,20 @@ Keep titles specific and action-oriented:
 ✗ Introduction
 ✗ Getting Started
 
+=== PHASE 3: GENERATE FIRST SECTION ===
+CRITICAL: For the VERY FIRST section in your outline, you MUST also generate the full content immediately.
+Follow the same quality principles as detailed content:
+- **Content**: Concise markdown teaching material (250-400 words) using bullets and short paragraphs.
+- **Example**: A practical demonstration of the concept.
+- **Knowledge Check**: A scenario-based question to verify understanding.
+
+For ALL OTHER sections (2, 3, etc.), only provide the Title and Keywords.
+
 === VALIDATION ===
 - [ ] 8-15 sections total
-- [ ] Logical progression from fundamentals to advanced
-- [ ] Each section has clear focus
-- [ ] Keywords identify core concepts
-- [ ] Based only on source material provided
+- [ ] First section has FULL content, example, and knowledge check
+- [ ] Subsequent sections have only Title and Keywords
+- [ ] Logical progression based only on source material
 - [ ] Valid JSON structure
 
 === OUTPUT FORMAT ===
@@ -517,7 +537,19 @@ Return only valid JSON (no markdown fences, no additional text):
   "sections": [
     {
       "title": "Clear section title",
-      "keywords": ["term1", "term2", "term3"]
+      "keywords": ["term1", "term2", "term3"],
+      "content": "Full markdown content (ONLY for the first section)",
+      "example": "Practical example (ONLY for the first section)",
+      "knowledgeCheck": {
+        "question": "Question text",
+        "options": ["Op1", "Op2", "Op3", "Op4"],
+        "correctAnswer": 0,
+        "explanation": "Why correct"
+      }
+    },
+    {
+      "title": "Second Section Title",
+      "keywords": ["term4", "term5"]
     }
   ]
 }
@@ -601,11 +633,17 @@ Use **flowchart** (e.g., \`flowchart TD\` or \`flowchart LR\`) instead of \`grap
 1. **Quote All Labels**: Always wrap node text in double quotes: \`A["Process Name"]\`. This prevents errors with parentheses or special characters.
 2. **Simple Node IDs**: Use only simple letters (A, B, C, etc.) as IDs.
 3. **Node Shapes**:
-    - \`A["Text"]\` = Rectangle
-    - \`A("Text")\` = Rounded
-    - \`A{"Text"}\` = Diamond (Decision)
-    - \`A(("Text"))\` = Circle
-4. **No Unquoted Parentheses**: Never use \`A[Text (parens)]\`. Use \`A["Text (parens)"]\`.
+    - \`A["Rectangle"]\` = Rectangle / Process
+    - \`B("Rounded")\` = Rounded Rectangle
+    - \`C(["Stadium"])\` = Stadium / Capsule
+    - \`D(("Oval"))\` = Oval / Ellipse
+    - \`E{"Diamond"}\` = Diamond / Decision
+    - \`F{{"Hexagon"}}\` = Hexagon / Preparation
+    - \`G[/"Parallelogram"/]\` = Parallelogram / Input Output
+    - \`H[\\"Parallelogram Alt"\]\` = Parallelogram - Alt
+    - \`I[/"Trapezoid"/]\` = Trapezoid
+    - \`J[\\"Inverted Trapezoid"\]\` = Inverted Trapezoid
+4. **No Unquoted Parentheses**: Always quote labels: \`A["Text (parens)"]\`.
 5. **Arrows**: Use standard \`-->\`, \`---\`, or \`-.->\`.
 6. **Labeled Edges**: Use \`A -->|label| B\`.
 7. **Direction**: Always include \`flowchart TD\` or \`flowchart LR\`.
@@ -628,8 +666,11 @@ graph LR
 **Node Shapes:**
 - \`[Text]\` = Rectangle
 - \`(Text)\` = Rounded rectangle
-- \`{Text}\` = Diamond (for decisions)
-- \`((Text))\` = Circle
+- \`([Text])\` = Stadium/capsule
+- \`{Text}\` = Diamond
+- \`{{Text}}\` = Hexagon
+- \`((Text))\` = Oval/ellipse
+- \`[/Text/]\` = Parallelogram
 
 **CRITICAL SYNTAX RULES:**
 - Use only simple node IDs (A, B, C, etc.)
@@ -975,10 +1016,16 @@ When creating diagrams, use proper mermaid syntax inside \`\`\`mermaid code bloc
 2. **Simple Node IDs**: Use only simple letters (A, B, C, etc.) as IDs.
 3. **Preferred Diagram Type**: Use **flowchart** (e.g., \`flowchart TD\` or \`flowchart LR\`) instead of \`graph\`.
 4. **Node Shapes**:
-    - \`A["Text"]\` = Rectangle
-    - \`A("Text")\` = Rounded
-    - \`A{"Text"}\` = Diamond (Decision)
-    - \`A(("Text"))\` = Circle
+    - \`A["Rectangle"]\` = Rectangle / Process
+    - \`B("Rounded")\` = Rounded Rectangle
+    - \`C(["Stadium"])\` = Stadium / Capsule
+    - \`D(("Oval"))\` = Oval / Ellipse
+    - \`E{"Diamond"}\` = Diamond / Decision
+    - \`F{{"Hexagon"}}\` = Hexagon / Preparation
+    - \`G[/"Parallelogram"/]\` = Parallelogram / Input Output
+    - \`H[\\"Parallelogram Alt"\]\` = Parallelogram - Alt
+    - \`I[/"Trapezoid"/]\` = Trapezoid
+    - \`J[\\"Inverted Trapezoid"\]\` = Inverted Trapezoid
 5. **Arrows**: Use standard \`-->\`, \`---\`, or \`-.->\`.
 6. **Labeled Edges**: Use \`A -->|label| B\`.
 7. **Direction**: Always include \`flowchart TD\` or \`flowchart LR\`.
@@ -1386,5 +1433,16 @@ Stopping conditions:
 2. Feedback is constructive and data-driven.
 3. Tone is encouraging and professional.
 `;
+  }
+  /**
+   * Helper method to format previous questions
+   */
+  private static formatPreviousQuestions(questions: string[]): string {
+    if (!questions || questions.length === 0) {
+      return 'None';
+    }
+    return questions
+      .map((question, index) => `${index + 1}. ${question}`)
+      .join('\n');
   }
 }

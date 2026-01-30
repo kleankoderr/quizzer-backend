@@ -74,29 +74,30 @@ model UserQuota {
 }
 
 model Quiz {
-  id               String          @id @default(uuid())
-  title            String
-  topic            String
-  difficulty       String          @default("medium")
-  questions        Json
-  userId           String
-  sourceType       String?
-  sourceFiles      String[]
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  timeLimit        Int?
-  contentId        String?         @unique
-  quizType         QuizType        @default(STANDARD)
-  tags             String[]        @default([])
-  studyPackId      String?
-  attempts         Attempt[]
-  challengeQuizzes ChallengeQuiz[]
-  challenges       Challenge[]
-  content          Content?        @relation(fields: [contentId], references: [id])
-  adminQuiz        AdminQuiz?
-  studyPack        StudyPack?      @relation(fields: [studyPackId], references: [id])
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reports          Report[]
+  id                      String          @id @default(uuid())
+  title                   String
+  topic                   String
+  difficulty              String          @default("medium")
+  questions               Json
+  userId                  String
+  sourceType              String?
+  sourceFiles             String[]
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  timeLimit               Int?
+  contentId               String?         @unique
+  quizType                QuizType        @default(STANDARD)
+  tags                    String[]        @default([])
+  studyPackId             String?
+  totalQuestionsRequested Int?
+  attempts                Attempt[]
+  challengeQuizzes        ChallengeQuiz[]
+  challenges              Challenge[]
+  content                 Content?        @relation(fields: [contentId], references: [id])
+  adminQuiz               AdminQuiz?
+  studyPack               StudyPack?      @relation(fields: [studyPackId], references: [id])
+  user                    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports                 Report[]
 
   @@index([studyPackId])
   @@index([userId])
@@ -105,22 +106,23 @@ model Quiz {
 }
 
 model FlashcardSet {
-  id                String             @id @default(uuid())
-  title             String
-  topic             String
-  cards             Json
-  userId            String
-  sourceType        String?
-  sourceFiles       String[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  contentId         String?            @unique
-  studyPackId       String?
-  attempts          Attempt[]
-  content           Content?           @relation(fields: [contentId], references: [id])
-  adminFlashcardSet AdminFlashcardSet?
-  studyPack         StudyPack?         @relation(fields: [studyPackId], references: [id])
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String             @id @default(uuid())
+  title               String
+  topic               String
+  cards               Json
+  userId              String
+  sourceType          String?
+  sourceFiles         String[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  contentId           String?            @unique
+  studyPackId         String?
+  attempts            Attempt[]
+  content             Content?           @relation(fields: [contentId], references: [id])
+  adminFlashcardSet   AdminFlashcardSet?
+  studyPack           StudyPack?         @relation(fields: [studyPackId], references: [id])
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalCardsRequested Int?
 
   @@index([studyPackId])
   @@index([userId])

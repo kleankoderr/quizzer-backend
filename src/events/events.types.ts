@@ -299,7 +299,8 @@ export const EventFactory = {
     jobId: string,
     step: string,
     percentage: number,
-    message?: string
+    message?: string,
+    metadata?: Record<string, any>
   ): FlashcardProgressEvent => ({
     eventType: EVENTS.FLASHCARD.PROGRESS,
     userId,
@@ -307,6 +308,7 @@ export const EventFactory = {
     step,
     percentage,
     message,
+    metadata,
     timestamp: Date.now(),
   }),
 
@@ -347,7 +349,8 @@ export const EventFactory = {
     jobId: string,
     step: string,
     percentage: number,
-    message?: string
+    message?: string,
+    metadata?: any
   ): QuizProgressEvent => ({
     eventType: EVENTS.QUIZ.PROGRESS,
     userId,
@@ -355,6 +358,7 @@ export const EventFactory = {
     step,
     percentage,
     message,
+    metadata,
     timestamp: Date.now(),
   }),
 
