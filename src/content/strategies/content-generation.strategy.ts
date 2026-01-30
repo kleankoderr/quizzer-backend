@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Job, Queue } from 'bullmq';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
 import { LangChainPrompts } from '../../langchain/prompts';
@@ -26,7 +28,9 @@ export class ContentGenerationStrategy implements JobStrategy<
   constructor(
     private readonly prisma: PrismaService,
     private readonly langchainService: LangChainService,
-    private readonly inputPipeline: InputPipeline
+    private readonly inputPipeline: InputPipeline,
+    private readonly eventEmitter: EventEmitter2,
+    @InjectQueue('section-generation') private readonly sectionQueue: Queue
   ) {}
 
   async preProcess(job: Job<ContentJobData>): Promise<ContentContext> {
@@ -63,38 +67,41 @@ export class ContentGenerationStrategy implements JobStrategy<
 
     try {
       const startTime = Date.now();
-      this.logger.log(`Job ${context.jobId}: Generating study material`);
+      this.logger.log(
+        `Job ${context.jobId}: Generating learning guide outline`
+      );
 
-      const prompt = LangChainPrompts.generateComprehensiveLearningGuide(
+      // Generate OUTLINE ONLY (fast - 3-5 seconds)
+      const prompt = LangChainPrompts.generateLearningGuideOutline(
         dto.topic || '',
         contentForAI || ''
       );
 
       const result = await this.langchainService.invokeWithJsonParser(prompt, {
-        task: 'study-material',
+        task: 'learning-guide-outline',
         userId: context.userId,
         jobId: context.jobId,
       });
 
       const latency = Date.now() - startTime;
       this.logger.log(
-        `Job ${context.jobId}: Study material generation completed in ${latency}ms`
+        `Job ${context.jobId}: Outline generation completed in ${latency}ms with ${result.sections?.length || 0} sections`
       );
 
-      // Extract generated data from the unified response
-      const { title, topic, description, learningGuide } = result;
+      // Extract outline data
+      const { title, topic, description, sections } = result;
 
-      return { title, topic, description, learningGuide };
+      return { title, topic, description, sections };
     } catch (error) {
       this.logger.error(
-        `Job ${context.jobId}: Study material generation failed: ${error.message}`
+        `Job ${context.jobId}: Outline generation failed: ${error.message}`
       );
 
       throw new Error(
         error.message?.includes('timeout') ||
           error.message?.includes('timed out')
-          ? 'Study material generation timed out. Please try with a shorter topic or less content.'
-          : 'Failed to generate study material. Please try again.'
+          ? 'Learning guide outline generation timed out. Please try with a shorter topic or less content.'
+          : 'Failed to generate learning guide outline. Please try again.'
       );
     }
   }
@@ -102,14 +109,23 @@ export class ContentGenerationStrategy implements JobStrategy<
   async postProcess(context: ContentContext, result: any): Promise<any> {
     const { userId, data } = context;
     const { dto } = data;
-    const { title, topic, description, learningGuide } = result;
+    const { contentForAI } = context;
+    const { title, topic, description, sections } = result;
 
+    // Create content with empty sections structure
     const content = await this.prisma.content.create({
       data: {
         title: title?.trim() || dto.title || dto.topic || 'Untitled',
         topic: topic?.trim() || dto.topic || 'General',
         description: description?.trim(),
-        learningGuide: learningGuide,
+        learningGuide: {
+          sections: sections.map((s: any) => ({
+            title: s.title,
+            content: '',
+            example: '',
+            knowledgeCheck: null,
+          })),
+        },
         content: '',
         user: {
           connect: {
@@ -125,6 +141,29 @@ export class ContentGenerationStrategy implements JobStrategy<
         }),
       },
     });
+
+    this.logger.log(
+      `Job ${context.jobId}: Created content ${content.id} with ${sections.length} empty sections`
+    );
+
+    // Emit outline completed event
+    this.eventEmitter.emit(
+      EVENTS.LEARNING_GUIDE.OUTLINE_COMPLETED,
+      EventFactory.learningGuideOutlineCompleted(userId, content.id, sections)
+    );
+
+    // Queue section generation job
+    await this.sectionQueue.add('generate-sections', {
+      contentId: content.id,
+      userId,
+      topic: topic || dto.topic || '',
+      sections,
+      sourceContent: contentForAI,
+    });
+
+    this.logger.log(
+      `Job ${context.jobId}: Queued section generation for ${sections.length} sections`
+    );
 
     return content;
   }

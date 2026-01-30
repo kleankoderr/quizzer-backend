@@ -40,6 +40,13 @@ export const EVENTS = {
     COMPLETED: 'summary.completed',
     FAILED: 'summary.failed',
   },
+  LEARNING_GUIDE: {
+    OUTLINE_COMPLETED: 'learning-guide.outline.completed',
+    SECTION_STARTED: 'learning-guide.section.started',
+    SECTION_CHUNK: 'learning-guide.section.chunk',
+    SECTION_COMPLETED: 'learning-guide.section.completed',
+    ALL_SECTIONS_COMPLETED: 'learning-guide.all-sections.completed',
+  },
 } as const;
 
 /**
@@ -52,4 +59,5 @@ export type EventType =
   | (typeof EVENTS.NOTIFICATION)[keyof typeof EVENTS.NOTIFICATION]
   | (typeof EVENTS.STUDY)[keyof typeof EVENTS.STUDY]
   | (typeof EVENTS.USER)[keyof typeof EVENTS.USER]
-  | (typeof EVENTS.SUMMARY)[keyof typeof EVENTS.SUMMARY];
+  | (typeof EVENTS.SUMMARY)[keyof typeof EVENTS.SUMMARY]
+  | (typeof EVENTS.LEARNING_GUIDE)[keyof typeof EVENTS.LEARNING_GUIDE];
