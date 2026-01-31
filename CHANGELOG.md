@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/kleankoderr/quizzer-backend/compare/backend-v1.3.0...backend-v1.4.0) (2026-01-31)
+
+
+### Features
+
+* Add search functionality and question deletion to admin quiz management ([d682848](https://github.com/kleankoderr/quizzer-backend/commit/d682848ef626ee1d600c2ef8b096cb3d05b813cc))
+
 ## [1.3.0](https://github.com/kleankoderr/quizzer-backend/compare/backend-v1.2.0...backend-v1.3.0) (2026-01-30)
 
 
