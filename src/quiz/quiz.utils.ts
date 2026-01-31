@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 /**
  * Utility functions for quizzes and questions.
  */
@@ -21,6 +23,8 @@ export class QuizUtils {
    */
   static normalizeQuestions(questions: any[]): any[] {
     return questions.map((q) => {
+      const id = q.id || uuidv4();
+
       if (q.questionType === 'matching') {
         let normalizedCorrectAnswer = q.correctAnswer;
 
@@ -54,13 +58,14 @@ export class QuizUtils {
 
         return {
           ...q,
+          id,
           correctAnswer: normalizedCorrectAnswer,
           leftColumn: this.shuffleArray(leftColumn),
           rightColumn: this.shuffleArray(rightColumn),
           options: undefined, // Matching doesn't need standard options
         };
       }
-      return q;
+      return { ...q, id };
     });
   }
 }

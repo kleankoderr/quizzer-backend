@@ -1,12 +1,12 @@
 import {
+  IsArray,
   IsBoolean,
+  IsDateString,
   IsEnum,
+  IsNumber,
+  IsObject,
   IsOptional,
   IsString,
-  IsNumber,
-  IsArray,
-  IsDateString,
-  IsObject,
   Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -26,13 +26,21 @@ export class UserFilterDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 1 || value === true) return true;
+    if (value === 'false' || value === 0 || value === false) return false;
+    return value;
+  })
   @IsBoolean()
   isActive?: boolean;
 
   @ApiPropertyOptional({ description: 'Filter by premium subscription status' })
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 1 || value === true) return true;
+    if (value === 'false' || value === 0 || value === false) return false;
+    return value;
+  })
   @IsBoolean()
   isPremium?: boolean;
 
@@ -49,6 +57,11 @@ export class UserFilterDto {
 
 export class UpdateUserStatusDto {
   @ApiProperty()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 1 || value === true) return true;
+    if (value === 'false' || value === 0 || value === false) return false;
+    return value;
+  })
   @IsBoolean()
   isActive: boolean;
 }
@@ -230,6 +243,11 @@ export class CreateSubscriptionPlanDto {
 
   @ApiPropertyOptional({ description: 'Whether plan is active', default: true })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 1 || value === true) return true;
+    if (value === 'false' || value === 0 || value === false) return false;
+    return value;
+  })
   @IsBoolean()
   isActive?: boolean;
 }
@@ -261,6 +279,11 @@ export class UpdateSubscriptionPlanDto {
 
   @ApiPropertyOptional({ description: 'Whether plan is active' })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 1 || value === true) return true;
+    if (value === 'false' || value === 0 || value === false) return false;
+    return value;
+  })
   @IsBoolean()
   isActive?: boolean;
 }
