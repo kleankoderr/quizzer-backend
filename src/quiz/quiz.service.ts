@@ -8,7 +8,7 @@ import { StudyService } from '../study/study.service';
 import { CacheService } from '../common/services/cache.service';
 import { GenerateQuizDto, SubmitQuizDto } from './dto/quiz.dto';
 import { FILE_STORAGE_SERVICE, IFileStorageService } from '../file-storage/interfaces/file-storage.interface';
-import { QuizType } from '@prisma/client';
+import { ContentScope, QuizType } from '@prisma/client';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import { ProcessedDocument, processFileUploads } from '../common/helpers/file-upload.helpers';
@@ -157,12 +157,38 @@ export class QuizService {
   ) {
     const skip = (page - 1) * limit;
 
+    // Get user's school context
+    const userContext = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { schoolId: true },
+    });
+
+    const where: any = {
+      OR: [
+        { userId },
+        {
+          adminQuiz: {
+            isActive: true,
+            OR: [
+              { scope: ContentScope.GLOBAL },
+              ...(userContext?.schoolId
+                ? [
+                    {
+                      scope: ContentScope.SCHOOL,
+                      schoolId: userContext.schoolId,
+                    },
+                  ]
+                : []),
+            ],
+          },
+        },
+      ],
+      ...(studyPackId ? { studyPackId } : {}),
+    };
+
     const [quizzes, total] = await Promise.all([
       this.prisma.quiz.findMany({
-        where: {
-          userId,
-          ...(studyPackId ? { studyPackId } : {}),
-        },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -176,6 +202,12 @@ export class QuizService {
           createdAt: true,
           questions: true,
           totalQuestionsRequested: true,
+          adminQuiz: {
+            select: {
+              id: true,
+              scope: true,
+            },
+          },
           _count: {
             select: {
               attempts: true,
@@ -189,12 +221,7 @@ export class QuizService {
           },
         },
       }),
-      this.prisma.quiz.count({
-        where: {
-          userId,
-          ...(studyPackId ? { studyPackId } : {}),
-        },
-      }),
+      this.prisma.quiz.count({ where }),
     ]);
 
     const transformedQuizzes = quizzes.map((quiz) => {
@@ -214,6 +241,8 @@ export class QuizService {
         attemptCount: quiz._count.attempts,
         totalQuestionsRequested: quiz.totalQuestionsRequested,
         studyPack: quiz.studyPack,
+        isAdmin: !!quiz.adminQuiz,
+        adminScope: quiz.adminQuiz?.scope,
       };
     });
 
@@ -587,23 +616,40 @@ export class QuizService {
    * Fetch quiz with minimal fields and single query
    */
   private async findAccessibleQuiz(quizId: string, userId: string) {
+    const userContext = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { schoolId: true },
+    });
+
     const quiz = await this.prisma.quiz.findFirst({
       where: {
         id: quizId,
         OR: [
           { userId },
           {
-            OR: [
-              {
-                challenges: {
-                  some: {
-                    completions: {
-                      some: { userId },
-                    },
-                  },
+            adminQuiz: {
+              isActive: true,
+              OR: [
+                { scope: ContentScope.GLOBAL },
+                ...(userContext?.schoolId
+                  ? [
+                      {
+                        scope: ContentScope.SCHOOL,
+                        schoolId: userContext.schoolId,
+                      },
+                    ]
+                  : []),
+              ],
+            },
+          },
+          {
+            challenges: {
+              some: {
+                completions: {
+                  some: { userId },
                 },
               },
-            ],
+            },
           },
         ],
       },

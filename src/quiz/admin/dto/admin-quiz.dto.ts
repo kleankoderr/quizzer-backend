@@ -1,8 +1,9 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { GenerateQuizDto } from '../../dto/quiz.dto';
 import { ContentScope } from '@prisma/client';
 
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AdminQuizScopedDto {
   @ApiProperty({
@@ -23,6 +24,11 @@ export class AdminQuizScopedDto {
     description: 'Whether the quiz is active',
   })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 1 || value === true) return true;
+    if (value === 'false' || value === 0 || value === false) return false;
+    return value;
+  })
   @IsBoolean()
   isActive?: boolean;
 }
@@ -46,16 +52,53 @@ export class CreateAdminQuizDto extends GenerateQuizDto {
     description: 'Whether the quiz is active',
   })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 1 || value === true) return true;
+    if (value === 'false' || value === 0 || value === false) return false;
+    return value;
+  })
   @IsBoolean()
   isActive?: boolean;
 }
 
 export class UpdateAdminQuizDto extends AdminQuizScopedDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   title?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   topic?: string;
+
+  @ApiPropertyOptional({
+    type: 'array',
+    items: { type: 'object' },
+    description: 'Array of quiz questions',
+  })
+  @IsOptional()
+  @IsArray()
+  questions?: any[];
+
+  @ApiPropertyOptional({
+    type: 'array',
+    items: { type: 'string' },
+    description: 'Array of question ids to delete',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  deletedQuestionIds?: string[];
+}
+
+export class DeleteQuestionsDto {
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'string' },
+    description: 'Array of question ids to delete',
+  })
+  @IsArray()
+  @IsString({ each: true })
+  questionIds: string[];
 }

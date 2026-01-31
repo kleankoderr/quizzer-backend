@@ -14,7 +14,7 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AdminQuizService } from './admin-quiz.service';
-import { CreateAdminQuizDto, UpdateAdminQuizDto } from './dto/admin-quiz.dto';
+import { CreateAdminQuizDto, DeleteQuestionsDto, UpdateAdminQuizDto } from './dto/admin-quiz.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ContentScope } from '@prisma/client';
@@ -48,17 +48,20 @@ export class AdminQuizController {
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'scope', required: false, enum: ContentScope })
   @ApiQuery({ name: 'schoolId', required: false })
+  @ApiQuery({ name: 'search', required: false })
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('scope') scope?: ContentScope,
-    @Query('schoolId') schoolId?: string
+    @Query('schoolId') schoolId?: string,
+    @Query('search') search?: string
   ) {
     return this.adminQuizService.findAllAdminQuizzes(
       page ? Number(page) : 1,
       limit ? Number(limit) : 20,
       scope,
-      schoolId
+      schoolId,
+      search
     );
   }
 
@@ -82,5 +85,16 @@ export class AdminQuizController {
   @ApiOperation({ summary: 'Delete admin quiz' })
   async remove(@Param('id') id: string) {
     return this.adminQuizService.deleteAdminQuiz(id);
+  }
+
+  @Delete(':id/questions')
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: 'Delete multiple questions from a quiz' })
+  @ApiResponse({ status: 200, description: 'Questions deleted successfully' })
+  async deleteQuestions(
+    @Param('id') id: string,
+    @Body() dto: DeleteQuestionsDto
+  ) {
+    return this.adminQuizService.deleteQuestions(id, dto.questionIds);
   }
 }
