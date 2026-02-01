@@ -8,7 +8,7 @@ export class LangChainPrompts {
     sourceContent: string = '',
     previousQuestions: string[] = []
   ) {
-    return `
+    return String.raw`
 You are an expert educational assessment designer creating quiz questions that measure genuine understanding.
 
 === ASSESSMENT PARAMETERS ===
@@ -123,11 +123,17 @@ Before finalizing, verify each question:
 - [ ] Options are parallel and plausible
 
 Overall quiz verification:
-- [ ] Total questions ≤ ${numberOfQuestions}
+- [ ] Total questions <= ${numberOfQuestions}
 - [ ] Distribution across concepts (not clustered on one idea)
 - [ ] Mix of question types if appropriate
 - [ ] No answer patterns
 - [ ] Valid JSON structure
+
+**Mathematical Formulas:**
+- Use LaTeX notation with $ delimiters for all mathematical expressions:
+  - Inline math: $x^2 + y^2 = z^2$
+  - Block/display math: $$\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$$
+- NEVER use \\( \\) or \\[ \\]. Always use $ or $$.
 
 === OUTPUT FORMAT ===
 Return only valid JSON (no markdown fences, no additional commentary):
@@ -165,7 +171,7 @@ Begin directly with the JSON object.
     sourceContent: string = '',
     previousCards: string[] = []
   ) {
-    return `
+    return String.raw`
 You are an expert in spaced repetition learning and evidence-based flashcard design.
 
 === FLASHCARD PARAMETERS ===
@@ -288,6 +294,12 @@ Overall set verification:
 - [ ] No redundant or overlapping cards
 - [ ] Consistent style and difficulty
 - [ ] Valid JSON structure
+
+**Mathematical Formulas:**
+- Use LaTeX notation with $ delimiters for all mathematical expressions:
+  - Inline math: $x^2 + y^2 = z^2$
+  - Block/display math: $$\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$$
+- NEVER use \\( \\) or \\[ \\]. Always use $ or $$.
 
 === OUTPUT FORMAT ===
 Return only valid JSON (no markdown fences, no additional commentary):
@@ -640,9 +652,9 @@ Use **flowchart** (e.g., \`flowchart TD\` or \`flowchart LR\`) instead of \`grap
     - \`E{"Diamond"}\` = Diamond / Decision
     - \`F{{"Hexagon"}}\` = Hexagon / Preparation
     - \`G[/"Parallelogram"/]\` = Parallelogram / Input Output
-    - \`H[\\"Parallelogram Alt"\]\` = Parallelogram - Alt
+    - \`H["Parallelogram Alt"]\` = Parallelogram - Alt
     - \`I[/"Trapezoid"/]\` = Trapezoid
-    - \`J[\\"Inverted Trapezoid"\]\` = Inverted Trapezoid
+    - \`J["Inverted Trapezoid"]\` = Inverted Trapezoid
 4. **No Unquoted Parentheses**: Always quote labels: \`A["Text (parens)"]\`.
 5. **Arrows**: Use standard \`-->\`, \`---\`, or \`-.->\`.
 6. **Labeled Edges**: Use \`A -->|label| B\`.
@@ -659,8 +671,8 @@ flowchart LR
 2. **Simple Graphs** - Use LR (left-right) or TD (top-down):
 \`\`\`mermaid
 graph LR
-    A[Input] --> B[Process]
-    B --> C[Output]
+    A["Input"] --> B["Process"]
+    B --> C["Output"]
 \`\`\`
 
 **Node Shapes:**
@@ -675,7 +687,7 @@ graph LR
 **CRITICAL SYNTAX RULES:**
 - Use only simple node IDs (A, B, C, etc.)
 - Keep labels short and clear
-- Use only these arrow types: \`-->\`, \`---\`, \`-.->'
+- Use only these arrow types: \`-->\`, \`---\`, \`-.->\`
 - For labeled edges: \`A -->|label| B\`
 - NO special characters in node IDs
 - Always specify direction: flowchart TD, flowchart LR, graph TD, or graph LR
@@ -684,10 +696,10 @@ graph LR
 **Good Mermaid Example:**
 \`\`\`mermaid
 graph LR
-    A[Source Code] --> B[Compiler]
-    B --> C[Bytecode]
-    C --> D[Virtual Machine]
-    D --> E[Native Code]
+    A["Source Code"] --> B["Compiler"]
+    B --> C["Bytecode"]
+    C --> D["Virtual Machine"]
+    D --> E["Native Code"]
 \`\`\`
 
 **Bad Example (AVOID - causes parse errors):**
@@ -1023,9 +1035,9 @@ When creating diagrams, use proper mermaid syntax inside \`\`\`mermaid code bloc
     - \`E{"Diamond"}\` = Diamond / Decision
     - \`F{{"Hexagon"}}\` = Hexagon / Preparation
     - \`G[/"Parallelogram"/]\` = Parallelogram / Input Output
-    - \`H[\\"Parallelogram Alt"\]\` = Parallelogram - Alt
+    - \`H["Parallelogram Alt"]\` = Parallelogram - Alt
     - \`I[/"Trapezoid"/]\` = Trapezoid
-    - \`J[\\"Inverted Trapezoid"\]\` = Inverted Trapezoid
+    - \`J["Inverted Trapezoid"]\` = Inverted Trapezoid
 5. **Arrows**: Use standard \`-->\`, \`---\`, or \`-.->\`.
 6. **Labeled Edges**: Use \`A -->|label| B\`.
 7. **Direction**: Always include \`flowchart TD\` or \`flowchart LR\`.

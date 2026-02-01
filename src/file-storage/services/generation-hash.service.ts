@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 export interface HashInput {
   topic?: string;
@@ -10,8 +10,6 @@ export interface HashInput {
 
 @Injectable()
 export class GenerationHashService {
-  private readonly logger = new Logger(GenerationHashService.name);
-
   /**
    * Generates a stable SHA-256 hash from content generation parameters.
    * Ensures that identical requests map to the same hash.

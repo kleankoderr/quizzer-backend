@@ -90,6 +90,7 @@ model Quiz {
   tags                    String[]        @default([])
   studyPackId             String?
   totalQuestionsRequested Int?
+  contentHash             String?
   attempts                Attempt[]
   challengeQuizzes        ChallengeQuiz[]
   challenges              Challenge[]
@@ -102,6 +103,7 @@ model Quiz {
   @@index([studyPackId])
   @@index([userId])
   @@index([createdAt])
+  @@index([contentHash])
   @@map("quizzes")
 }
 
@@ -122,11 +124,13 @@ model FlashcardSet {
   adminFlashcardSet   AdminFlashcardSet?
   studyPack           StudyPack?         @relation(fields: [studyPackId], references: [id])
   user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentHash         String?
   totalCardsRequested Int?
 
   @@index([studyPackId])
   @@index([userId])
   @@index([createdAt])
+  @@index([contentHash])
   @@map("flashcard_sets")
 }
 
@@ -290,8 +294,11 @@ model Content {
   summary          Summary?
   topicProgress    TopicProgress[]
 
+  contentHash String?
+
   @@index([studyPackId])
   @@index([userId])
+  @@index([contentHash])
   @@map("contents")
 }
 

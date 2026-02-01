@@ -8,6 +8,8 @@ import { QuizService } from '../quiz/quiz.service';
 import { FlashcardService } from '../flashcard/flashcard.service';
 import { FILE_STORAGE_SERVICE, IFileStorageService } from '../file-storage/interfaces/file-storage.interface';
 import { DocumentHashService } from '../file-storage/services/document-hash.service';
+import { GenerationHashService } from '../file-storage/services/generation-hash.service';
+import { GenerationCacheService } from '../common/services/generation-cache.service';
 import { FileCompressionService } from '../file-storage/services/file-compression.service';
 import { ProcessedDocument, processFileUploads } from '../common/helpers/file-upload.helpers';
 import { UserDocumentService } from '../user-document/user-document.service';
@@ -44,6 +46,8 @@ export class ContentService {
     @Inject(FILE_STORAGE_SERVICE)
     private readonly cloudinaryFileStorageService: IFileStorageService,
     private readonly documentHashService: DocumentHashService,
+    private readonly generationHashService: GenerationHashService,
+    private readonly generationCacheService: GenerationCacheService,
     private readonly fileCompressionService: FileCompressionService,
     private readonly userDocumentService: UserDocumentService,
     private readonly quotaService: QuotaService,
@@ -67,23 +71,86 @@ export class ContentService {
 
     this.logger.log(`User ${userId} requesting content generation`);
 
-    // Process uploaded files and fetch selected files in parallel
-    const [processedFiles, selectedFiles] = await Promise.all([
-      this.processUploadedFiles(userId, files),
-      this.fetchSelectedFiles(userId, dto.selectedFileIds),
-    ]);
+    // 1. Fetch Selected Files UPFRONT (Fast)
+    const selectedFiles = await this.fetchSelectedFiles(
+      userId,
+      dto.selectedFileIds
+    );
+    const hasUploadedFiles = files && files.length > 0;
 
-    // Merge both file sources
+    // 2. Early Hash Check (Only possible if no new files are being uploaded)
+    let contentHash: string | undefined;
+    if (!hasUploadedFiles) {
+      contentHash = this.generationHashService.forContent(
+        dto.topic || '',
+        dto.content,
+        selectedFiles.map((f) => f.documentId)
+      );
+
+      // Check DB and Cache
+      const cachedResult = await this.generationCacheService.checkCaches(
+        'content',
+        contentHash,
+        { userId, studyPackId: dto.studyPackId }
+      );
+      if (cachedResult) return cachedResult;
+    }
+
+    // 3. Process Uploaded Files (Slow)
+    const processedFiles = await this.processUploadedFiles(userId, files);
+
+    // Create UserDocument entries for newly uploaded files to ensure they appear in user's library
+    if (processedFiles.length > 0) {
+      await Promise.all(
+        processedFiles.map((file) =>
+          this.userDocumentService
+            .createUserDocument(userId, file.documentId, file.originalName)
+            .catch((err) =>
+              this.logger.warn(
+                `Failed to link document ${file.documentId} to user ${userId}: ${err.message}`
+              )
+            )
+        )
+      );
+    }
+
     const allFiles = [...processedFiles, ...selectedFiles];
 
-    this.logger.log(
-      `Preparing job with ${allFiles.length} file(s) (${processedFiles.length} new, ${selectedFiles.length} selected)`
+    // 4. Final Hash Calculation
+    contentHash = this.generationHashService.forContent(
+      dto.topic || '',
+      dto.content,
+      allFiles.map((f) => f.documentId)
     );
+
+    this.logger.log(`Calculated final content hash: ${contentHash}`);
+
+    // 5. Final Cache Check (to avoid race conditions after slow upload)
+    const cachedResult = await this.generationCacheService.checkCaches(
+      'content',
+      contentHash,
+      { userId, studyPackId: dto.studyPackId }
+    );
+    if (cachedResult) return cachedResult;
+
+    // 6. Create Job & Track Progress
+    const content = await this.prisma.content.create({
+      data: {
+        title: dto.title || dto.topic || 'Untitled',
+        topic: dto.topic || 'General',
+        content: '',
+        userId,
+        studyPackId: dto.studyPackId,
+        contentHash,
+      },
+    });
 
     try {
       const job = await this.contentQueue.add('generate', {
         userId,
         dto,
+        contentId: content.id,
+        contentHash,
         files: allFiles.map((doc) => ({
           originalname: doc.originalName,
           cloudinaryUrl: doc.cloudinaryUrl,
@@ -94,19 +161,29 @@ export class ContentService {
         })),
       });
 
-      this.logger.log(`Content job created: ${job.id}`);
+      // Cache the job ID to prevent duplicate generation for other users
+      const pendingJobKey = `pending-job:content:${userId}:${contentHash}`;
+      await this.cacheService.set(
+        pendingJobKey,
+        { jobId: job.id, contentId: content.id },
+        600000
+      ); // 10 min TTL
+
+      this.logger.log(
+        `Content job created: ${job.id} for content ${content.id}`
+      );
       return {
         jobId: job.id,
+        recordId: content.id,
         status: 'pending',
+        cached: false,
       };
     } catch (error) {
-      this.logger.error(
-        `Failed to queue content job for user ${userId}:`,
-        error.stack
-      );
-      throw new BadRequestException(
-        'Failed to start content generation. Please try again.'
-      );
+      this.logger.error(`Failed to queue content job:`, error.stack);
+      await this.prisma.content
+        .delete({ where: { id: content.id } })
+        .catch(() => {});
+      throw new Error('Failed to start content generation.');
     }
   }
 

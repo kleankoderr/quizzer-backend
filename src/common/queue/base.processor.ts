@@ -60,24 +60,13 @@ export abstract class BaseProcessor<
         await this.quotaService.incrementQuota(userId, quotaType);
       }
 
-      // 5. Cache invalidation
-      const cachePatterns = this.strategy.getCachePatterns(context);
-      const invalidationPromises = cachePatterns.map((pattern) =>
-        this.cacheService.invalidateByPattern(pattern)
-      );
-
-      await Promise.all([
-        ...invalidationPromises,
-        this.studyPackService.invalidateUserCache(userId),
-      ]);
-
-      // 6. Notifications & Events
+      // 5. Notifications & Events
       const eventNames = this.strategy.getEventNames();
       if (eventNames.completed) {
-        this.eventEmitter.emit(
-          eventNames.completed,
-          this.strategy.getEventData(context, finalRecord)
-        );
+        const eventData = this.strategy.getEventData(context, finalRecord);
+        if (eventData) {
+          this.eventEmitter.emit(eventNames.completed, eventData);
+        }
       }
 
       await job.updateProgress(100);
@@ -107,6 +96,31 @@ export abstract class BaseProcessor<
       }
 
       throw error;
+    } finally {
+      // 6. Invalidation & Cleanup (Always run)
+      try {
+        const cleanupContext = context || {
+          userId,
+          jobId,
+          data: job.data,
+          startTime: Date.now(),
+        };
+
+        const cachePatterns = this.strategy.getCachePatterns(cleanupContext);
+
+        const invalidationPromises = cachePatterns.map((pattern) =>
+          this.cacheService.invalidateByPattern(pattern)
+        );
+
+        await Promise.all([
+          ...invalidationPromises,
+          this.studyPackService.invalidateUserCache(userId),
+        ]);
+      } catch (cleanupError) {
+        this.logger.error(
+          `[Job ${jobId}] Cleanup failed: ${cleanupError.message}`
+        );
+      }
     }
   }
 }

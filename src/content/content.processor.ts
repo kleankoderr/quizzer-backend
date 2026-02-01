@@ -15,6 +15,7 @@ export interface ContentJobData {
     content?: string;
     studyPackId?: string;
   };
+  contentId?: string;
   files?: Array<{
     originalname: string;
     cloudinaryUrl?: string;
@@ -25,6 +26,7 @@ export interface ContentJobData {
     mimetype?: string;
     size?: number;
   }>;
+  contentHash?: string;
 }
 
 @Injectable()

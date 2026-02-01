@@ -16,6 +16,7 @@ import { FileReference, QuizJobData } from '../quiz.processor';
 import { JobContext, JobStrategy } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
 import { InputSource } from '../../input-pipeline/input-source.interface';
+import { BufferResourceType, DatabaseBufferService } from '../../common/services/database-buffer.service';
 
 const QUIZ_TYPE_MAP: Record<string, QuizType> = {
   standard: QuizType.STANDARD,
@@ -43,6 +44,7 @@ export class QuizGenerationStrategy implements JobStrategy<
     private readonly studyPackService: StudyPackService,
     private readonly eventEmitter: EventEmitter2,
     private readonly cacheService: CacheService,
+    private readonly buffer: DatabaseBufferService,
     @InjectQueue('quiz-generation') private readonly quizQueue: Queue
   ) {}
 
@@ -88,12 +90,11 @@ export class QuizGenerationStrategy implements JobStrategy<
         context.data.totalQuestionsRequested || dto.numberOfQuestions;
 
       const existingQuestions = await this.getExistingQuestions(existingQuizId);
-      const alreadyGeneratedCount = existingQuizId
-        ? existingQuestions.length
-        : (chunkIndex || 0) * 5;
+      const alreadyGeneratedCount = (chunkIndex || 0) * 5;
 
       const remainingCount = totalRequested - alreadyGeneratedCount;
-      const currentChunkSize = Math.min(5, remainingCount);
+      const currentChunkSize =
+        context.data.questionsToGenerate || Math.min(5, remainingCount);
 
       if (currentChunkSize <= 0) {
         this.logger.log(
@@ -219,6 +220,7 @@ export class QuizGenerationStrategy implements JobStrategy<
         contentId,
         studyPackId: dto.studyPackId,
         totalQuestionsRequested: totalRequested,
+        contentHash: data.contentHash,
       },
     });
 
@@ -235,11 +237,42 @@ export class QuizGenerationStrategy implements JobStrategy<
     }
 
     if (totalRequested > questions.length) {
+      const remainingQuestions = totalRequested - questions.length;
+      const numChunks = Math.ceil(remainingQuestions / 5);
+
       this.logger.log(
-        `Job ${context.jobId}: Initial chunk done. Queueing next chunks for quiz ${quiz.id}`
+        `Job ${context.jobId}: Initial chunk done. Queueing ${numChunks} background chunks for PARALLEL processing (quiz ${quiz.id})`
       );
-      await this.queueNextChunk(context, quiz.id, 1, totalRequested);
+
+      // Queue all chunks at once for parallel processing
+      const chunksToQueue = Math.min(numChunks, 10);
+      const chunkPromises = Array.from(
+        { length: chunksToQueue },
+        (_, index) => {
+          const currentChunkNumber = index + 1;
+          const offset = questions.length + index * 5;
+          const questionsToGenerate = Math.min(5, totalRequested - offset);
+
+          return this.queueNextChunk(
+            context,
+            quiz.id,
+            currentChunkNumber,
+            totalRequested,
+            questionsToGenerate
+          );
+        }
+      );
+
+      await Promise.all(chunkPromises);
+
+      this.logger.log(
+        `Job ${context.jobId}: Queued ${chunkPromises.length} chunks for parallel processing`
+      );
     }
+
+    this.logger.log(
+      `Job ${context.jobId}: Successfully processed quiz with ${questions.length} questions`
+    );
 
     return quiz;
   }
@@ -263,18 +296,20 @@ export class QuizGenerationStrategy implements JobStrategy<
 
     const totalRequested =
       existingQuiz.totalQuestionsRequested || data.totalQuestionsRequested;
-    const updatedQuestions = [
-      ...(existingQuiz.questions as any[]),
-      ...questions,
-    ];
 
-    const updatedQuiz = await this.prisma.quiz.update({
-      where: { id: existingQuizId },
-      data: { questions: updatedQuestions },
-    });
+    // Safety: only add the number of questions that were actually requested for this chunk
+    // and overall quiz
+    const slicedQuestions = questions.slice(0, data.questionsToGenerate || 5);
+
+    // Use buffer instead of direct update
+    await this.buffer.addQuizQuestions(existingQuizId, slicedQuestions);
+
+    // Calculate "current" count for progress based on index and questions added
+    // This is more accurate during parallel generation than reading DB
+    const currentCount = Math.min((chunkIndex + 1) * 5, totalRequested);
 
     this.logger.log(
-      `Job ${context.jobId}: Updated quiz ${existingQuizId} with chunk ${chunkIndex + 1}. Total questions: ${updatedQuestions.length}/${totalRequested}`
+      `Job ${context.jobId}: Buffered quiz chunk ${chunkIndex + 1} for ${existingQuizId}. Progress: ~${currentCount}/${totalRequested}`
     );
 
     this.emitProgress(
@@ -282,33 +317,29 @@ export class QuizGenerationStrategy implements JobStrategy<
       context.jobId,
       existingQuizId,
       questions.length,
-      updatedQuestions.length,
+      currentCount,
       totalRequested
     );
 
     await this.invalidateQuizCache(existingQuizId, userId);
 
-    if (
-      totalRequested > updatedQuestions.length &&
-      questions.length > 0 &&
-      chunkIndex < 10
-    ) {
-      await this.queueNextChunk(
-        context,
-        existingQuizId,
-        chunkIndex + 1,
-        totalRequested
+    // If this is the last chunk or we hit/exceeded target, flush and cleanup
+    if (currentCount >= totalRequested || questions.length === 0) {
+      await this.buffer.flush(BufferResourceType.QUIZ, existingQuizId);
+
+      this.logger.log(
+        `Job ${context.jobId}: Quiz ${existingQuizId} flush triggered. Progress: ~${currentCount}/${totalRequested}.`
       );
-    } else if (
-      totalRequested > updatedQuestions.length &&
-      questions.length === 0
-    ) {
-      this.logger.warn(
-        `Job ${context.jobId}: No new questions added in chunk ${chunkIndex + 1}. Stopping.`
-      );
+
+      // Cleanup pending-job key
+      if (data.contentHash) {
+        await this.cacheService.invalidate(
+          `pending-job:quiz:${data.contentHash}`
+        );
+      }
     }
 
-    return updatedQuiz;
+    return null; // The buffer handles the results and persistence
   }
 
   private async createAdminQuiz(
@@ -372,7 +403,8 @@ export class QuizGenerationStrategy implements JobStrategy<
     context: QuizContext,
     quizId: string,
     nextChunkIndex: number,
-    totalRequested: number
+    totalRequested: number,
+    questionsToGenerate?: number
   ): Promise<void> {
     const { data } = context;
     await this.quizQueue.add(
@@ -382,6 +414,7 @@ export class QuizGenerationStrategy implements JobStrategy<
         existingQuizId: quizId,
         chunkIndex: nextChunkIndex,
         totalQuestionsRequested: totalRequested,
+        questionsToGenerate,
       },
       {
         removeOnComplete: true,
@@ -413,6 +446,8 @@ export class QuizGenerationStrategy implements JobStrategy<
   }
 
   getEventData(context: QuizContext, result: any): any {
+    if (!result) return null;
+
     return EventFactory.quizCompleted(
       context.userId,
       context.jobId,
@@ -434,8 +469,21 @@ export class QuizGenerationStrategy implements JobStrategy<
   }
 
   getCachePatterns(context: QuizContext): string[] {
-    const { userId } = context;
-    return [`quizzes:all:${userId}*`, `quiz:*:${userId}`];
+    const { userId, data } = context;
+    const patterns = [
+      `quizzes:all:${userId}*`,
+      `quiz:*:${userId}`,
+      `quiz-list:${userId}`,
+    ];
+
+    if (data?.contentHash) {
+      // Only clear pending-job if the initial step failed.
+      // If successful and background chunks are queued, completion handling (handleBackgroundChunk) will clear it.
+      if ((context as any).error) {
+        patterns.push(`pending-job:quiz:${data.contentHash}`);
+      }
+    }
+    return patterns;
   }
 
   getQuotaType(_context: QuizContext): string {

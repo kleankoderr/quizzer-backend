@@ -10,9 +10,11 @@ import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { GenerateFlashcardDto } from '../dto/flashcard.dto';
 import { FlashcardJobData, ProcessedFileData } from '../flashcard.processor';
+import { CacheService } from '../../common/services/cache.service';
 import { JobContext, JobStrategy } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
 import { InputSource } from '../../input-pipeline/input-source.interface';
+import { BufferResourceType, DatabaseBufferService } from '../../common/services/database-buffer.service';
 
 export interface FlashcardContext extends JobContext<FlashcardJobData> {
   inputSources: InputSource[];
@@ -33,6 +35,8 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     private readonly inputPipeline: InputPipeline,
     private readonly studyPackService: StudyPackService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly buffer: DatabaseBufferService,
+    private readonly cacheService: CacheService,
     @InjectQueue('flashcard-generation') private readonly flashcardQueue: Queue
   ) {}
 
@@ -71,12 +75,11 @@ export class FlashcardGenerationStrategy implements JobStrategy<
         context.data.totalCardsRequested || dto.numberOfCards;
 
       const existingCards = await this.getExistingCards(existingFlashcardSetId);
-      const alreadyGeneratedCount = existingFlashcardSetId
-        ? existingCards.length
-        : (chunkIndex || 0) * 10;
+      const alreadyGeneratedCount = (chunkIndex || 0) * 10;
 
       const remainingCount = totalRequested - alreadyGeneratedCount;
-      const currentChunkSize = Math.min(10, remainingCount);
+      const currentChunkSize =
+        context.data.cardsToGenerate || Math.min(10, remainingCount);
 
       if (currentChunkSize <= 0) {
         this.logger.log(
@@ -179,6 +182,7 @@ export class FlashcardGenerationStrategy implements JobStrategy<
         sourceFiles: cloudinaryUrls.length > 0 ? cloudinaryUrls : undefined,
         studyPackId: dto.studyPackId,
         totalCardsRequested: totalRequested,
+        contentHash: data.contentHash,
       },
     });
 
@@ -194,13 +198,40 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     }
 
     if (totalRequested > cards.length) {
+      const remainingCards = totalRequested - cards.length;
+      const numChunks = Math.ceil(remainingCards / 10);
+
       this.logger.log(
-        `Job ${context.jobId}: Initial flashcard chunk done (${cards.length} cards). Queueing next chunks for set ${flashcardSet.id} to reach target of ${totalRequested}`
+        `Job ${context.jobId}: Initial flashcard chunk done (${cards.length} cards). Queueing ${numChunks} background chunks for PARALLEL processing (set ${flashcardSet.id})`
       );
-      await this.queueNextChunk(context, flashcardSet.id, 1, totalRequested);
+
+      // Queue all chunks at once for parallel processing
+      const chunksToQueue = Math.min(numChunks, 10);
+      const chunkPromises = Array.from(
+        { length: chunksToQueue },
+        (_, index) => {
+          const currentChunkNumber = index + 1;
+          const offset = cards.length + index * 10;
+          const cardsToGenerate = Math.min(10, totalRequested - offset);
+
+          return this.queueNextChunk(
+            context,
+            flashcardSet.id,
+            currentChunkNumber,
+            totalRequested,
+            cardsToGenerate
+          );
+        }
+      );
+
+      await Promise.all(chunkPromises);
+
+      this.logger.log(
+        `Job ${context.jobId}: Queued ${chunkPromises.length} chunks for parallel processing`
+      );
     } else {
       this.logger.log(
-        `Job ${context.jobId}: All ${cards.length} flashcards generated in the initial chunk. target was ${totalRequested}.`
+        `Job ${context.jobId}: Initial flashcard processing complete for set ${flashcardSet.id}`
       );
     }
 
@@ -228,15 +259,18 @@ export class FlashcardGenerationStrategy implements JobStrategy<
 
     const totalRequested =
       existingSet.totalCardsRequested || data.totalCardsRequested;
-    const updatedCards = [...(existingSet.cards as any[]), ...cards];
 
-    const updatedSet = await this.prisma.flashcardSet.update({
-      where: { id: existingFlashcardSetId },
-      data: { cards: updatedCards },
-    });
+    // Safety: only add the number of cards that were actually requested for this chunk
+    const slicedCards = cards.slice(0, data.cardsToGenerate || 10);
+
+    // Use buffer instead of direct update
+    await this.buffer.addFlashcards(existingFlashcardSetId, slicedCards);
+
+    // Calculate "current" count for progress based on index
+    const currentCount = Math.min((chunkIndex + 1) * 10, totalRequested);
 
     this.logger.log(
-      `Job ${context.jobId}: Updated flashcard set ${existingFlashcardSetId} with chunk ${chunkIndex + 1}. Total cards: ${updatedCards.length}/${totalRequested}`
+      `Job ${context.jobId}: Buffered flashcard chunk ${chunkIndex + 1} for ${existingFlashcardSetId}. Progress: ~${currentCount}/${totalRequested}`
     );
 
     this.emitProgress(
@@ -244,35 +278,30 @@ export class FlashcardGenerationStrategy implements JobStrategy<
       context.jobId,
       existingFlashcardSetId,
       cards.length,
-      updatedCards.length,
+      currentCount,
       totalRequested
     );
 
-    if (
-      totalRequested > updatedCards.length &&
-      cards.length > 0 &&
-      chunkIndex < 10
-    ) {
+    // If this is the last chunk, or we hit/exceeded target, flush and cleanup
+    if (currentCount >= totalRequested || cards.length === 0) {
+      await this.buffer.flush(
+        BufferResourceType.FLASHCARD,
+        existingFlashcardSetId
+      );
+
       this.logger.log(
-        `Job ${context.jobId}: Queueing next chunk (${chunkIndex + 2}) for set ${existingFlashcardSetId}. Progress: ${updatedCards.length}/${totalRequested}`
+        `Job ${context.jobId}: Flashcard set ${existingFlashcardSetId} flush triggered. Progress: ~${currentCount}/${totalRequested}`
       );
-      await this.queueNextChunk(
-        context,
-        existingFlashcardSetId,
-        chunkIndex + 1,
-        totalRequested
-      );
-    } else if (totalRequested > updatedCards.length && cards.length === 0) {
-      this.logger.warn(
-        `Job ${context.jobId}: No new flashcards added in chunk ${chunkIndex + 1}. Stopping generation flow to avoid infinite loop.`
-      );
-    } else if (updatedCards.length >= totalRequested) {
-      this.logger.log(
-        `Job ${context.jobId}: Target reached (${updatedCards.length}/${totalRequested}). Generation completed.`
-      );
+
+      // Cleanup pending-job key
+      if (data.contentHash) {
+        await this.cacheService.invalidate(
+          `pending-job:flashcard:${data.contentHash}`
+        );
+      }
     }
 
-    return updatedSet;
+    return null; // The buffer handles the results and persistence
   }
 
   private emitProgress(
@@ -300,7 +329,8 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     context: FlashcardContext,
     setId: string,
     nextChunkIndex: number,
-    totalRequested: number
+    totalRequested: number,
+    cardsToGenerate?: number
   ): Promise<void> {
     const { data } = context;
     await this.flashcardQueue.add(
@@ -310,6 +340,7 @@ export class FlashcardGenerationStrategy implements JobStrategy<
         existingFlashcardSetId: setId,
         chunkIndex: nextChunkIndex,
         totalCardsRequested: totalRequested,
+        cardsToGenerate,
       },
       {
         removeOnComplete: true,
@@ -319,6 +350,8 @@ export class FlashcardGenerationStrategy implements JobStrategy<
   }
 
   getEventData(context: FlashcardContext, result: any): any {
+    if (!result) return null;
+
     return EventFactory.flashcardCompleted(
       context.userId,
       context.jobId,
@@ -339,8 +372,20 @@ export class FlashcardGenerationStrategy implements JobStrategy<
   }
 
   getCachePatterns(context: FlashcardContext): string[] {
-    const { userId } = context;
-    return [`flashcards:all:${userId}*`, `flashcard:*:${userId}`];
+    const { userId, data } = context;
+    const patterns = [
+      `flashcards:all:${userId}*`,
+      `flashcard:*:${userId}`,
+      `flashcard-set-list:${userId}`,
+    ];
+    if (data?.contentHash) {
+      // Only clear pending-job if the initial step failed.
+      // If successful and background chunks are queued, completion handling (handleBackgroundChunk) will clear it.
+      if ((context as any).error) {
+        patterns.push(`pending-job:flashcard:${data.contentHash}`);
+      }
+    }
+    return patterns;
   }
 
   getQuotaType(_context: FlashcardContext): string {

@@ -26,10 +26,14 @@ export interface FlashcardJobData {
   chunkIndex?: number;
   existingFlashcardSetId?: string;
   totalCardsRequested?: number;
+  cardsToGenerate?: number;
+  contentHash?: string;
 }
 
 @Injectable()
-@Processor('flashcard-generation')
+@Processor('flashcard-generation', {
+  concurrency: 2, // Process 2 flashcard chunks concurrently
+})
 export class FlashcardProcessor extends BaseProcessor<FlashcardJobData, any> {
   protected readonly logger = new Logger(FlashcardProcessor.name);
 

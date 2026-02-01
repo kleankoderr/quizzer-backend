@@ -242,6 +242,7 @@ export interface LearningGuideAllSectionsCompletedEvent extends BaseEvent {
   eventType: typeof EVENTS.LEARNING_GUIDE.ALL_SECTIONS_COMPLETED;
   contentId: string;
   totalSections: number;
+  failedSections?: number;
 }
 
 // ==================== UNION TYPE ====================
@@ -639,12 +640,14 @@ export const EventFactory = {
   learningGuideAllSectionsCompleted: (
     userId: string,
     contentId: string,
-    totalSections: number
+    totalSections: number,
+    failedSections: number = 0
   ): LearningGuideAllSectionsCompletedEvent => ({
     eventType: EVENTS.LEARNING_GUIDE.ALL_SECTIONS_COMPLETED,
     userId,
     contentId,
     totalSections,
+    failedSections,
     timestamp: Date.now(),
   }),
 };

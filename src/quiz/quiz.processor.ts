@@ -33,10 +33,14 @@ export interface QuizJobData {
   chunkIndex?: number;
   existingQuizId?: string;
   totalQuestionsRequested?: number;
+  questionsToGenerate?: number;
+  contentHash?: string;
 }
 
 @Injectable()
-@Processor('quiz-generation')
+@Processor('quiz-generation', {
+  concurrency: 2, // Process 2 quiz chunks concurrently
+})
 export class QuizProcessor extends BaseProcessor<QuizJobData> {
   protected readonly logger = new Logger(QuizProcessor.name);
 

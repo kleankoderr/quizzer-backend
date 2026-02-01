@@ -8,6 +8,7 @@ import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { ContentJobData } from '../content.processor';
+import { CacheService } from '../../common/services/cache.service';
 import { JobContext, JobStrategy } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
 import { InputSource } from '../../input-pipeline/input-source.interface';
@@ -30,6 +31,7 @@ export class ContentGenerationStrategy implements JobStrategy<
     private readonly langchainService: LangChainService,
     private readonly inputPipeline: InputPipeline,
     private readonly eventEmitter: EventEmitter2,
+    private readonly cacheService: CacheService,
     @InjectQueue('section-generation') private readonly sectionQueue: Queue
   ) {}
 
@@ -89,9 +91,9 @@ export class ContentGenerationStrategy implements JobStrategy<
       );
 
       // Extract outline data
-      const { title, topic, description, sections } = result;
+      const { title, topic, description, sections, summary } = result;
 
-      return { title, topic, description, sections };
+      return { title, topic, description, sections, summary };
     } catch (error) {
       this.logger.error(
         `Job ${context.jobId}: Outline generation failed: ${error.message}`
@@ -112,35 +114,55 @@ export class ContentGenerationStrategy implements JobStrategy<
     const { contentForAI } = context;
     const { title, topic, description, sections } = result;
 
-    // Create content with sections structure, including pre-generated first section content
-    const content = await this.prisma.content.create({
-      data: {
-        title: title?.trim() || dto.title || dto.topic || 'Untitled',
-        topic: topic?.trim() || dto.topic || 'General',
-        description: description?.trim(),
-        learningGuide: {
-          sections: sections.map((s: any, index: number) => ({
-            title: s.title,
-            content: index === 0 ? s.content || '' : '',
-            example: index === 0 ? s.example || '' : '',
-            knowledgeCheck: index === 0 ? s.knowledgeCheck || null : null,
-          })),
-        },
-        content: '',
-        user: {
-          connect: {
-            id: userId,
+    // Use existing content ID if provided, otherwise create (fallback for backward compatibility)
+    let content;
+    if (data.contentId) {
+      content = await this.prisma.content.update({
+        where: { id: data.contentId },
+        data: {
+          title: title?.trim() || dto.title || dto.topic || 'Untitled',
+          topic: topic?.trim() || dto.topic || 'General',
+          description: description?.trim(),
+          contentHash: data.contentHash, // Store the hash
+          learningGuide: {
+            sections: sections.map((s: any, index: number) => ({
+              title: s.title,
+              content: index === 0 ? s.content || '' : '',
+              example: index === 0 ? s.example || '' : '',
+              knowledgeCheck: index === 0 ? s.knowledgeCheck || null : null,
+            })),
           },
         },
-        ...(dto.studyPackId && {
-          studyPack: {
-            connect: {
-              id: dto.studyPackId,
-            },
+      });
+      this.logger.log(
+        `Job ${context.jobId}: Updated existing content ${content.id}`
+      );
+    } else {
+      content = await this.prisma.content.create({
+        data: {
+          title: title?.trim() || dto.title || dto.topic || 'Untitled',
+          topic: topic?.trim() || dto.topic || 'General',
+          description: description?.trim(),
+          contentHash: data.contentHash, // Store the hash
+          learningGuide: {
+            sections: sections.map((s: any, index: number) => ({
+              title: s.title,
+              content: index === 0 ? s.content || '' : '',
+              example: index === 0 ? s.example || '' : '',
+              knowledgeCheck: index === 0 ? s.knowledgeCheck || null : null,
+            })),
           },
-        }),
-      },
-    });
+          content: '',
+          user: { connect: { id: userId } },
+          ...(dto.studyPackId && {
+            studyPack: { connect: { id: dto.studyPackId } },
+          }),
+        },
+      });
+      this.logger.log(
+        `Job ${context.jobId}: Created new content ${content.id}`
+      );
+    }
 
     if (sections[0]?.content) {
       this.logger.log(
@@ -165,13 +187,49 @@ export class ContentGenerationStrategy implements JobStrategy<
       topic: topic || dto.topic || '',
       sections,
       sourceContent: contentForAI,
+      contentHash: data.contentHash,
     });
 
     this.logger.log(
       `Job ${context.jobId}: Queued section generation for ${sections.length} sections`
     );
 
+    // Update collateral records if any
+    if (data.contentHash) {
+      await this.updateCollateralRecords(data.contentHash, {
+        title: title?.trim() || dto.title || dto.topic || 'Untitled',
+        topic: topic?.trim() || dto.topic || 'General',
+        description: description?.trim(),
+        contentHash: data.contentHash,
+        learningGuide: {
+          sections: sections.map((s: any, index: number) => ({
+            title: s.title,
+            content: index === 0 ? s.content || '' : '',
+            example: index === 0 ? s.example || '' : '',
+            knowledgeCheck: index === 0 ? s.knowledgeCheck || null : null,
+          })),
+        },
+      });
+    }
+
     return content;
+  }
+
+  private async updateCollateralRecords(hash: string, data: any) {
+    const collateralKey = `collateral:content:${hash}`;
+    const collateralIds = await this.cacheService.get<string[]>(collateralKey);
+
+    if (collateralIds && collateralIds.length > 0) {
+      this.logger.log(
+        `Updating ${collateralIds.length} collateral content records for hash ${hash}`
+      );
+      await this.prisma.content.updateMany({
+        where: { id: { in: collateralIds } },
+        data,
+      });
+      // Cleanup collateral list
+      await this.cacheService.invalidate(collateralKey);
+    }
   }
 
   getEventData(context: ContentContext, result: any): any {
@@ -194,10 +252,14 @@ export class ContentGenerationStrategy implements JobStrategy<
     );
   }
 
-  getCachePatterns(_context: ContentContext): string[] {
-    // No specific cache patterns for content
-    // BaseProcessor will handle study pack cache invalidation
-    return [];
+  getCachePatterns(context: ContentContext): string[] {
+    const patterns = [];
+    // Only clear the pending-job key if the initial outline generation failed.
+    // If successful, the SectionGenerationProcessor will clear it once all sections are complete.
+    if (context.data?.contentHash && (context as any).error) {
+      patterns.push(`pending-job:content:${context.data.contentHash}`);
+    }
+    return patterns;
   }
 
   getQuotaType(_context: ContentContext): string {

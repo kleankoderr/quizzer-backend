@@ -43,11 +43,14 @@ import { EmailModule } from './email/email.module';
 import { OtpModule } from './otp/otp.module';
 import { LangChainModule } from './langchain/langchain.module';
 import { RagModule } from './rag/rag.module';
+import aiConcurrencyConfig from './config/ai-concurrency.config';
+import dbBufferConfig from './config/db-buffer.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [aiConcurrencyConfig, dbBufferConfig],
     }),
 
     ScheduleModule.forRoot(),
