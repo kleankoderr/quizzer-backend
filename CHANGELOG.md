@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/kleankoderr/quizzer-backend/compare/backend-v1.4.0...backend-v1.5.0) (2026-02-22)
+
+
+### Features
+
+* Implement admin flashcard and study material management with CRUD operations ([a4ee75b](https://github.com/kleankoderr/quizzer-backend/commit/a4ee75b383e3c177f7d0532edda16d95ab7a64ac))
+
 ## [1.4.0](https://github.com/kleankoderr/quizzer-backend/compare/backend-v1.3.0...backend-v1.4.0) (2026-01-31)
 
 
