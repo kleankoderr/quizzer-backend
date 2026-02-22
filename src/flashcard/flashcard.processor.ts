@@ -26,6 +26,11 @@ export interface FlashcardJobData {
   chunkIndex?: number;
   existingFlashcardSetId?: string;
   totalCardsRequested?: number;
+  adminContext?: {
+    scope: 'GLOBAL' | 'SCHOOL';
+    schoolId?: string;
+    isActive?: boolean;
+  };
 }
 
 @Injectable()

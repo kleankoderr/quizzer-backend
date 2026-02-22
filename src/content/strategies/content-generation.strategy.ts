@@ -8,6 +8,7 @@ import { LangChainPrompts } from '../../langchain/prompts';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { ContentJobData } from '../content.processor';
+import { ContentScope } from '@prisma/client';
 import { JobContext, JobStrategy } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
 import { InputSource } from '../../input-pipeline/input-source.interface';
@@ -152,6 +153,28 @@ export class ContentGenerationStrategy implements JobStrategy<
       `Job ${context.jobId}: Created content ${content.id} with ${sections.length} empty sections`
     );
 
+    // If admin context present, create AdminContent so material is visible to everyone
+    const adminContext = data.adminContext;
+    if (adminContext) {
+      this.logger.log(
+        `Job ${context.jobId}: Creating AdminContent for content ${content.id}`
+      );
+      await this.prisma.adminContent.create({
+        data: {
+          contentId: content.id,
+          createdBy: userId,
+          scope:
+            adminContext.scope === 'GLOBAL'
+              ? ContentScope.GLOBAL
+              : ContentScope.SCHOOL,
+          schoolId:
+            adminContext.scope === 'SCHOOL' ? adminContext.schoolId : null,
+          isActive: adminContext.isActive ?? true,
+          publishedAt: new Date(),
+        },
+      });
+    }
+
     // Emit outline completed event
     this.eventEmitter.emit(
       EVENTS.LEARNING_GUIDE.OUTLINE_COMPLETED,
@@ -200,7 +223,8 @@ export class ContentGenerationStrategy implements JobStrategy<
     return [];
   }
 
-  getQuotaType(_context: ContentContext): string {
+  getQuotaType(context: ContentContext): string | null {
+    if (context.data.adminContext) return null;
     return 'studyMaterial';
   }
 

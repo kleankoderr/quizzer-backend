@@ -1,28 +1,17 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Query,
-  Logger,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
 import { CacheService } from '../common/services/cache.service';
 import {
-  UserFilterDto,
-  UpdateUserStatusDto,
-  UpdateUserRoleDto,
   ContentFilterDto,
-  ModerationActionDto,
   CreateSchoolDto,
+  ModerationActionDto,
   UpdateSchoolDto,
+  UpdateUserRoleDto,
+  UpdateUserStatusDto,
+  UserFilterDto,
 } from './dto/admin.dto';
 
 @ApiTags('Admin')
@@ -47,6 +36,12 @@ export class AdminController {
   @ApiOperation({ summary: 'Delete quiz' })
   deleteQuiz(@Param('id') id: string) {
     return this.adminService.deleteQuiz(id);
+  }
+
+  @Delete('flashcard-set/:id')
+  @ApiOperation({ summary: 'Delete any flashcard set' })
+  deleteFlashcardSet(@Param('id') id: string) {
+    return this.adminService.deleteFlashcardSet(id);
   }
 
   @Get('stats')
@@ -106,12 +101,6 @@ export class AdminController {
     return this.adminService.getAllContent(filterDto);
   }
 
-  @Get('flashcards')
-  @ApiOperation({ summary: 'Get all flashcards' })
-  getAllFlashcards(@Query() filterDto: ContentFilterDto) {
-    return this.adminService.getAllFlashcards(filterDto);
-  }
-
   @Get('challenges')
   @ApiOperation({ summary: 'Get all challenges' })
   getAllChallenges(@Query() filterDto: ContentFilterDto) {
@@ -158,12 +147,6 @@ export class AdminController {
   @ApiOperation({ summary: 'Get generation analytics' })
   getAiAnalytics() {
     return this.adminService.getAiAnalytics();
-  }
-
-  @Delete('flashcard/:id')
-  @ApiOperation({ summary: 'Delete flashcard set' })
-  deleteFlashcardSet(@Param('id') id: string) {
-    return this.adminService.deleteFlashcardSet(id);
   }
 
   @Post('challenges')

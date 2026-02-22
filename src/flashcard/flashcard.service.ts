@@ -37,12 +37,18 @@ export class FlashcardService {
   ) {}
 
   /**
-   * Generate flashcards from topic, content, or uploaded files
+   * Generate flashcards from topic, content, or uploaded files.
+   * When adminContext is provided, creates an AdminFlashcardSet (visible to everyone).
    */
   async generateFlashcards(
     userId: string,
     dto: GenerateFlashcardDto,
-    files?: Express.Multer.File[]
+    files?: Express.Multer.File[],
+    adminContext?: {
+      scope: 'GLOBAL' | 'SCHOOL';
+      schoolId?: string;
+      isActive?: boolean;
+    }
   ) {
     this.validateFlashcardRequest(dto, files);
 
@@ -69,6 +75,7 @@ export class FlashcardService {
           mimetype: doc.mimeType,
           size: doc.size,
         })),
+        ...(adminContext ? { adminContext } : {}),
       });
 
       this.logger.log(`Flashcard job created: ${job.id}`);
