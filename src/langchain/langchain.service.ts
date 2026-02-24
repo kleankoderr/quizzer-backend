@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ModelConfigService } from './model-config.service';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { z } from 'zod';
-import { JsonParseResult, safeJsonParse } from '../common/helpers/json-parser.helper';
 
 export interface InvokeContext {
   userId?: string;
@@ -12,53 +12,108 @@ export interface InvokeContext {
 @Injectable()
 export class LangChainService {
   private readonly logger = new Logger(LangChainService.name);
-  private readonly DEFAULT_TIMEOUT_MS = 300_000; // 5 minutes
-  private readonly JSON_PARSER_TIMEOUT_MS = 300_000; // 5 minutes
+  private readonly TIMEOUT_MS = 60_000; // 1 minute
 
   constructor(private readonly modelConfig: ModelConfigService) {}
 
   /**
-   * Invoke with structured output (Zod schema validation)
-   * Includes performance tracking and timeout handling
+   * Invoke a ChatPromptTemplate → StructuredOutput chain.
+   * Uses LangChain's pipe composition: prompt.pipe(model.withStructuredOutput(schema))
+   * This properly separates system/human messages for better model performance.
+   */
+  async invokeChain<T>(
+    prompt: ChatPromptTemplate,
+    schema: z.ZodType<T>,
+    variables: Record<string, string>,
+    context?: InvokeContext,
+  ): Promise<T> {
+    const startTime = Date.now();
+    const contextStr = context ? `[${context.task || 'unknown'}]` : '';
+
+    this.logger.log(`${contextStr} Starting chain invocation`);
+
+    try {
+      const model = this.modelConfig.getModel();
+      const structuredModel = model.withStructuredOutput(schema, {
+        method: 'functionCalling',
+        name: context?.task ?? 'extract',
+      });
+
+      const chain = prompt.pipe(structuredModel);
+
+      const response = await chain.invoke(variables, {
+        timeout: this.TIMEOUT_MS,
+      });
+
+      const latency = Date.now() - startTime;
+      this.logger.log(`${contextStr} Chain invocation successful (${latency}ms)`);
+
+      return response as T;
+    } catch (err) {
+      const latency = Date.now() - startTime;
+      this.logger.error(
+        `${contextStr} Chain invocation failed after ${latency}ms: ${err.message}`,
+        err.stack,
+      );
+
+      if (
+        err.message?.includes('timeout') ||
+        err.message?.includes('timed out') ||
+        err.message?.includes('aborted')
+      ) {
+        throw new Error(
+          'The AI is taking too long to respond. Please try again with a shorter prompt or fewer items.',
+        );
+      }
+
+      throw new Error('Failed to generate content. Please try again.');
+    }
+  }
+
+  /**
+   * Invoke with structured output using Zod schema (legacy — raw string prompt).
+   * Uses model.withStructuredOutput() which enforces the schema at the API level
+   * (Gemini's native structured output) — guaranteed valid JSON matching the schema.
    */
   async invokeWithStructure<T>(
     schema: z.ZodType<T>,
     prompt: string,
     context?: InvokeContext
-  ): Promise<Record<string, any>> {
+  ): Promise<T> {
     const startTime = Date.now();
     const contextStr = context ? `[${context.task || 'unknown'}]` : '';
 
-    this.logger.log(`${contextStr} Starting structured model invocation`);
+    this.logger.log(`${contextStr} Starting structured output invocation`);
 
     try {
       const model = this.modelConfig.getModel();
+      const structuredModel = model.withStructuredOutput(schema, {
+        method: 'functionCalling',
+        name: context?.task ?? 'extract',
+      });
 
-      // Create structured model with explicit options
-      const structuredModel = model.withStructuredOutput(schema);
-
-      // Invoke with timeout
-      const response = await this.withTimeout(
-        structuredModel.invoke(prompt),
-        this.DEFAULT_TIMEOUT_MS,
-        'Model invocation timed out. Please try again.'
-      );
+      const response = await structuredModel.invoke(prompt, {
+        timeout: this.TIMEOUT_MS,
+      });
 
       const latency = Date.now() - startTime;
       this.logger.log(
-        `${contextStr} Model invocation successful (${latency}ms)`
+        `${contextStr} Structured output successful (${latency}ms)`
       );
 
-      return response;
+      return response as T;
     } catch (err) {
       const latency = Date.now() - startTime;
       this.logger.error(
-        `${contextStr} Model invocation failed after ${latency}ms: ${err.message}`,
+        `${contextStr} Structured output failed after ${latency}ms: ${err.message}`,
         err.stack
       );
 
-      // Provide user-friendly error message
-      if (err.message?.includes('timeout')) {
+      if (
+        err.message?.includes('timeout') ||
+        err.message?.includes('timed out') ||
+        err.message?.includes('aborted')
+      ) {
         throw new Error(
           'The AI is taking too long to respond. Please try again with a shorter prompt or fewer items.'
         );
@@ -69,7 +124,66 @@ export class LangChainService {
   }
 
   /**
-   * Invoke without structure (returns string)
+   * Invoke a ChatPromptTemplate chain that returns plain text (no structured output).
+   * Uses prompt.pipe(model) for proper system/human message separation.
+   */
+  async invokeChainText(
+    prompt: ChatPromptTemplate,
+    variables: Record<string, string>,
+    context?: InvokeContext,
+  ): Promise<string> {
+    const startTime = Date.now();
+    const contextStr = context ? `[${context.task || 'unknown'}]` : '';
+
+    this.logger.log(`${contextStr} Starting text chain invocation`);
+
+    try {
+      const model = this.modelConfig.getModel();
+      const chain = prompt.pipe(model);
+
+      const response = await chain.invoke(variables, {
+        timeout: this.TIMEOUT_MS,
+      });
+
+      const latency = Date.now() - startTime;
+      this.logger.log(`${contextStr} Text chain invocation successful (${latency}ms)`);
+
+      return response.content as string;
+    } catch (err) {
+      const latency = Date.now() - startTime;
+      this.logger.error(
+        `${contextStr} Text chain invocation failed after ${latency}ms: ${err.message}`,
+      );
+      throw new Error('Failed to generate text. Please try again.');
+    }
+  }
+
+  /**
+   * Stream a ChatPromptTemplate chain for real-time output.
+   * Uses prompt.pipe(model) with streaming for proper message separation.
+   */
+  async *streamChain(
+    prompt: ChatPromptTemplate,
+    variables: Record<string, string>,
+    context?: InvokeContext,
+  ): AsyncIterable<string> {
+    const contextStr = context ? `[${context.task || 'unknown'}]` : '';
+    this.logger.log(`${contextStr} Starting streaming chain invocation`);
+
+    const model = this.modelConfig.getModel();
+    const chain = prompt.pipe(model);
+
+    const stream = await chain.stream(variables, {
+      timeout: this.TIMEOUT_MS,
+    });
+
+    for await (const chunk of stream) {
+      yield chunk.content as string;
+    }
+  }
+
+  /**
+   * Invoke without structure (returns string) — legacy raw string version
    */
   async invoke(prompt: string, context?: InvokeContext): Promise<string> {
     const startTime = Date.now();
@@ -79,11 +193,9 @@ export class LangChainService {
 
     try {
       const model = this.modelConfig.getModel();
-      const response = await this.withTimeout(
-        model.invoke(prompt),
-        this.DEFAULT_TIMEOUT_MS,
-        'Model invocation timed out. Please try again.'
-      );
+      const response = await model.invoke(prompt, {
+        timeout: this.TIMEOUT_MS,
+      });
 
       const latency = Date.now() - startTime;
       this.logger.log(
@@ -101,7 +213,7 @@ export class LangChainService {
   }
 
   /**
-   * Stream responses
+   * Stream responses — legacy raw string version
    */
   async *stream(
     prompt: string,
@@ -111,80 +223,13 @@ export class LangChainService {
     this.logger.log(`${contextStr} Starting streaming invocation`);
 
     const model = this.modelConfig.getModel();
-    const stream = await model.stream(prompt);
+    const stream = await model.stream(prompt, {
+      timeout: this.TIMEOUT_MS,
+    });
 
     for await (const chunk of stream) {
       yield chunk.content as string;
     }
   }
 
-  /**
-   * Invoke with JSON parser fallback (for models that don't support structured output well)
-   */
-  async invokeWithJsonParser(
-    prompt: string,
-    context?: InvokeContext
-  ): Promise<Record<string, any>> {
-    const contextStr = context ? `[${context.task || 'unknown'}]` : '';
-    const startTime = Date.now();
-
-    try {
-      this.logger.log(`${contextStr} Starting JSON parser invocation`);
-
-      const model = this.modelConfig.getModel();
-      const response = await this.withTimeout(
-        model.invoke(prompt),
-        this.JSON_PARSER_TIMEOUT_MS,
-        'Model invocation timed out during JSON parsing.'
-      );
-      const content = response.content as string;
-
-      const parseResult: JsonParseResult = safeJsonParse(content);
-
-      if (!parseResult.success) {
-        const textSample = content.substring(0, 500);
-        this.logger.error(
-          `${contextStr} All JSON extraction strategies failed. Text sample: ${textSample}`
-        );
-        throw new Error('Could not extract valid JSON from response');
-      }
-
-      this.logger.debug(
-        `${contextStr} JSON parsed successfully using strategy: ${parseResult.strategy}`
-      );
-
-      const latency = Date.now() - startTime;
-      this.logger.log(`${contextStr} JSON parsing successful (${latency}ms)`);
-
-      return parseResult.data as Record<string, any>;
-    } catch (error) {
-      const latency = Date.now() - startTime;
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-
-      this.logger.error(
-        `${contextStr} JSON parsing failed after ${latency}ms: ${errorMessage}`
-      );
-
-      throw new Error(
-        'Failed to generate valid content. Please try again or simplify your request.'
-      );
-    }
-  }
-
-  /**
-   * Timeout wrapper for promises
-   */
-  private async withTimeout<T>(
-    promise: Promise<T>,
-    timeoutMs: number,
-    errorMessage: string
-  ): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-      ),
-    ]);
-  }
 }

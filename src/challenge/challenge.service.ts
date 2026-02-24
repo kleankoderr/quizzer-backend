@@ -5,7 +5,8 @@ import { LeaderboardService } from '../leaderboard/leaderboard.service';
 import { QuizType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { LangChainService } from '../langchain/langchain.service';
-import { LangChainPrompts } from '../langchain/prompts';
+import { createQuizPrompt } from '../langchain/prompt-templates/quiz';
+import { QuizGenerationSchema } from '../langchain/schemas/quiz.schema';
 import { QuizUtils } from '../quiz/quiz.utils';
 
 /**
@@ -1213,21 +1214,21 @@ export class ChallengeService {
           ];
         }
 
-        // Generate a new quiz for this challenge using AI
-        const prompt = LangChainPrompts.generateQuiz(
-          topicQuiz.topic,
-          numberOfQuestions,
-          (optimalDifficulty as string) || 'Medium',
-          quizType.toLowerCase(),
-          questionTypes.join(', '),
-          ''
-        );
+        const quizPrompt = createQuizPrompt();
 
-        const generatedQuiz = await this.langchainService.invokeWithJsonParser(
-          prompt,
+        const generatedQuiz = await this.langchainService.invokeChain(
+          quizPrompt,
+          QuizGenerationSchema,
           {
-            task: 'quiz',
-          }
+            topic: topicQuiz.topic,
+            numberOfQuestions: String(numberOfQuestions),
+            difficulty: (optimalDifficulty as string) || 'Medium',
+            quizType: quizType.toLowerCase(),
+            questionTypes: questionTypes.join(', '),
+            sourceContent: '[No source content — use general knowledge about the topic]',
+            previousQuestions: 'None — this is the first batch.',
+          },
+          { task: 'quiz' },
         );
 
         const quiz = await this.prisma.quiz.create({
@@ -1277,20 +1278,21 @@ export class ChallengeService {
     // 3. Mixed Challenge (General Knowledge or Random)
     const mixedTitle = 'Daily Mix';
     if (!existingTitles.has(mixedTitle.toLowerCase())) {
-      const prompt = LangChainPrompts.generateQuiz(
-        'General Knowledge',
-        5,
-        'Medium',
-        'standard',
-        'single-select',
-        ''
-      );
+      const mixedPrompt = createQuizPrompt();
 
-      const generatedQuiz = await this.langchainService.invokeWithJsonParser(
-        prompt,
+      const generatedQuiz = await this.langchainService.invokeChain(
+        mixedPrompt,
+        QuizGenerationSchema,
         {
-          task: 'quiz',
-        }
+          topic: 'General Knowledge',
+          numberOfQuestions: '5',
+          difficulty: 'Medium',
+          quizType: 'standard',
+          questionTypes: 'single-select',
+          sourceContent: '[No source content — use general knowledge]',
+          previousQuestions: 'None — this is the first batch.',
+        },
+        { task: 'quiz' },
       );
 
       // Save the quiz to the database

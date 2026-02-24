@@ -5,7 +5,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
 import { StudyPackService } from '../../study-pack/study-pack.service';
-import { LangChainPrompts } from '../../langchain/prompts';
+import { createFlashcardPrompt } from '../../langchain/prompt-templates/quiz';
+import { FlashcardSetSchema } from '../../langchain/schemas/flashcard.schema';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { GenerateFlashcardDto } from '../dto/flashcard.dto';
@@ -101,18 +102,25 @@ export class FlashcardGenerationStrategy implements JobStrategy<
       const previousCards =
         chunkIndex > 0 ? existingCards.map((c: any) => c.front) : [];
 
-      const prompt = LangChainPrompts.generateFlashcards(
-        dto.topic || '',
-        currentChunkSize,
-        contentForAI || '',
-        previousCards
-      );
+      const prompt = createFlashcardPrompt();
 
-      const result = await this.langchainService.invokeWithJsonParser(prompt, {
-        task: 'flashcard',
-        userId: context.userId,
-        jobId: context.jobId,
-      });
+      const result = await this.langchainService.invokeChain(
+        prompt,
+        FlashcardSetSchema,
+        {
+          topic: dto.topic || 'Derive from source content',
+          numberOfCards: String(currentChunkSize),
+          sourceContent: contentForAI || '[No source content provided — use general knowledge about the topic]',
+          previousCards: previousCards.length > 0
+            ? previousCards.map((c, i) => `${i + 1}. ${c}`).join('\n')
+            : 'None — this is the first batch.',
+        },
+        {
+          task: 'flashcard',
+          userId: context.userId,
+          jobId: context.jobId,
+        },
+      );
 
       const latency = Date.now() - startTime;
       this.logger.log(

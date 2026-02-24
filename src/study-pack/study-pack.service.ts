@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,6 +12,7 @@ import {
   UpdateStudyPackDto,
   MoveItemDto,
 } from './dto/study-pack.dto';
+import { ContentScope, Prisma } from '@prisma/client';
 
 @Injectable()
 export class StudyPackService {
@@ -73,6 +75,28 @@ export class StudyPackService {
     return created;
   }
 
+  private async getUserSchoolId(userId: string): Promise<string | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { schoolId: true },
+    });
+    return user?.schoolId ?? null;
+  }
+
+  private buildVisibleAdminPackFilter(userSchoolId: string | null) {
+    const scopeCondition =
+      userSchoolId !== null
+        ? [
+            { scope: 'GLOBAL' as ContentScope },
+            { scope: 'SCHOOL' as ContentScope, schoolId: userSchoolId },
+          ]
+        : [{ scope: 'GLOBAL' as ContentScope }];
+    return {
+      isActive: true,
+      OR: scopeCondition,
+    };
+  }
+
   async findAll(
     userId: string,
     page: number = 1,
@@ -87,16 +111,30 @@ export class StudyPackService {
       return cached;
     }
 
-    const where: any = { userId };
+    const userSchoolId = await this.getUserSchoolId(userId);
+    const visibleAdminFilter = this.buildVisibleAdminPackFilter(userSchoolId);
+
+    const where: any = {
+      OR: [
+        { userId },
+        {
+          adminStudyPack: visibleAdminFilter,
+        },
+      ],
+    };
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+      where.AND = [
+        {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 
     const skip = (page - 1) * limit;
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.studyPack.findMany({
         where,
         skip,
@@ -108,6 +146,9 @@ export class StudyPackService {
           coverImage: true,
           createdAt: true,
           updatedAt: true,
+          adminStudyPack: {
+            select: { id: true, _count: { select: { items: true } } },
+          },
           _count: {
             select: {
               quizzes: true,
@@ -121,6 +162,18 @@ export class StudyPackService {
       }),
       this.prisma.studyPack.count({ where }),
     ]);
+
+    const data = rows.map((pack) => {
+      const { adminStudyPack, ...rest } = pack;
+      const isAdmin = !!adminStudyPack;
+      return {
+        ...rest,
+        isAdminPack: isAdmin,
+        ...(isAdmin && adminStudyPack
+          ? { itemCount: adminStudyPack._count.items, adminPackId: adminStudyPack.id }
+          : {}),
+      };
+    });
 
     const result = {
       data,
@@ -141,6 +194,8 @@ export class StudyPackService {
     const pack = await this.cacheService.get(cacheKey);
     if (pack) return pack;
 
+    const userSchoolId = await this.getUserSchoolId(userId);
+
     const studyPack = await this.prisma.studyPack.findUnique({
       where: { id },
       select: {
@@ -151,6 +206,64 @@ export class StudyPackService {
         coverImage: true,
         createdAt: true,
         updatedAt: true,
+        adminStudyPack: {
+          select: {
+            id: true,
+            isActive: true,
+            scope: true,
+            schoolId: true,
+            items: {
+              orderBy: { order: 'asc' },
+              select: {
+                adminQuiz: {
+                  select: {
+                    quiz: {
+                      select: {
+                        id: true,
+                        title: true,
+                        topic: true,
+                        difficulty: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        tags: true,
+                        questions: true,
+                        _count: { select: { attempts: true } },
+                      },
+                    },
+                  },
+                },
+                adminFlashcardSet: {
+                  select: {
+                    flashcardSet: {
+                      select: {
+                        id: true,
+                        title: true,
+                        topic: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        cards: true,
+                        _count: { select: { attempts: true } },
+                      },
+                    },
+                  },
+                },
+                adminContent: {
+                  select: {
+                    content: {
+                      select: {
+                        id: true,
+                        title: true,
+                        topic: true,
+                        createdAt: true,
+                        updatedAt: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         quizzes: {
           select: {
             id: true,
@@ -160,12 +273,8 @@ export class StudyPackService {
             createdAt: true,
             updatedAt: true,
             tags: true,
-            questions: true, // Get JSON to count
-            _count: {
-              select: {
-                attempts: true,
-              },
-            },
+            questions: true,
+            _count: { select: { attempts: true } },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -176,12 +285,8 @@ export class StudyPackService {
             topic: true,
             createdAt: true,
             updatedAt: true,
-            cards: true, // Get JSON to count
-            _count: {
-              select: {
-                attempts: true,
-              },
-            },
+            cards: true,
+            _count: { select: { attempts: true } },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -211,18 +316,78 @@ export class StudyPackService {
       throw new NotFoundException('Study Pack not found');
     }
 
-    if (studyPack.userId !== userId) {
+    const isOwnPack = studyPack.userId === userId;
+    const adminPack = studyPack.adminStudyPack;
+    const isVisibleAdminPack =
+      !!adminPack &&
+      adminPack.isActive &&
+      (adminPack.scope === 'GLOBAL' ||
+        (adminPack.scope === 'SCHOOL' && adminPack.schoolId === userSchoolId));
+
+    if (!isOwnPack && !isVisibleAdminPack) {
       throw new NotFoundException('Study Pack not found');
     }
 
-    // Transform to StudyPackDetailDto format with counts, excluding arrays
-    const transformedPack = {
-      ...studyPack,
-      quizzes: studyPack.quizzes.map((quiz) => {
+    let quizzes: any[];
+    let flashcardSets: any[];
+    let contents: any[];
+
+    if (isVisibleAdminPack && adminPack) {
+      const items = adminPack.items;
+      quizzes = items
+        .filter((i) => i.adminQuiz?.quiz)
+        .map((i) => {
+          const quiz = i.adminQuiz!.quiz;
+          const questions = Array.isArray(quiz.questions)
+            ? quiz.questions
+            : JSON.parse(quiz.questions as string);
+          return {
+            id: quiz.id,
+            title: quiz.title,
+            topic: quiz.topic,
+            difficulty: quiz.difficulty,
+            createdAt: quiz.createdAt,
+            updatedAt: quiz.updatedAt,
+            tags: quiz.tags,
+            _count: {
+              questions: questions.length,
+              attempts: quiz._count.attempts,
+            },
+          };
+        });
+      flashcardSets = items
+        .filter((i) => i.adminFlashcardSet?.flashcardSet)
+        .map((i) => {
+          const set = i.adminFlashcardSet!.flashcardSet;
+          const cards = Array.isArray(set.cards)
+            ? set.cards
+            : JSON.parse(set.cards as string);
+          return {
+            id: set.id,
+            title: set.title,
+            topic: set.topic,
+            createdAt: set.createdAt,
+            updatedAt: set.updatedAt,
+            _count: {
+              cards: cards.length,
+              attempts: set._count.attempts,
+            },
+          };
+        });
+      contents = items
+        .filter((i) => i.adminContent?.content)
+        .map((i) => ({
+          id: i.adminContent!.content.id,
+          title: i.adminContent!.content.title,
+          topic: i.adminContent!.content.topic,
+          createdAt: i.adminContent!.content.createdAt,
+          updatedAt: i.adminContent!.content.updatedAt,
+        }));
+    } else {
+      quizzes = (studyPack.quizzes ?? []).map((quiz) => {
         const questions = Array.isArray(quiz.questions)
           ? quiz.questions
           : JSON.parse(quiz.questions as string);
-
         return {
           id: quiz.id,
           title: quiz.title,
@@ -236,12 +401,11 @@ export class StudyPackService {
             attempts: quiz._count.attempts,
           },
         };
-      }),
-      flashcardSets: studyPack.flashcardSets.map((set) => {
+      });
+      flashcardSets = (studyPack.flashcardSets ?? []).map((set) => {
         const cards = Array.isArray(set.cards)
           ? set.cards
           : JSON.parse(set.cards as string);
-
         return {
           id: set.id,
           title: set.title,
@@ -253,7 +417,31 @@ export class StudyPackService {
             attempts: set._count.attempts,
           },
         };
-      }),
+      });
+      contents = studyPack.contents ?? [];
+    }
+
+    const transformedPack = {
+      id: studyPack.id,
+      userId: studyPack.userId,
+      title: studyPack.title,
+      description: studyPack.description,
+      coverImage: studyPack.coverImage,
+      createdAt: studyPack.createdAt,
+      updatedAt: studyPack.updatedAt,
+      isAdminPack: !!isVisibleAdminPack,
+      ...(isVisibleAdminPack && adminPack
+        ? {
+            adminPackId: adminPack.id,
+            scope: adminPack.scope,
+            schoolId: adminPack.schoolId ?? null,
+            isActive: adminPack.isActive,
+          }
+        : {}),
+      quizzes,
+      flashcardSets,
+      contents,
+      userDocuments: studyPack.userDocuments ?? [],
     };
 
     await this.cacheService.set(cacheKey, transformedPack, 300000);
@@ -265,8 +453,10 @@ export class StudyPackService {
     userId: string,
     updateStudyPackDto: UpdateStudyPackDto
   ) {
-    // Verify ownership first
-    await this.findOne(id, userId);
+    const pack = await this.findOne(id, userId) as { isAdminPack?: boolean };
+    if (pack.isAdminPack) {
+      throw new ForbiddenException('Cannot edit an admin-created study pack');
+    }
 
     const updated = await this.prisma.studyPack.update({
       where: { id },
@@ -280,7 +470,10 @@ export class StudyPackService {
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id, userId);
+    const pack = await this.findOne(id, userId) as { isAdminPack?: boolean };
+    if (pack.isAdminPack) {
+      throw new ForbiddenException('Cannot delete an admin-created study pack');
+    }
 
     const deleted = await this.prisma.studyPack.delete({
       where: { id },
@@ -293,6 +486,12 @@ export class StudyPackService {
   }
 
   async moveItem(id: string, userId: string, moveItemDto: MoveItemDto) {
+    const pack = await this.findOne(id, userId) as { isAdminPack?: boolean };
+    if (pack.isAdminPack) {
+      throw new ForbiddenException(
+        'Cannot move items in an admin-created study pack'
+      );
+    }
     const { type, itemId } = moveItemDto;
 
     // Find previous study pack ID to invalidate it
@@ -385,8 +584,12 @@ export class StudyPackService {
   }
 
   async removeItem(id: string, userId: string, moveItemDto: MoveItemDto) {
-    // Verify study pack exists and belongs to user
-    await this.findOne(id, userId);
+    const pack = await this.findOne(id, userId) as { isAdminPack?: boolean };
+    if (pack.isAdminPack) {
+      throw new ForbiddenException(
+        'Cannot remove items from an admin-created study pack'
+      );
+    }
 
     const { type, itemId } = moveItemDto;
 
@@ -434,12 +637,23 @@ export class StudyPackService {
   }
 
   async searchStudyPacks(userId: string, query: string) {
+    const userSchoolId = await this.getUserSchoolId(userId);
+    const visibleAdminFilter = this.buildVisibleAdminPackFilter(userSchoolId);
+    const searchCondition: Prisma.StudyPackWhereInput[] = [
+      { title: { contains: query, mode: 'insensitive' } },
+      { description: { contains: query, mode: 'insensitive' } },
+    ];
     const studyPacks = await this.prisma.studyPack.findMany({
       where: {
-        userId,
         OR: [
-          { title: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } },
+          {
+            userId,
+            OR: searchCondition,
+          },
+          {
+            adminStudyPack: visibleAdminFilter,
+            OR: searchCondition,
+          },
         ],
       },
       take: 5,

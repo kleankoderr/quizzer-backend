@@ -3,7 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { QuotaService } from '../common/services/quota.service';
 import { CacheService } from '../common/services/cache.service';
-import { LangChainPrompts } from '../langchain/prompts';
+import { createRecommendationPrompt } from '../langchain/prompt-templates/analytics';
+import { RecommendationListSchema } from '../langchain/schemas/recommendation.schema';
 
 @Injectable()
 export class RecommendationService {
@@ -294,22 +295,22 @@ export class RecommendationService {
         `Calling AI service to generate ${recommendationLimit} recommendations for ${isPremium ? 'premium' : 'free'} user`
       );
 
-      const prompt = LangChainPrompts.studyRecommendations(
-        JSON.stringify(weakTopics.slice(0, recommendationLimit)),
-        JSON.stringify(
-          attempts.map((a) => ({
-            topic: a.quiz?.topic,
-            score: a.score,
-            total: a.totalQuestions,
-          }))
-        )
-      );
+      const prompt = createRecommendationPrompt();
 
-      const response = await this.langchainService.invokeWithJsonParser(
+      const response = await this.langchainService.invokeChain(
         prompt,
+        RecommendationListSchema,
         {
-          task: 'recommendation',
-        }
+          weakTopics: JSON.stringify(weakTopics.slice(0, recommendationLimit)),
+          recentAttempts: JSON.stringify(
+            attempts.map((a) => ({
+              topic: a.quiz?.topic,
+              score: a.score,
+              total: a.totalQuestions,
+            })),
+          ),
+        },
+        { task: 'recommendation' },
       );
 
       const recommendations = response.recommendations || [];

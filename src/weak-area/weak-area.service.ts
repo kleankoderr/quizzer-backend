@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
-import { LangChainPrompts } from '../langchain/prompts';
+import { createQuizPrompt } from '../langchain/prompt-templates/quiz';
+import { createConceptExtractionPrompt } from '../langchain/prompt-templates/analytics';
+import { QuizGenerationSchema, ConceptListSchema } from '../langchain/schemas/quiz.schema';
 
 @Injectable()
 export class WeakAreaService {
@@ -25,21 +27,21 @@ export class WeakAreaService {
         throw new Error('Weak area not found');
       }
 
-      // Generate quiz using LangChain
-      const prompt = LangChainPrompts.generateQuiz(
-        weakArea.topic,
-        5,
-        'Medium',
-        'STANDARD',
-        'standard - single-select',
-        ''
-      );
+      const prompt = createQuizPrompt();
 
-      const generatedQuiz = await this.langchainService.invokeWithJsonParser(
+      const generatedQuiz = await this.langchainService.invokeChain(
         prompt,
+        QuizGenerationSchema,
         {
-          task: 'quiz',
-        }
+          topic: weakArea.topic,
+          numberOfQuestions: '5',
+          difficulty: 'Medium',
+          quizType: 'STANDARD',
+          questionTypes: 'single-select',
+          sourceContent: '[No source content — use general knowledge about the topic]',
+          previousQuestions: 'None — this is the first batch.',
+        },
+        { task: 'quiz' },
       );
 
       // Save quiz to DB
@@ -77,14 +79,14 @@ export class WeakAreaService {
     if (questions.length === 0) return [];
 
     try {
-      const prompt = LangChainPrompts.conceptExtraction(
-        JSON.stringify(questions.map((q) => q.question))
-      );
-      const response = await this.langchainService.invokeWithJsonParser(
+      const prompt = createConceptExtractionPrompt();
+      const response = await this.langchainService.invokeChain(
         prompt,
+        ConceptListSchema,
         {
-          task: 'concept_extraction',
-        }
+          questions: JSON.stringify(questions.map((q) => q.question)),
+        },
+        { task: 'concept_extraction' },
       );
 
       const concepts = response.concepts || [];

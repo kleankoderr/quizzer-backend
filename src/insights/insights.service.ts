@@ -3,7 +3,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
 import { AssessmentService } from '../assessment/assessment.service';
 import { RetentionLevel } from '@prisma/client';
-import { LangChainPrompts } from '../langchain/prompts';
+import {
+  createUnderstandingSummaryPrompt,
+  createFocusRecommendationPrompt,
+} from '../langchain/prompt-templates/analytics';
 
 export interface StudyInsights {
   understanding: {
@@ -85,13 +88,15 @@ export class InsightsService {
     performance: number
   ): Promise<string> {
     try {
-      const prompt = LangChainPrompts.understandingSummary(
-        topic,
-        JSON.stringify({ averageScore: performance })
+      const prompt = createUnderstandingSummaryPrompt();
+      const summary = await this.langchainService.invokeChainText(
+        prompt,
+        {
+          topic,
+          performance: JSON.stringify({ averageScore: performance }),
+        },
+        { task: 'summary' },
       );
-      const summary = await this.langchainService.invoke(prompt, {
-        task: 'summary',
-      });
       return summary;
     } catch (error) {
       this.logger.error('Error generating understanding summary:', error);
@@ -115,14 +120,14 @@ export class InsightsService {
         return 'Start your learning journey by taking a quiz or creating flashcards!';
       }
 
-      const prompt = `Based on these study insights, provide 2 targeted focus recommendations for the user:
-${insights.map((i) => `- ${i.topic}: ${i.strength}%`).join('\n')}
-
-Each recommendation should be 1 sentence, practical and actionable.`;
-
-      const focusText = await this.langchainService.invoke(prompt, {
-        task: 'focus_recommendation',
-      });
+      const prompt = createFocusRecommendationPrompt();
+      const focusText = await this.langchainService.invokeChainText(
+        prompt,
+        {
+          insights: insights.map((i) => `- ${i.topic}: ${i.strength}%`).join('\n'),
+        },
+        { task: 'focus_recommendation' },
+      );
       return focusText;
     } catch (error) {
       this.logger.error('Error generating focus recommendations:', error);

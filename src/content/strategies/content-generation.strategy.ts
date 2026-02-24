@@ -4,7 +4,8 @@ import { Job, Queue } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
-import { LangChainPrompts } from '../../langchain/prompts';
+import { createOutlinePrompt } from '../../langchain/prompt-templates/learning-guide';
+import { LearningGuideOutlineSchema } from '../../langchain/schemas/learning-guide-outline.schema';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { ContentJobData } from '../content.processor';
@@ -72,17 +73,21 @@ export class ContentGenerationStrategy implements JobStrategy<
         `Job ${context.jobId}: Generating learning guide outline`
       );
 
-      // Generate OUTLINE ONLY (fast - 3-5 seconds)
-      const prompt = LangChainPrompts.generateLearningGuideOutline(
-        dto.topic || '',
-        contentForAI || ''
-      );
+      const prompt = createOutlinePrompt();
 
-      const result = await this.langchainService.invokeWithJsonParser(prompt, {
-        task: 'learning-guide-outline',
-        userId: context.userId,
-        jobId: context.jobId,
-      });
+      const result = await this.langchainService.invokeChain(
+        prompt,
+        LearningGuideOutlineSchema,
+        {
+          topic: dto.topic || 'Derive from the source content',
+          sourceContent: contentForAI || '[No content provided — use general knowledge about the topic]',
+        },
+        {
+          task: 'learning-guide-outline',
+          userId: context.userId,
+          jobId: context.jobId,
+        },
+      );
 
       const latency = Date.now() - startTime;
       this.logger.log(

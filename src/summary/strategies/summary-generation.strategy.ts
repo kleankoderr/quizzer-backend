@@ -4,7 +4,7 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
 import { SummaryService } from '../summary.service';
-import { LangChainPrompts } from '../../langchain/prompts';
+import { createSummaryPrompt } from '../../langchain/prompt-templates/summary';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { SummaryJobData } from '../summary.processor';
@@ -99,19 +99,22 @@ export class SummaryGenerationStrategy implements JobStrategy<
       `Job ${jobId}: Generating AI summary for "${content.title}"`
     );
 
-    const prompt = LangChainPrompts.generateSummary(
-      content.title,
-      content.topic,
-      content.content || 'Not provided',
-      content.learningGuide || null
-    );
+    const prompt = createSummaryPrompt();
 
     try {
       let summaryText = '';
-      const stream = this.langchainService.stream(prompt, {
-        userId: context.userId,
-        task: 'summary',
-      });
+      const stream = this.langchainService.streamChain(
+        prompt,
+        {
+          title: content.title || 'Untitled',
+          topic: content.topic || 'General',
+          content: content.content || 'Not provided',
+          learningGuide: content.learningGuide
+            ? JSON.stringify(content.learningGuide)
+            : '[No learning guide provided]',
+        },
+        { userId: context.userId, task: 'summary' },
+      );
 
       // Add timeout for streaming
       const startTime = Date.now();

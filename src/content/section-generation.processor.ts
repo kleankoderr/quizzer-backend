@@ -4,7 +4,8 @@ import { Job } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { LangChainService } from '../langchain/langchain.service';
-import { LangChainPrompts } from '../langchain/prompts';
+import { createSectionContentPrompt } from '../langchain/prompt-templates/learning-guide';
+import { SectionContentSchema } from '../langchain/schemas/section-content.schema';
 import { EventFactory, EVENTS } from '../events/events.types';
 
 export interface SectionJobData {
@@ -37,7 +38,8 @@ export class SectionGenerationProcessor extends WorkerHost {
     );
 
     try {
-      // Generate each section progressively
+      const completedSections: Array<{ title: string; keywords?: string[] }> = [];
+
       for (let i = 0; i < sections.length; i++) {
         await this.generateSection(
           contentId,
@@ -45,10 +47,13 @@ export class SectionGenerationProcessor extends WorkerHost {
           i,
           sections[i],
           topic,
-          sourceContent
+          sourceContent,
+          sections.length,
+          completedSections,
         );
 
-        // Update job progress
+        completedSections.push(sections[i]);
+
         const progress = Math.round(((i + 1) / sections.length) * 100);
         await job.updateProgress(progress);
       }
@@ -83,7 +88,9 @@ export class SectionGenerationProcessor extends WorkerHost {
     sectionIndex: number,
     section: { title: string; keywords?: string[] },
     topic: string,
-    sourceContent: string
+    sourceContent: string,
+    totalSections: number,
+    completedSections: Array<{ title: string; keywords?: string[] }>,
   ): Promise<void> {
     const { title, keywords = [] } = section;
 
@@ -129,20 +136,27 @@ export class SectionGenerationProcessor extends WorkerHost {
         return;
       }
 
-      // Generate section content prompt
-      const prompt = LangChainPrompts.generateSectionContent(
-        title,
-        keywords,
-        topic,
-        sourceContent
-      );
+      const prompt = createSectionContentPrompt();
 
-      // Use invokeWithJsonParser for reliable JSON parsing
-      // (streaming was causing incomplete/truncated responses)
-      const parsed = await this.langchainService.invokeWithJsonParser(prompt, {
-        task: 'section-generation',
-        userId,
-      });
+      const sectionPosition = this.formatSectionPosition(sectionIndex, totalSections);
+      const previousSections = this.formatPreviousSections(completedSections);
+
+      const parsed = await this.langchainService.invokeChain(
+        prompt,
+        SectionContentSchema,
+        {
+          sectionTitle: title,
+          keywords: keywords.join(', ') || 'General concepts',
+          topic,
+          sectionPosition,
+          sourceContent: sourceContent || '[No source content provided]',
+          previousSections,
+        },
+        {
+          task: 'section-generation',
+          userId,
+        },
+      );
 
       const sectionData = {
         content: parsed.content || '',
@@ -172,6 +186,37 @@ export class SectionGenerationProcessor extends WorkerHost {
       );
       throw error;
     }
+  }
+
+  private formatSectionPosition(index: number, total: number): string {
+    const position = index + 1;
+    let phase: string;
+
+    const ratio = position / total;
+    if (ratio <= 0.3) {
+      phase = 'foundational — focus on definitions, core concepts, and building understanding';
+    } else if (ratio <= 0.7) {
+      phase = 'application — focus on using concepts in scenarios, making connections, and comparing approaches';
+    } else {
+      phase = 'synthesis — focus on integration, advanced patterns, edge cases, and evaluation';
+    }
+
+    return `Section ${position} of ${total} (${phase})`;
+  }
+
+  private formatPreviousSections(
+    completed: Array<{ title: string; keywords?: string[] }>,
+  ): string {
+    if (completed.length === 0) {
+      return 'This is the first section — no prior content has been covered yet.';
+    }
+
+    return completed
+      .map(
+        (s, i) =>
+          `${i + 1}. "${s.title}"${s.keywords?.length ? ` — Covered: ${s.keywords.join(', ')}` : ''}`,
+      )
+      .join('\n');
   }
 
   private async updateSectionContent(

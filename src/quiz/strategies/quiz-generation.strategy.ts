@@ -6,7 +6,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LangChainService } from '../../langchain/langchain.service';
 import { StudyPackService } from '../../study-pack/study-pack.service';
 import { CacheService } from '../../common/services/cache.service';
-import { LangChainPrompts } from '../../langchain/prompts';
+import { createQuizPrompt } from '../../langchain/prompt-templates/quiz';
+import { QuizGenerationSchema } from '../../langchain/schemas/quiz.schema';
 import { EVENTS } from '../../events/events.constants';
 import { EventFactory } from '../../events/events.types';
 import { ContentScope, QuizType } from '@prisma/client';
@@ -116,18 +117,32 @@ export class QuizGenerationStrategy implements JobStrategy<
       const previousQuestions =
         chunkIndex > 0 ? existingQuestions.map((q: any) => q.question) : [];
 
-      const prompt = await this.buildChunkPrompt(
-        dto,
-        contentForAI,
-        currentChunkSize,
-        previousQuestions
-      );
+      const prompt = createQuizPrompt();
+      const questionTypes =
+        dto.questionTypes && dto.questionTypes.length > 0
+          ? dto.questionTypes.join(', ')
+          : 'single-select, true-false, fill-blank';
 
-      const result = await this.langchainService.invokeWithJsonParser(prompt, {
-        task: 'quiz',
-        userId: context.userId,
-        jobId: context.jobId,
-      });
+      const result = await this.langchainService.invokeChain(
+        prompt,
+        QuizGenerationSchema,
+        {
+          topic: dto.topic || 'Derive from source content',
+          numberOfQuestions: String(currentChunkSize),
+          difficulty: dto.difficulty || 'Medium',
+          quizType: dto.quizType || QuizType.STANDARD,
+          questionTypes,
+          sourceContent: contentForAI || '[No source content provided — use general knowledge about the topic]',
+          previousQuestions: previousQuestions.length > 0
+            ? previousQuestions.map((questionText, questionIndex) => `${questionIndex + 1}. ${questionText}`).join('\n')
+            : 'None — this is the first batch.',
+        },
+        {
+          task: 'quiz',
+          userId: context.userId,
+          jobId: context.jobId,
+        },
+      );
 
       // Validate structure and content
       if (!this.validateQuizResult(result)) {
@@ -390,28 +405,6 @@ export class QuizGenerationStrategy implements JobStrategy<
     );
   }
 
-  protected async buildChunkPrompt(
-    dto: GenerateQuizDto,
-    content: string | undefined,
-    chunkSize: number,
-    previousQuestions: string[] = []
-  ): Promise<string> {
-    const questionTypes =
-      dto.questionTypes && dto.questionTypes.length > 0
-        ? dto.questionTypes.join(', ')
-        : 'single-select, true-false, fill-blank';
-
-    return LangChainPrompts.generateQuiz(
-      dto.topic || '',
-      chunkSize,
-      dto.difficulty || 'Medium',
-      dto.quizType || QuizType.STANDARD,
-      questionTypes,
-      content || '',
-      previousQuestions
-    );
-  }
-
   getEventData(context: QuizContext, result: any): any {
     return EventFactory.quizCompleted(
       context.userId,
@@ -447,25 +440,6 @@ export class QuizGenerationStrategy implements JobStrategy<
       completed: EVENTS.QUIZ.COMPLETED,
       failed: EVENTS.QUIZ.FAILED,
     };
-  }
-
-  protected async buildQuizPrompt(
-    dto: GenerateQuizDto,
-    content: string | undefined
-  ): Promise<string> {
-    const questionTypes =
-      dto.questionTypes && dto.questionTypes.length > 0
-        ? dto.questionTypes.join(', ')
-        : 'single-select, true-false, fill-blank';
-
-    return LangChainPrompts.generateQuiz(
-      dto.topic || '',
-      dto.numberOfQuestions,
-      dto.difficulty || 'Medium',
-      dto.quizType || 'standard',
-      questionTypes,
-      content || ''
-    );
   }
 
   private mapQuizType(quizType?: string): QuizType {
