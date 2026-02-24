@@ -7,6 +7,12 @@ import { StudyPackService } from '../study-pack/study-pack.service';
 import { BaseProcessor } from '../common/queue/base.processor';
 import { ContentGenerationStrategy } from './strategies/content-generation.strategy';
 
+export interface AdminContext {
+  scope: 'GLOBAL' | 'SCHOOL';
+  schoolId?: string;
+  isActive: boolean;
+}
+
 export interface ContentJobData {
   userId: string;
   dto: {
@@ -14,7 +20,9 @@ export interface ContentJobData {
     topic?: string;
     content?: string;
     studyPackId?: string;
+    selectedFileIds?: string[];
   };
+  adminContext?: AdminContext;
   files?: Array<{
     originalname: string;
     cloudinaryUrl?: string;

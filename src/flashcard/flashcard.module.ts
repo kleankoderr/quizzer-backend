@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { FlashcardController } from './flashcard.controller';
 import { FlashcardService } from './flashcard.service';
+import { AdminFlashcardController } from './admin/admin-flashcard.controller';
+import { AdminFlashcardService } from './admin/admin-flashcard.service';
 import { FlashcardProcessor } from './flashcard.processor';
 import { LangChainModule } from '../langchain/langchain.module';
 import { RecommendationModule } from '../recommendation/recommendation.module';
@@ -33,9 +35,10 @@ import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
     RagModule,
     InputPipelineModule,
   ],
-  controllers: [FlashcardController],
+  controllers: [FlashcardController, AdminFlashcardController],
   providers: [
     FlashcardService,
+    AdminFlashcardService,
     FlashcardProcessor,
     FlashcardGenerationStrategy,
   ],

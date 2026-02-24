@@ -441,6 +441,11 @@ export class AdminService {
   }
 
   async getAllContent(filterDto: ContentFilterDto) {
+    const type = filterDto.type?.toLowerCase();
+    if (type === 'flashcard' || type === 'flashcards') {
+      return this.getAllFlashcards(filterDto);
+    }
+
     const { search, page = '1', limit = '10' } = filterDto;
     const pageNum = Number.parseInt(page, 10);
     const limitNum = Number.parseInt(limit, 10);

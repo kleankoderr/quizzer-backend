@@ -5,6 +5,8 @@ import { ContentController } from './content.controller';
 import { ContentProcessor } from './content.processor';
 import { ContentGenerationStrategy } from './strategies/content-generation.strategy';
 import { SectionGenerationProcessor } from './section-generation.processor';
+import { AdminStudyMaterialController } from './admin/admin-study-material.controller';
+import { AdminStudyMaterialService } from './admin/admin-study-material.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LangChainModule } from '../langchain/langchain.module';
 import { QuizModule } from '../quiz/quiz.module';
@@ -29,12 +31,13 @@ import { InputPipelineModule } from '../input-pipeline/input-pipeline.module';
     StudyPackModule,
     InputPipelineModule,
   ],
-  controllers: [ContentController],
+  controllers: [ContentController, AdminStudyMaterialController],
   providers: [
     ContentService,
     ContentProcessor,
     ContentGenerationStrategy,
     SectionGenerationProcessor,
+    AdminStudyMaterialService,
   ],
   exports: [ContentService],
 })

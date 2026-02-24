@@ -14,6 +14,7 @@ import { UserDocumentService } from '../user-document/user-document.service';
 import { QuotaService } from '../common/services/quota.service';
 import { StudyPackService } from '../study-pack/study-pack.service';
 import { LangChainService } from '../langchain/langchain.service';
+import { ContentScope } from '@prisma/client';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -111,6 +112,55 @@ export class ContentService {
   }
 
   /**
+   * Queue admin study material generation. Same as generate() but with adminContext;
+   * when the job completes, AdminContent is created so the material is visible to everyone.
+   */
+  async generateAdmin(
+    userId: string,
+    dto: CreateContentDto,
+    files: Express.Multer.File[] | undefined,
+    adminContext: { scope: ContentScope; schoolId?: string; isActive: boolean }
+  ) {
+    this.validateContentRequest(dto, files);
+
+    const [processedFiles, selectedFiles] = await Promise.all([
+      this.processUploadedFiles(userId, files),
+      this.fetchSelectedFiles(userId, dto.selectedFileIds),
+    ]);
+    const allFiles = [...processedFiles, ...selectedFiles];
+
+    try {
+      const job = await this.contentQueue.add('generate', {
+        userId,
+        dto,
+        adminContext: {
+          scope: adminContext.scope as string,
+          schoolId: adminContext.schoolId,
+          isActive: adminContext.isActive,
+        },
+        files: allFiles.map((doc) => ({
+          originalname: doc.originalName,
+          cloudinaryUrl: doc.cloudinaryUrl,
+          cloudinaryId: doc.cloudinaryId,
+          documentId: doc.documentId,
+          mimetype: doc.mimeType,
+          size: doc.size,
+        })),
+      });
+      this.logger.log(`Admin content job created: ${job.id}`);
+      return { jobId: job.id, status: 'pending' };
+    } catch (error) {
+      this.logger.error(
+        `Failed to queue admin content for user ${userId}:`,
+        error.stack
+      );
+      throw new BadRequestException(
+        'Failed to start study material generation. Please try again.'
+      );
+    }
+  }
+
+  /**
    * Get content generation job status
    */
   async getJobStatus(jobId: string, userId: string) {
@@ -139,7 +189,8 @@ export class ContentService {
   }
 
   /**
-   * Get all content for a user with pagination
+   * Get all content for a user with pagination.
+   * Includes user's own content plus admin study materials visible to the user (GLOBAL or user's school).
    */
   async getContents(
     userId: string,
@@ -150,13 +201,39 @@ export class ContentService {
   ) {
     const skip = (page - 1) * limit;
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { schoolId: true },
+    });
+
+    const baseWhere = {
+      ...(topic ? { topic } : {}),
+      ...(studyPackId ? { studyPackId } : {}),
+    };
+
+    const contentWhere = studyPackId
+      ? { userId, ...baseWhere }
+      : {
+          ...baseWhere,
+          OR: [
+            { userId },
+            {
+              adminContent: {
+                isActive: true,
+                OR: [
+                  { scope: ContentScope.GLOBAL },
+                  ...(user?.schoolId
+                    ? [{ scope: ContentScope.SCHOOL, schoolId: user.schoolId }]
+                    : []),
+                ],
+              },
+            },
+          ],
+        };
+
     const [data, total] = await Promise.all([
       this.prisma.content.findMany({
-        where: {
-          userId,
-          ...(topic ? { topic } : {}),
-          ...(studyPackId ? { studyPackId } : {}),
-        },
+        where: contentWhere,
         select: {
           id: true,
           title: true,
@@ -164,9 +241,12 @@ export class ContentService {
           description: true,
           createdAt: true,
           updatedAt: true,
+          quizId: true,
+          flashcardSetId: true,
           quiz: { select: { id: true } },
           flashcardSet: { select: { id: true } },
           studyPack: { select: { id: true, title: true } },
+          adminContent: { select: { id: true, scope: true } },
         },
         orderBy: {
           createdAt: 'desc',
@@ -175,11 +255,7 @@ export class ContentService {
         take: limit,
       }),
       this.prisma.content.count({
-        where: {
-          userId,
-          ...(topic ? { topic } : {}),
-          ...(studyPackId ? { studyPackId } : {}),
-        },
+        where: contentWhere,
       }),
     ]);
 
@@ -191,9 +267,10 @@ export class ContentService {
         description: item.description,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
-        quizId: item.quiz ? item.quiz.id : undefined,
-        flashcardSetId: item.flashcardSet ? item.flashcardSet.id : undefined,
+        quizId: item.quizId ?? (item.quiz ? item.quiz.id : undefined),
+        flashcardSetId: item.flashcardSetId ?? (item.flashcardSet ? item.flashcardSet.id : undefined),
         studyPack: item.studyPack,
+        isAdminMaterial: !!item.adminContent,
       };
     });
 
@@ -209,17 +286,18 @@ export class ContentService {
   }
 
   /**
-   * Get a single content item by ID
+   * Get a single content item by ID.
+   * Allows access for owner or when content is admin study material visible to user (GLOBAL or user's school).
    */
   async getContentById(userId: string, contentId: string) {
     const content = await this.prisma.content.findUnique({
       where: { id: contentId },
       include: {
         quiz: {
-          select: { id: true },
+          select: { id: true, adminQuiz: { select: { id: true } } },
         },
         flashcardSet: {
-          select: { id: true },
+          select: { id: true, adminFlashcardSet: { select: { id: true } } },
         },
         studyPack: {
           select: {
@@ -233,11 +311,35 @@ export class ContentService {
             shortCode: true,
           },
         },
+        adminContent: true,
       },
     });
 
-    if (content?.userId !== userId) {
+    if (!content) {
       throw new NotFoundException('Content not found');
+    }
+
+    const isOwner = content.userId === userId;
+    const isVisibleAdminContent =
+      content.adminContent?.isActive &&
+      (content.adminContent.scope === ContentScope.GLOBAL ||
+        (content.adminContent.scope === ContentScope.SCHOOL &&
+          content.adminContent.schoolId));
+
+    if (!isOwner) {
+      if (!isVisibleAdminContent) {
+        throw new NotFoundException('Content not found');
+      }
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { schoolId: true },
+      });
+      const canAccess =
+        content.adminContent.scope === ContentScope.GLOBAL ||
+        content.adminContent.schoolId === user?.schoolId;
+      if (!canAccess) {
+        throw new NotFoundException('Content not found');
+      }
     }
 
     // Backfill missing IDs from relations (backward compatibility)
@@ -595,12 +697,18 @@ The example should be relatable and help illustrate the concept clearly.`;
    * Normalize content relations (remove nested objects)
    */
   private normalizeContentRelations(content: ContentWithRelations) {
+    const quiz = content.quiz as { id: string; adminQuiz?: { id: string } } | null;
+    const flashcardSet = content.flashcardSet as { id: string; adminFlashcardSet?: { id: string } } | null;
     return {
       ...content,
       quizId: content.quizId || content.quiz?.id,
+      adminQuizId: quiz?.adminQuiz?.id,
       flashcardSetId: content.flashcardSetId || content.flashcardSet?.id,
+      adminFlashcardSetId: flashcardSet?.adminFlashcardSet?.id,
       quiz: undefined,
       flashcardSet: undefined,
+      isAdminMaterial: !!(content as any).adminContent,
+      adminContent: undefined,
     };
   }
 

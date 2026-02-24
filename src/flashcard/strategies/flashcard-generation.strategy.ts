@@ -13,6 +13,7 @@ import { FlashcardJobData, ProcessedFileData } from '../flashcard.processor';
 import { JobContext, JobStrategy } from '../../common/queue/interfaces/job-strategy.interface';
 import { InputPipeline } from '../../input-pipeline/input-pipeline.service';
 import { InputSource } from '../../input-pipeline/input-source.interface';
+import { ContentScope } from '@prisma/client';
 
 export interface FlashcardContext extends JobContext<FlashcardJobData> {
   inputSources: InputSource[];
@@ -160,7 +161,7 @@ export class FlashcardGenerationStrategy implements JobStrategy<
     result: any
   ): Promise<any> {
     const { userId, data } = context;
-    const { dto, files } = data;
+    const { dto, files, adminContext } = data;
     const { cards, title, topic } = result;
 
     const totalRequested = data.totalCardsRequested || dto.numberOfCards;
@@ -186,6 +187,22 @@ export class FlashcardGenerationStrategy implements JobStrategy<
       await this.prisma.content.update({
         where: { id: dto.contentId },
         data: { flashcardSetId: flashcardSet.id },
+      });
+    }
+
+    if (adminContext) {
+      this.logger.log(`Creating AdminFlashcardSet for set ${flashcardSet.id}`);
+      await this.prisma.adminFlashcardSet.create({
+        data: {
+          flashcardSetId: flashcardSet.id,
+          createdBy: userId,
+          scope:
+            adminContext.scope === 'GLOBAL'
+              ? ContentScope.GLOBAL
+              : ContentScope.SCHOOL,
+          schoolId: adminContext.schoolId ?? null,
+          isActive: adminContext.isActive ?? true,
+        },
       });
     }
 
